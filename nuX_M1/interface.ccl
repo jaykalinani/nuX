@@ -1,0 +1,190 @@
+# Interface definition for thorn nuX_M1
+IMPLEMENTS: nuX_M1
+INHERITS: ADMBaseX CarpetXRegrid HydroBaseX TmunuBaseX
+
+#USES INCLUDE: finite_difference.h
+#USES INCLUDE: Symmetry.h
+#USES INCLUDE: utils.hh
+#USES INCLUDE: utils_macro.h
+#USES INCLUDE: thc_printer.hh
+
+# Boundary conditions
+CCTK_INT FUNCTION Boundary_SelectVarForBC(                                     \
+        CCTK_POINTER_TO_CONST IN cctkGH,                                       \
+        CCTK_INT IN faces,                                                     \
+        CCTK_INT IN boundary_width,                                            \
+        CCTK_INT IN table_handle,                                              \
+        CCTK_STRING IN var_name,                                               \
+        CCTK_STRING IN bc_name                                                 \
+    )
+USES FUNCTION Boundary_SelectVarForBC
+
+# WeakRates
+CCTK_INT FUNCTION NeutrinoAbsorptionRate( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT abs_0_nue,\
+        CCTK_REAL OUT abs_0_nua,\
+        CCTK_REAL OUT abs_0_nux,\
+        CCTK_REAL OUT abs_1_nue,\
+        CCTK_REAL OUT abs_1_nua,\
+        CCTK_REAL OUT abs_1_nux)
+USES FUNCTION NeutrinoAbsorptionRate
+
+# MoL (only used if hydro is not evolved)
+CCTK_INT FUNCTION MoLRegisterConstrained(                                      \
+        CCTK_INT IN SandRIndex                                                 \
+    )
+USES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION NeutrinoDensity( \
+        CCTK_REAL IN rho, \
+        CCTK_REAL IN temp, \
+        CCTK_REAL IN ye, \
+        CCTK_REAL OUT num_nue, \
+        CCTK_REAL OUT num_nua, \
+        CCTK_REAL OUT num_nux, \
+        CCTK_REAL OUT ene_nue, \
+        CCTK_REAL OUT ene_nua, \
+        CCTK_REAL OUT ene_nux)
+USES FUNCTION NeutrinoDensity
+
+CCTK_INT FUNCTION NeutrinoEmission( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT r_nue,\
+        CCTK_REAL OUT r_nua,\
+        CCTK_REAL OUT r_nux,\
+        CCTK_REAL OUT q_nue,\
+        CCTK_REAL OUT q_nua,\
+        CCTK_REAL OUT q_nux)
+USES FUNCTION NeutrinoEmission
+
+CCTK_INT FUNCTION NeutrinoOpacity( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT kappa_0_nue,\
+        CCTK_REAL OUT kappa_0_nua,\
+        CCTK_REAL OUT kappa_0_nux,\
+        CCTK_REAL OUT kappa_1_nue,\
+        CCTK_REAL OUT kappa_1_nua,\
+        CCTK_REAL OUT kappa_1_nux)
+USES FUNCTION NeutrinoOpacity
+
+# Weak equilibrium in optically thick conditions
+CCTK_INT FUNCTION WeakEquilibrium( \
+        CCTK_REAL IN rho, \
+        CCTK_REAL IN temp, \
+        CCTK_REAL IN ye, \
+        CCTK_REAL IN num_nue, \
+        CCTK_REAL IN num_nua, \
+        CCTK_REAL IN num_nux, \
+        CCTK_REAL IN ene_nue, \
+        CCTK_REAL IN ene_nua, \
+        CCTK_REAL IN ene_nux, \
+        CCTK_REAL OUT temp_eq, \
+        CCTK_REAL OUT ye_eq, \
+        CCTK_REAL OUT num_nue_eq, \
+        CCTK_REAL OUT num_nua_eq, \
+        CCTK_REAL OUT num_nux_eq, \
+        CCTK_REAL OUT ene_nue_eq, \
+        CCTK_REAL OUT ene_nua_eq, \
+        CCTK_REAL OUT ene_nux_eq)
+USES FUNCTION WeakEquilibrium
+
+CCTK_REAL FUNCTION AverageBaryonMass()
+USES FUNCTION AverageBaryonMass
+
+# Carpet
+CCTK_INT FUNCTION EnableProlongating(CCTK_INT IN status)
+USES FUNCTION EnableProlongating
+
+CCTK_INT FUNCTION QueryProlongating()
+USES FUNCTION QueryProlongating
+
+PUBLIC:
+
+##TODO: add correct dependents and tags for checkpointing
+
+## Lab frame quantities
+CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs"' "Neutrino density in the lab frame"
+
+CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs"' "Radiation energy density in the lab frame"
+
+##TODO: check for centering
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs"' 
+{
+    rFx, rFy, rFz
+} "Radiation energy flux in the lab frame"
+
+##TODO: check for centering
+CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+{
+    rPxx, rPxy, rPxz, rPyy, rPyz, rPzz
+} "Radiation pressure in the lab frame, normalized with E"
+
+## Fluid frame quantities
+CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Neutrino density in the fluid frame"
+
+CCTK_REAL rJ[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Radiation energy density in the fluid frame"
+
+CCTK_REAL rHt[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Radiation energy flux in the fluid frame"
+
+CCTK_REAL rH[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+{
+    rHx, rHy, rHz
+} "Radiation energy flux in the fluid frame"
+
+PRIVATE:
+
+## Diagnostics
+CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+{
+    radial_flux_0, radial_flux_1
+} "Neutrino radial number and energy fluxes"
+
+## Radiation-matter interaction
+CCTK_REAL opacs[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+{
+    abs_0, abs_1, eta_0, eta_1, scat_1
+} "Opacity variables"
+
+CCTK_REAL nueave[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Neutrino average energy (in equilibrium or in the energy group)"
+
+CCTK_REAL fluidsources TYPE=GF CENTERING={ccc} 
+{
+    netabs, netheat
+} "Net number and energy absorption (for analysis only)"
+
+CCTK_REAL neutrino_fractions TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 
+{
+    ynue, ynua, ynux,
+    znue, znua, znux
+} "Neutrino fractions (for analysis only)"
+
+## Internal variables
+CCTK_REAL fidu_vel TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    fidu_velx, fidu_vely, fidu_velz
+} "Effective velocity v^i"
+
+CCTK_REAL fidu_w_lorentz TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Effective velocity v^i"
+
+CCTK_REAL chi[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "M1 closure coefficient"
+
+CCTK_REAL rN_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "RHS for the radiation number density"
+
+CCTK_REAL rE_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "RHS for the radiation energy density"
+
+##TODO: check for centering
+CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_rhs, rFy_rhs, rFz_rhs
+} "RHS for the radiation energy fluxes"
+
+CCTK_INT nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
+
+CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"

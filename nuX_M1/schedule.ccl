@@ -1,0 +1,377 @@
+# Schedule definitions for thorn nuX_M1
+
+###############################################################################
+# Storage
+###############################################################################
+STORAGE: rN[timelevels]
+STORAGE: rE[timelevels]
+STORAGE: rF[timelevels]
+STORAGE: rP
+
+STORAGE: rnnu
+STORAGE: rJ
+STORAGE: rHt
+STORAGE: rH
+
+STORAGE: radial_fluxes[timelevels]
+STORAGE: neutrino_fractions
+
+STORAGE: opacs
+STORAGE: nueave
+STORAGE: fluidsources
+STORAGE: fidu_vel
+STORAGE: fidu_w_lorentz
+
+STORAGE: chi
+
+STORAGE: rN_rhs
+STORAGE: rE_rhs
+STORAGE: rF_rhs
+
+STORAGE: nuX_m1_mask
+
+STORAGE: TimeIntegratorStage
+
+###############################################################################
+# Initialization
+###############################################################################
+SCHEDULE nuX_M1_Init AT CCTK_STARTUP
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register banner"
+
+SCHEDULE nuX_M1_ParamCheck AT CCTK_PARAMCHECK
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Check parameters"
+
+SCHEDULE nuX_M1_SetSym AT CCTK_BASEGRID
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Setup symmetries"
+
+SCHEDULE nuX_M1_Reset AT CCTK_INITIAL \
+    BEFORE (nuX_M1_InitialData ReadInterpolate_ReadData)
+{
+    LANG: C
+} "Initialize everything to zero"
+
+SCHEDULE nuX_M1_FiducialVelocity AT CCTK_INITIAL AFTER HydroBase_Prim2ConInitial
+{
+    LANG: C
+} "Compute the fiducial velocity"
+
+SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
+    AFTER (ADMBase_InitialData ADMBase_InitialGauge HydroBase_Initial nuX_M1_FiducialVelocity) \
+    BEFORE (ADMBase_PostInitial SetTmunu)
+{
+} "M1 initial data group"
+
+SCHEDULE nuX_M1_CalcClosure AT CCTK_INITIAL \
+    AFTER (nuX_M1_InitialData nuX_M1_FiducialVelocity nuX_M1_SetToEquilibrium)
+{
+    LANG: C
+} "Compute the M1 closure everywhere on the grid"
+
+if (copy_levels) {
+    SCHEDULE nuX_M1_CopyLevels AT CCTK_INITIAL \
+        AFTER (nuX_M1_InitialData nuX_M1_SetToEquilibrium)
+    {
+        LANG: C
+    } "Copy data to past timelevels"
+}
+
+###############################################################################
+# Initial data
+###############################################################################
+
+if (set_to_equilibrium) {
+    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_INITIAL \
+        BEFORE (ADMBase_PostInitial SetTmunu)
+    {
+        LANG: C
+    } "Set radiation quantities to equilibrium"
+}
+
+if (reset_to_equilibrium) {
+    SCHEDULE nuX_M1_Reset AT CCTK_POST_RECOVER_VARIABLES
+    {
+        LANG: C
+    } "Initialize everything to zero"
+
+    SCHEDULE nuX_M1_FiducialVelocity AT CCTK_POST_RECOVER_VARIABLES \
+        AFTER nuX_M1_Reset
+    {
+        LANG: C
+    } "Compute the fiducial velocity"
+
+    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
+        AFTER (nuX_M1_Reset nuX_M1_FiducialVelocity)
+    {
+        LANG: C
+    } "Set radiation quantities to equilibrium"
+
+    if (copy_levels) {
+        SCHEDULE nuX_M1_CopyLevels AT CCTK_POST_RECOVER_VARIABLES \
+            AFTER nuX_M1_SetToEquilibrium
+        {
+            LANG: C
+        } "Copy data to past timelevels"
+    }
+}
+
+###############################################################################
+# Main loop
+###############################################################################
+SCHEDULE nuX_M1_InitialCopy AT CCTK_EVOL \
+    BEFORE (MoL_Evolution nuX_M1_WRAP)
+{
+    LANG: C
+} "Copy the data from the previous time-level to the current one"
+
+SCHEDULE GROUP nuX_M1_WRAP AT CCTK_EVOL \
+    AFTER (MoL_Evolution MoL_PseudoEvolution MoL_PostStep nuX_M1_InitialCopy)
+{
+} "This group wrapps all nuX_M1 updates"
+
+SCHEDULE GROUP nuX_M1_EVOL IN nuX_M1_WRAP
+{
+} "Radiation updates go here"
+
+SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL
+{
+    LANG: C
+    OPTIONS: LEVEL
+} "Set the time integrator index"
+
+SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
+{
+    LANG: C
+} "Excise regions of the domain"
+
+SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
+    AFTER nuX_M1_TimeStep
+{
+    LANG: C
+    OPTIONS: LEVEL
+} "Clenups after the time integration"
+
+#------------------------------------------------------------------------------
+SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
+    WHILE nuX_M1::TimeIntegratorStage \
+    AFTER (nuX_M1_InitTimeIntegrator nuX_M1_SetMask)
+{
+} "A single substep in the evolution"
+#------------------------------------------------------------------------------
+
+SCHEDULE nuX_M1_InitRHS IN nuX_M1_TimeStep
+{
+    LANG: C
+} "Initialize explicit RHSs to zero"
+
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
+{
+    LANG: C
+} "Compute the fiducial velocity"
+
+SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
+{
+    LANG: C
+} "Compute the M1 closure everywhere on the grid"
+
+SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+{
+    LANG: C
+} "Compute the opacities"
+
+if (include_fluxes) {
+    SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
+        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
+    {
+        LANG: C
+    } "Compute the radiation fluxes and add them the RHS"
+}
+
+if (include_GR_sources) {
+    SCHEDULE nuX_M1_CalcGRSources IN nuX_M1_TimeStep \
+        AFTER (nuX_M1_CalcClosure nuX_M1_InitRHS)
+        BEFORE nuX_M1_CalcUpdate
+    {
+        LANG: C
+    } "Compute the radiation GR sources and add them to the RHS"
+}
+
+SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
+{
+    LANG: C
+} "Semi-implicit update of radiation and matter fields"
+
+if (backreact) {
+    SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
+    {
+    } "Apply BCs and synchronize hydro variables"
+
+    SCHEDULE GROUP HydroBase_Con2Prim IN nuX_M1_WRAP AFTER HydroBase_Boundaries
+    {
+        LANG: C
+    } "Computes the primitives from the conservatives"
+}
+
+# -----------------------------------------------------------------------------
+if (optimize_prolongation) {
+    SCHEDULE nuX_M1_ControlProlongation in nuX_M1_TimeStep BEFORE nuX_M1_BoundaryConditions AFTER nuX_M1_CalcUpdate
+    {
+        LANG: C
+        OPTIONS: level
+    } "enable / disable prolongation during RK steps"
+}
+
+SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
+    AFTER nuX_M1_CalcUpdate
+{
+} "Apply boundary conditions during the evolution"
+# -----------------------------------------------------------------------------
+
+SCHEDULE nuX_M1_SelectBC IN nuX_M1_BoundaryConditions
+{
+    LANG: C
+    OPTIONS: SINGLEMAP
+    SYNC: rN
+    SYNC: rE
+    SYNC: rF
+} "Select boundary conditions"
+
+SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
+    AFTER nuX_M1_SelectBC
+{
+} "Apply boundary conditions"
+
+if (add_to_Tmunu) {
+    SCHEDULE GROUP nuX_M1_Tmunu IN AddToTmunu
+    {
+    } "Adds the contribution of radiation to the global stress-energy tensor"
+
+    SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
+    {
+        LANG: C
+    } "Compute the fiducial velocity"
+
+    SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
+    {
+        LANG: C
+    } "Adds the contribution of radiation to the global stress-energy tensor"
+}
+
+###############################################################################
+# Stuff outside of the main loop
+###############################################################################
+# This group is basically the equivalent of MoL_PostStep
+SCHEDULE GROUP nuX_M1_PostStep AT PostInitial BEFORE MoL_PostStep
+{
+} "Poststep operations"
+
+SCHEDULE GROUP nuX_M1_PostStep AT PostRegrid BEFORE MoL_PostStep
+{
+} "Poststep operations"
+
+SCHEDULE GROUP nuX_M1_PostStep AT PostRegridInitial BEFORE MoL_PostStep
+{
+} "Poststep operations"
+
+SCHEDULE GROUP nuX_M1_PostStep AT PostRestrict BEFORE MoL_PostStep
+{
+} "Poststep operations"
+
+SCHEDULE GROUP nuX_M1_PostStep AT Post_Recover_Variables BEFORE MoL_PostStep
+{
+} "Poststep operations"
+
+SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_PostStep BEFORE MoL_PostStep
+{
+} "Apply the boundary conditions"
+
+SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
+{
+    LANG: C
+    #TRIGGERS: rP rnnu rJ rHt rH
+} "Compute the M1 closure everywhere on the grid"
+
+SCHEDULE nuX_M1_Analysis AT CCTK_ANALYSIS AFTER nuX_M1_CalcClosure
+{
+    LANG: C
+    TRIGGERS: neutrino_fractions
+} "Computes M1 analysis quantities"
+
+SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
+             AFTER nuX_M1_CalcClosure \
+             BEFORE outflow
+{
+    LANG: C
+} "Compute radial fluxes"
+
+###############################################################################
+# Tests
+###############################################################################
+if (CCTK_Equals(initial_hydro, "nuX_M1")) {
+    SCHEDULE nuX_M1_SetupTest_Hydro IN HydroBase_Initial
+    {
+        LANG: C
+    } "Initialize hydro quantities"
+}
+
+if (!CCTK_Equals(thc_m1_test, "none")) {
+    SCHEDULE nuX_M1_SetupTest IN nuX_M1_InitialData
+    {
+        LANG: C
+    } "Setup initial data for simple tests"
+}
+
+if (CCTK_Equals(thc_m1_test, "equil")) {
+    STORAGE: nuX_Core::dens[1]
+    STORAGE: nuX_Core::densxn[1]
+    STORAGE: nuX_Core::densxp[1]
+    STORAGE: nuX_Core::scon[1]
+    STORAGE: nuX_Core::tau[1]
+    STORAGE: nuX_Core::volform[1]
+
+    SCHEDULE nuX_ConsToAll IN HydroBase_Con2Prim
+    {
+        LANG: C
+    } "Computes the primitives from the conservatives"
+}
+
+if (CCTK_Equals(thc_m1_test, "kerrschild")) {
+    SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
+        AFTER nuX_M1_ApplyBCs
+    {
+        LANG: C
+    } "Apply custom boundary conditions"
+
+    SCHEDULE nuX_M1_KerrSchild_Mask IN nuX_M1_EVOL \
+        AFTER nuX_M1_SetMask \
+        BEFORE nuX_M1_TimeStep
+    {
+        LANG: C
+    } "Cheap excision for the Kerr Schild test"
+}
+
+if (CCTK_Equals(thc_m1_test, "shadow")) {
+    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
+        AFTER nuX_M1_ApplyBCs
+    {
+        LANG: C
+    } "Apply custom boundary conditions"
+}
+
+# This would need to change if we want to couple with another hydro solver
+if (!CCTK_Equals(evolution_method, "nuXode")) {
+    SCHEDULE nuX_M1_MoLRegister IN MoL_Register
+    {
+        LANG: C
+        OPTIONS: GLOBAL
+    } "Register variables with MoL"
+}

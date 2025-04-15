@@ -1,0 +1,16 @@
+Cactus Code Thorn nuX_M1
+Author(s)    : 
+               
+Maintainer(s): 
+Licence      : 
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Grey M1 solver a la Radice et al. 2022 [arXiv:2111.14858].
+
+This code needs 2 ghost cells on unigrid and 4 ghost cells with AMR.
+
+A. Acknowledgements
+
+This code is ported from THC_M1 (https://bitbucket.org/FreeTHC/thccore/src/master/) of Radice et al. 
