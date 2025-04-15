@@ -20,13 +20,13 @@
 #include "cctk_Parameters.h"
 
 #include "finite_difference.h"
-#include "thc_M1_closure.hh"
-#include "thc_M1_macro.h"
+#include "nux_M1_closure.hh"
+#include "nux_M1_macro.h"
 #include "utils.hh"
 
 #define FDORDER 2
 
-using namespace thc::m1;
+using namespace nux::m1;
 using namespace utils;
 
 // NOTE. Unlike the rest of the M1 code, here spatial indices go over 0,1,2
@@ -51,14 +51,14 @@ extern "C" void NUX_M1_CalcGRSources(CCTK_ARGUMENTS) {
 
 #pragma omp parallel
     {
-        UTILS_LOOP3(thc_m1_grsource,
+        UTILS_LOOP3(nux_m1_grsource,
                 k, NUX_M1_NGHOST, cctk_lsh[2]-NUX_M1_NGHOST,
                 j, NUX_M1_NGHOST, cctk_lsh[1]-NUX_M1_NGHOST,
                 i, NUX_M1_NGHOST, cctk_lsh[0]-NUX_M1_NGHOST) {
             int const ijk = CCTK_GFINDEX3D(cctkGH, i, j, k);
 
             // Skip masked points
-            if (thc_m1_mask[ijk]) {
+            if (nux_m1_mask[ijk]) {
                 continue;
             }
 
@@ -129,6 +129,6 @@ extern "C" void NUX_M1_CalcGRSources(CCTK_ARGUMENTS) {
                 }
             }
 
-        } UTILS_ENDLOOP3(thc_m1_grsource);
+        } UTILS_ENDLOOP3(nux_m1_grsource);
     }
 }
