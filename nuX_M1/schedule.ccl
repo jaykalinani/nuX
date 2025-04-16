@@ -74,6 +74,15 @@ SCHEDULE nuX_M1_CalcClosure AT CCTK_INITIAL \
     AFTER (nuX_M1_InitialData nuX_M1_FiducialVelocity nuX_M1_SetToEquilibrium)
 {
     LANG: C
+
+    READS: ADMBaseX::metric(everywhere)
+    READS: ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere)
+    READS: ADMBaseX::curv(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
+    READS: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
 if (copy_levels) {
