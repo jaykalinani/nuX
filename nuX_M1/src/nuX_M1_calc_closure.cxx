@@ -29,8 +29,8 @@ using namespace utils;
 using namespace std;
 using namespace thc::m1;
 
-extern "C" void NUX_M1_CalcClosure(CCTK_ARGUMENTS) {
-    DECLARE_CCTK_ARGUMENTSX_NUX_M1_CalcClosure;
+extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
+    DECLARE_CCTK_ARGUMENTSX_nuX_M1_CalcClosure;
     DECLARE_CCTK_PARAMETERS;
 
     if (verbose) {
@@ -66,6 +66,8 @@ extern "C" void NUX_M1_CalcClosure(CCTK_ARGUMENTS) {
             "[ERR|THC|THC_M1_CalcClosure]: ",
             m1_max_num_msg, m1_max_num_msg);
 
+    // TODO: This needs to change
+    //       volform? We need to calc sqrtgamma probably additionally
     tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
             gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz, kzz, volform);
     tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz, fidu_w_lorentz,
