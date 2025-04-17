@@ -2,11 +2,11 @@
 IMPLEMENTS: nuX_M1
 INHERITS: ADMBaseX CarpetXRegrid HydroBaseX TmunuBaseX
 
-#USES INCLUDE: finite_difference.h
-#USES INCLUDE: Symmetry.h
-#USES INCLUDE: utils.hh
-#USES INCLUDE: utils_macro.h
-#USES INCLUDE: thc_printer.hh
+USES INCLUDE: finite_difference.h
+USES INCLUDE: Symmetry.h
+USES INCLUDE: utils.hh
+USES INCLUDE: utils_macro.h
+USES INCLUDE: nuX_printer.hxx
 
 # Boundary conditions
 CCTK_INT FUNCTION Boundary_SelectVarForBC(                                     \

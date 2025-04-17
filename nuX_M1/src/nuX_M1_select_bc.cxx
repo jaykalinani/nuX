@@ -42,28 +42,28 @@ extern "C" void nuX_M1_SelectBC(CCTK_ARGUMENTS) {
 
   int ierr = 0;
 
-#define THC_SELECT_VAR_FOR_BC(VARIABLE)                                        \
+#define nuX_SELECT_VAR_FOR_BC(VARIABLE)                                        \
   ierr += Boundary_SelectVarForBC(cctkGH, CCTK_ALL_FACES, cctk_nghostzones[0], \
                                   -1, VARIABLE, mybc)
 
   for (int ig = 0; ig < nspecies; ++ig) {
     std::snprintf(vname, BUFSIZ, "nuX_M1::rN[%d]", ig);
-    THC_SELECT_VAR_FOR_BC(vname);
+    nuX_SELECT_VAR_FOR_BC(vname);
 
     std::snprintf(vname, BUFSIZ, "nuX_M1::rE[%d]", ig);
-    THC_SELECT_VAR_FOR_BC(vname);
+    nuX_SELECT_VAR_FOR_BC(vname);
 
     std::snprintf(vname, BUFSIZ, "nuX_M1::rFx[%d]", ig);
-    THC_SELECT_VAR_FOR_BC(vname);
+    nuX_SELECT_VAR_FOR_BC(vname);
 
     std::snprintf(vname, BUFSIZ, "nuX_M1::rFy[%d]", ig);
-    THC_SELECT_VAR_FOR_BC(vname);
+    nuX_SELECT_VAR_FOR_BC(vname);
 
     std::snprintf(vname, BUFSIZ, "nuX_M1::rFz[%d]", ig);
-    THC_SELECT_VAR_FOR_BC(vname);
+    nuX_SELECT_VAR_FOR_BC(vname);
   }
 
-#undef THC_SELECT_VAR_FOR_BC
+#undef nuX_SELECT_VAR_FOR_BC
 
   if (ierr) {
     CCTK_ERROR("Failed to select the BCs");

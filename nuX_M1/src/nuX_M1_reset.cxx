@@ -39,7 +39,7 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
   // size_t siz = UTILS_GFSIZE(cctkGH) * nspecies * sizeof(CCTK_REAL);
   // size_t isiz = UTILS_GFSIZE(cctkGH) * sizeof(CCTK_INT);
 
-  // UTILS_LOOP3(thc_m1_analysis, k, 0, cctk_lsh[2], j, 0, cctk_lsh[1], i, 0,
+  // UTILS_LOOP3(nuX_m1_analysis, k, 0, cctk_lsh[2], j, 0, cctk_lsh[1], i, 0,
   //            cctk_lsh[0]) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,

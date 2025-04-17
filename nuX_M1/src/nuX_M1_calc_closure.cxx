@@ -21,20 +21,20 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "thc_printer.hh"
+#include "nuX_printer.hh"
 #include "utils.hh"
-#include "thc_M1_closure.hh"
+#include "nuX_M1_closure.hh"
 
 using namespace utils;
 using namespace std;
-using namespace thc::m1;
+using namespace nuX::m1;
 
 extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
     DECLARE_CCTK_ARGUMENTSX_nuX_M1_CalcClosure;
     DECLARE_CCTK_PARAMETERS;
 
     if (verbose) {
-        CCTK_INFO("THC_M1_CalcClosure");
+        CCTK_INFO("nuX_M1_CalcClosure");
     }
 
     // Disable GSL error handler
@@ -60,10 +60,10 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
     }
 
     // Setup Printer
-    thc::Printer::start(
-            "[INFO|THC|THC_M1_CalcClosure]: ",
-            "[WARN|THC|THC_M1_CalcClosure]: ",
-            "[ERR|THC|THC_M1_CalcClosure]: ",
+    nuX::Printer::start(
+            "[INFO|nuX|nuX_M1_CalcClosure]: ",
+            "[WARN|nuX|nuX_M1_CalcClosure]: ",
+            "[ERR|nuX|nuX_M1_CalcClosure]: ",
             m1_max_num_msg, m1_max_num_msg);
 
     // TODO: This needs to change
@@ -81,7 +81,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
             // TODO: layout2 dependence
             const int ijk = layout2.linear(p.i, p.j, p.k);
-            if (thc_m1_mask[ijk]) {
+            if (nuX_m1_mask[ijk]) {
                 for (int ig = 0; ig < nspecies*ngroups; ++ig) {
                     // TODO: Unclear whether the following call will work
                     int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
@@ -172,7 +172,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
     }
 
     // Done with printing
-    thc::Printer::stop();
+    nuX::Printer::stop();
 
     // Restore GSL error handler
     gsl_set_error_handler(gsl_err);

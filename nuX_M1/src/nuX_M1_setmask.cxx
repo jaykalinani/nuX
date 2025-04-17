@@ -18,7 +18,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_M1_macro.h"
+#include "nuX_M1_macro.hxx"
 #include "utils.hh"
 #include <loop_device.hxx>
 
@@ -32,7 +32,7 @@ extern "C" void nuX_M1_SetMask(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_SetMask");
   }
 
-	// UTILS_LOOP3(thc_m1_setmask, k, 0, cctk_lsh[2], j, 0, cctk_lsh[1], i, 0,
+	// UTILS_LOOP3(nuX_m1_setmask, k, 0, cctk_lsh[2], j, 0, cctk_lsh[1], i, 0,
 	// 						cctk_lsh[0]) {
 	const GridDescBaseDevice grid(cctkGH);
 	const GF3D2layout layout2(cctkGH, {1, 1, 1});
@@ -45,7 +45,7 @@ extern "C" void nuX_M1_SetMask(CCTK_ARGUMENTS) {
 		/*
 		int const ijk = CCTK_GFINDEX3D(cctkGH, i, j, k);
 		if (hydro_excision && hydro_excision_mask[ijk]) {
-			thc_m1_mask[ijk] = 1;
+			nuX_m1_mask[ijk] = 1;
 			for (int ig = 0; ig < nspecies * ngroups; ++ig) {
 				int const i4D = CCTK_VectGFIndex3D(cctkGH, i, j, k, ig);
 				rN[i4D] = 0;
@@ -56,7 +56,7 @@ extern "C" void nuX_M1_SetMask(CCTK_ARGUMENTS) {
 			}
 		}
 		else {
-			thc_m1_mask[ijk] = 0;
+			nuX_m1_mask[ijk] = 0;
 		}
 		*/
 		nuX_m1_mask[ijk] = 0;

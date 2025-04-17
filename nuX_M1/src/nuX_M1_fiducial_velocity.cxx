@@ -33,7 +33,7 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose) {
-    CCTK_INFO("THC_M1_FiducialVelocity");
+    CCTK_INFO("nuX_M1_FiducialVelocity");
   }
 
   size_t siz = UTILS_GFSIZE(cctkGH);

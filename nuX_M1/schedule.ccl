@@ -332,14 +332,14 @@ if (CCTK_Equals(initial_hydro, "nuX_M1")) {
     } "Initialize hydro quantities"
 }
 
-if (!CCTK_Equals(thc_m1_test, "none")) {
+if (!CCTK_Equals(nuX_m1_test, "none")) {
     SCHEDULE nuX_M1_SetupTest IN nuX_M1_InitialData
     {
         LANG: C
     } "Setup initial data for simple tests"
 }
 
-if (CCTK_Equals(thc_m1_test, "equil")) {
+if (CCTK_Equals(nuX_m1_test, "equil")) {
     STORAGE: nuX_Core::dens[1]
     STORAGE: nuX_Core::densxn[1]
     STORAGE: nuX_Core::densxp[1]
@@ -353,7 +353,7 @@ if (CCTK_Equals(thc_m1_test, "equil")) {
     } "Computes the primitives from the conservatives"
 }
 
-if (CCTK_Equals(thc_m1_test, "kerrschild")) {
+if (CCTK_Equals(nuX_m1_test, "kerrschild")) {
     SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
         AFTER nuX_M1_ApplyBCs
     {
@@ -368,7 +368,7 @@ if (CCTK_Equals(thc_m1_test, "kerrschild")) {
     } "Cheap excision for the Kerr Schild test"
 }
 
-if (CCTK_Equals(thc_m1_test, "shadow")) {
+if (CCTK_Equals(nuX_m1_test, "shadow")) {
     SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
         AFTER nuX_M1_ApplyBCs
     {

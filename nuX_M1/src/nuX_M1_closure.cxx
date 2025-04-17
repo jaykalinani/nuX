@@ -26,10 +26,10 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
 
-#include "thc_printer.hh"
+#include "nuX_printer.hxx"
 
-#include "thc_M1_closure.hh"
-#include "thc_M1_macro.h"
+#include "nuX_M1_closure.hxx"
+#include "nuX_M1_macro.hxx"
 
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
@@ -38,8 +38,7 @@ using namespace std;
 
 // TODO: Rename namespaces
 
-namespace thc {
-namespace m1 {
+namespace nuX_M1 {
 
 namespace {
 
@@ -648,5 +647,4 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void apply_floor(
     }
 }
 
-} // namespace m1
-} // namespace thc
+} // namespace nuX_M1

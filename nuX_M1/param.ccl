@@ -6,9 +6,6 @@ EXTENDS KEYWORD initial_hydro "Hydro initial data"
     "nuX_M1" :: ""
 }
 
-#SHARES: THC_Core
-#USES BOOLEAN verbose
-
 SHARES: HydroBaseX
 #USES INT hydro_excision
 USES KEYWORD evolution_method

@@ -23,7 +23,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_M1_macro.h"
+#include "nuX_M1_macro.hxx"
 #include <loop_device.hxx>
 
 #include "utils.hh"
@@ -49,7 +49,7 @@ extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
 	const GridDescBaseDevice grid(cctkGH);
 	const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
-	// UTILS_LOOP3(thc_m1_analysis, k, 0, cctk_lsh[2], j, 0, cctk_lsh[1], i, 0,
+	// UTILS_LOOP3(nuX_m1_analysis, k, 0, cctk_lsh[2], j, 0, cctk_lsh[1], i, 0,
 	// 						cctk_lsh[0]) {
 	grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,

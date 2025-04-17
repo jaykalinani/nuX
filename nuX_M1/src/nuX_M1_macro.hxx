@@ -14,21 +14,21 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef THC_M1_MACRO_H
-#define THC_M1_MACRO_H
+#ifndef nuX_M1_MACRO_H
+#define nuX_M1_MACRO_H
 
 // #ifndef WARN_FOR_SRC_FIX
 // #define WARN_FOR_SRC_FIX
 // #endif
 
-#define THC_M1_SRC_EXPL 1  // explicit RHS
-#define THC_M1_SRC_IMPL 2  // implicit RHS (default)
-#define THC_M1_SRC_BOOST 3 // boost to fluid frame (approximate!)
+#define nuX_M1_SRC_EXPL 1  // explicit RHS
+#define nuX_M1_SRC_IMPL 2  // implicit RHS (default)
+#define nuX_M1_SRC_BOOST 3 // boost to fluid frame (approximate!)
 
-#define THC_M1_NGHOST 2
+#define nuX_M1_NGHOST 2
 
-#ifndef THC_M1_SRC_METHOD
-#define THC_M1_SRC_METHOD THC_M1_SRC_IMPL
+#ifndef nuX_M1_SRC_METHOD
+#define nuX_M1_SRC_METHOD nuX_M1_SRC_IMPL
 #endif
 
 #define SQ(X) ((X) * (X))

@@ -30,8 +30,7 @@
 
 // TODO: Rename namespaces
 
-namespace thc {
-namespace m1 {
+namespace nuX_M1 {
 
 using namespace utils;
 
@@ -245,7 +244,6 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void apply_floor(
         CCTK_REAL * E,
         tensor::generic<CCTK_REAL, 4, 1> * F_d);
 
-} // namespace m1
-} // namespace thc
+} // namespace nuX_M1
 
 #endif

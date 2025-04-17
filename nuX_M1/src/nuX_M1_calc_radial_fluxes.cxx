@@ -23,12 +23,11 @@
 
 #include <loop_device.hxx>
 #include "utils.hh"
-#include "thc_M1_closure.hh"
+#include "nuX_M1_closure.hh"
 
 using namespace utils;
 using namespace Loop;
 using namespace std;
-using namespace thc::m1;
 
 extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcRadialFluxes;
