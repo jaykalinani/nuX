@@ -109,18 +109,15 @@ PUBLIC:
 
 ##TODO: add correct dependents and tags for checkpointing
 
-## Lab frame quantities
 CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs"' "Neutrino density in the lab frame"
 
 CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs"' "Radiation energy density in the lab frame"
 
-##TODO: check for centering
 CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs"' 
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
 
-##TODO: check for centering
 CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
 {
     rPxx, rPxy, rPxz, rPyy, rPyz, rPzz
@@ -140,21 +137,30 @@ CCTK_REAL rH[nspecies*ngroups] TYPE=GF CENTERING={ccc}
 
 PRIVATE:
 
+## neutrino fluxes in x–direction
+CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the x–direction: 5 fields per (species,group)"
+
+# neutrino fluxes in y–direction
+CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the y–direction: 5 fields per (species,group)"
+
+# neutrino fluxes in z–direction
+CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
+
 ## Diagnostics
-CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 
 {
     radial_flux_0, radial_flux_1
 } "Neutrino radial number and energy fluxes"
 
 ## Radiation-matter interaction
-CCTK_REAL opacs[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+CCTK_REAL opacs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     abs_0, abs_1, eta_0, eta_1, scat_1
 } "Opacity variables"
 
-CCTK_REAL nueave[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Neutrino average energy (in equilibrium or in the energy group)"
+CCTK_REAL nueave[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino average energy (in equilibrium or in the energy group)"
 
-CCTK_REAL fluidsources TYPE=GF CENTERING={ccc} 
+CCTK_REAL fluidsources TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     netabs, netheat
 } "Net number and energy absorption (for analysis only)"
