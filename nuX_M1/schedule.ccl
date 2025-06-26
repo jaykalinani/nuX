@@ -62,6 +62,8 @@ SCHEDULE nuX_M1_Reset AT CCTK_INITIAL \
 SCHEDULE nuX_M1_FiducialVelocity AT CCTK_INITIAL AFTER HydroBase_Prim2ConInitial
 {
     LANG: C
+
+    
 } "Compute the fiducial velocity"
 
 SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
@@ -184,11 +186,22 @@ SCHEDULE nuX_M1_InitRHS IN nuX_M1_TimeStep
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
+
+    
 } "Compute the fiducial velocity"
 
 SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
 {
     LANG: C
+ 
+    READS: ADMBaseX::metric(everywhere)
+    READS: ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere)
+    READS: ADMBaseX::curv(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
+    READS: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
 SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
@@ -201,6 +214,12 @@ if (include_fluxes) {
         AFTER (nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
     {
         LANG: C
+        READS: ADMBaseX::metric(everywhere)
+        READS: ADMBaseX::lapse(everywhere)
+        READS: ADMBaseX::shift(everywhere)
+        READS: rN(everywhere) rE(everywhere) rF(everywhere)
+        READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
+        WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere)
     } "Compute the radiation fluxes and add them the RHS"
 }
 
@@ -306,6 +325,15 @@ SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_PostStep BEFORE MoL_PostStep
 SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
 {
     LANG: C
+
+    READS: ADMBaseX::metric(everywhere)
+    READS: ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere)
+    READS: ADMBaseX::curv(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)  
+    READS: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: chi(everywhere)
     #TRIGGERS: rP rnnu rJ rHt rH
 } "Compute the M1 closure everywhere on the grid"
 

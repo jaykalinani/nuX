@@ -8,6 +8,8 @@ USES INCLUDE: utils.hh
 USES INCLUDE: utils_macro.h
 USES INCLUDE: nuX_printer.hxx
 
+# === External functions ===
+
 # Boundary conditions
 CCTK_INT FUNCTION Boundary_SelectVarForBC(                                     \
         CCTK_POINTER_TO_CONST IN cctkGH,                                       \
@@ -105,35 +107,40 @@ USES FUNCTION EnableProlongating
 CCTK_INT FUNCTION QueryProlongating()
 USES FUNCTION QueryProlongating
 
+
+# === Public grid functions ===
+
 PUBLIC:
 
 ##TODO: add correct dependents and tags for checkpointing
 
-CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs"' "Neutrino density in the lab frame"
+CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs" checkpoint="yes"' "Neutrino density in the lab frame"
 
-CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs"' "Radiation energy density in the lab frame"
+CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs"' 
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"' 
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
 
-CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"'
 {
     rPxx, rPxy, rPxz, rPyy, rPyz, rPzz
 } "Radiation pressure in the lab frame, normalized with E"
 
 ## Fluid frame quantities
-CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Neutrino density in the fluid frame"
+CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"
 
-CCTK_REAL rJ[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Radiation energy density in the fluid frame"
+CCTK_REAL rJ[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Radiation energy density in the fluid frame"
 
-CCTK_REAL rHt[nspecies*ngroups] TYPE=GF CENTERING={ccc} "Radiation energy flux in the fluid frame"
+CCTK_REAL rHt[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Radiation energy flux in the fluid frame"
 
-CCTK_REAL rH[nspecies*ngroups] TYPE=GF CENTERING={ccc} 
+CCTK_REAL rH[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     rHx, rHy, rHz
 } "Radiation energy flux in the fluid frame"
+
+# === Private grid functions ===
 
 PRIVATE:
 
@@ -177,7 +184,7 @@ CCTK_REAL fidu_vel TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
     fidu_velx, fidu_vely, fidu_velz
 } "Effective velocity v^i"
 
-CCTK_REAL fidu_w_lorentz TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Effective velocity v^i"
+CCTK_REAL fidu_w_lorentz TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Effective Lorentz factor W"
 
 CCTK_REAL chi[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "M1 closure coefficient"
 
