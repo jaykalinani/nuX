@@ -1,0 +1,34 @@
+# Parameter definitions for thorn RatesToy
+
+CCTK_REAL set_n "Constant number density" STEERABLE=ALWAYS
+{
+    (0:* :: "Any positive number"
+} 1e-5
+
+CCTK_REAL set_J "Constant energy density" STEERABLE=ALWAYS
+{
+    (0:* :: "Any positive number"
+} 1e-5
+
+CCTK_REAL set_Ht "Constant energy flux" STEERABLE=ALWAYS
+{
+    (0:* :: "Any positive number"
+} 1e-5
+
+CCTK_REAL set_Hx "Constant x flux" STEERABLE=ALWAYS
+{
+    *:* :: "Any number"
+} 1e-5
+CCTK_REAL set_Hy "Constant x flux" STEERABLE=ALWAYS
+{
+    *:* :: "Any number"
+} 1e-5
+CCTK_REAL set_Hz "Constant x flux" STEERABLE=ALWAYS
+{
+    *:* :: "Any number"
+} 1e-5
+
+CCTK_REAL set_chi "Constant Eddington factor" STEERABLE=ALWAYS
+{
+    [0.33:1.0] :: "Valid"
+} 0.333
