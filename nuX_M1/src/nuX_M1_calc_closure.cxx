@@ -21,7 +21,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_printer.hh"
+//#include "nuX_printer.hh" // To be removed
 #include "utils.hh"
 #include "nuX_M1_closure.hh"
 
@@ -60,11 +60,11 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
     }
 
     // Setup Printer
-    nuX::Printer::start(
-            "[INFO|nuX|nuX_M1_CalcClosure]: ",
-            "[WARN|nuX|nuX_M1_CalcClosure]: ",
-            "[ERR|nuX|nuX_M1_CalcClosure]: ",
-            m1_max_num_msg, m1_max_num_msg);
+   //  nuX::Printer::start(
+   //          "[INFO|nuX|nuX_M1_CalcClosure]: ",
+   //          "[WARN|nuX|nuX_M1_CalcClosure]: ",
+   //          "[ERR|nuX|nuX_M1_CalcClosure]: ",
+   //          m1_max_num_msg, m1_max_num_msg);
 
     // TODO: This needs to change
     //       volform? We need to calc sqrtgamma probably additionally
@@ -172,7 +172,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
     }
 
     // Done with printing
-    nuX::Printer::stop();
+   //  nuX::Printer::stop();
 
     // Restore GSL error handler
     gsl_set_error_handler(gsl_err);

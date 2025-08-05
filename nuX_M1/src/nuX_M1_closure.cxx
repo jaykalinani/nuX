@@ -26,7 +26,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
 
-#include "nuX_printer.hxx"
+// #include "nuX_printer.hxx" // To be removed
 
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
@@ -71,12 +71,20 @@ struct Parameters {
     tensor::generic<CCTK_REAL, 4, 1> const & F_d;
 };
 
+enum ClosFlag : CCTK_INT {
+  CLOS_OK = 0,         // closure success
+  CLOS_I = 1,          // initial value closure NaN or inf
+  GSL_I = 2,           // initial set GSL solver error
+  CLOS_IT = 3,         // iteration closure NaN or inf
+  GSL_IT = 4,          // iterative GSL solver error
+  GSL_MAXIT = 5,       // GSL solver reached max iterations
+};
+
 // TODO: *cctkGH pointer might not work
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void print_stuff(
         cGH const * cctkGH,
         const PointDesc &p,
         int const ig,
-        Parameters const * p,
         ostream & ss) {
     DECLARE_CCTK_ARGUMENTS;
     // TODO: layout2 definition
@@ -430,6 +438,10 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     double x_hi = 1.0;
 
     int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
+
+    CCTK_INT clos_flag_code = CLOS_OK; // Default closure flag to success
+    bool clos_flag_local = true;
+
     // No root, most likely because of high velocities in the fluid
     // We use very simple approximation in this case
     if (ierr == GSL_EINVAL) {
@@ -446,19 +458,12 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
         return;
     }
     else if (ierr == GSL_EBADFUNC) {
-        ostringstream ss;
-        ss << "NaN or Inf found in closure!\n";
-        print_stuff(cctkGH, i, j, k, ig, &params, ss);
-        Printer::print_err(ss.str());
-        CCTK_ERROR("NaN or Inf found in closure!");
+         clos_flag_code = CLOS_I;
+         clos_flag_local = false;
     }
     else if (ierr != 0) {
-        ostringstream ss;
-        ss << "Unexpected error in gsl_root_fsolver_set, error code \""
-           << ierr << "\"\n";
-        print_stuff(cctkGH, i, j, k, ig, &params, ss);
-        Printer::print_err(ss.str());
-        CCTK_ERROR("Unexpected error in gsl_root_fsolver_set");
+         clos_flag_code = GSL_I;
+         clos_flag_local = false;
     }
 
     // Rootfinding
@@ -468,19 +473,12 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
         ierr = gsl_root_fsolver_iterate(fsolver);
         // Some nans in the evaluation. This should not happen.
         if (ierr == GSL_EBADFUNC) {
-            ostringstream ss;
-            ss << "NaNs or Infs found when computing the closure!" << endl;
-            print_stuff(cctkGH, i, j, k, ig, &params, ss);
-            Printer::print_err(ss.str());
-            CCTK_ERROR("NaNs or Infs found when computing the closure!");
+            clos_flag_code = CLOS_IT;
+            clos_flag_local = false;
         }
         else if (ierr != 0) {
-            ostringstream ss;
-            ss << "Unexpected error in gsl_root_fsolver_iterate,  error code \""
-               << ierr << "\"\n";
-            print_stuff(cctkGH, i, j, k, ig, &params, ss);
-            Printer::print_err(ss.str());
-            CCTK_ERROR("Unexpected error in gsl_root_fsolver_iterate");
+            clos_flag_code = GSL_IT;
+            clos_flag_local = false;
         }
         *chi = closure_fun(gsl_root_fsolver_root(fsolver));
         x_lo = gsl_root_fsolver_x_lower(fsolver);
@@ -490,11 +488,8 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
 
 #ifdef WARN_FOR_MAXITER
     if (ierr != GSL_SUCCESS) {
-        ostringstream ss;
-        ss << "Maximum number of iterations exceeded "
-                "when computing the M1 closure";
-        print_stuff(cctkGH, i, j, k, ig, &params, ss);
-        Printer::print_warn(ss.str());
+         clos_flag_code = GSL_MAXIT;
+         clos_flag_local = false;
     }
 #endif
 
@@ -645,6 +640,32 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void apply_floor(
             F_d->at(a) *= fac;
         }
     }
+}
+
+switch(clos_flag_code) {
+   case CLOS_OK:
+         printf("Closure succeeded.\n");
+         break;
+   case CLOS_I:
+         printf("Initial value closure NaN or inf.\n");
+         //print_stuff(cctkGH, ig, &params, ss); // Won't work, only have point information during loop.
+         break;
+   case GSL_I:
+         printf("Initial GSL solver error.\n");
+         //print_stuff(cctkGH, ig, &params, ss);
+         break;
+   case CLOS_IT:
+         printf("Iteration closure NaN or inf.\n");
+         //print_stuff(cctkGH, ig, &params, ss);
+         break;
+   case GSL_IT:
+         printf("Iterative GSL solver error.\n");
+         //print_stuff(cctkGH, ig, &params, ss);
+         break;
+   case GSL_MAXIT:
+         printf("GSL solver reached max iterations.\n");
+         //print_stuff(cctkGH, ig, &params, ss);
+         break;
 }
 
 } // namespace nuX_M1
