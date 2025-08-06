@@ -19,7 +19,7 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_macro.hxx"
-#include "utils.hh"
+#include "nuX_utils.hxx"
 #include <loop_device.hxx>
 
 using namespace Loop;

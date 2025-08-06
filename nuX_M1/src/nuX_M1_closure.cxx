@@ -71,7 +71,6 @@ struct Parameters {
     tensor::generic<CCTK_REAL, 4, 1> const & F_d;
 };
 
-// TODO: *cctkGH pointer might not work
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void print_stuff(
         cGH const * cctkGH,
         const PointDesc &p,
@@ -79,10 +78,9 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void print_stuff(
         Parameters const * p,
         ostream & ss) {
     DECLARE_CCTK_ARGUMENTS;
-    // TODO: layout2 definition
+    const GF3D2layout layout2(cctkGH, {1, 1, 1});
     int const ijk = layout2.linear(p.i, p.j, p.k);
-    // TODO: might not work
-    int const i4D = CCTK_VectGFIndex3D(cctkGH, i, j, k, ig);
+    int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
     ss << "Iteration = " << cctkGH->cctk_iteration << endl;
     ss << "Reflevel = " << ilogb(cctkGH->cctk_levfac[0]) << endl;

@@ -21,9 +21,9 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_printer.hh"
-#include "utils.hh"
-#include "nuX_M1_closure.hh"
+#include "nuX_utils.hxx"
+
+#include "nuX_M1_closure.hxx"
 
 using namespace utils;
 using namespace std;
@@ -66,8 +66,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             "[ERR|nuX|nuX_M1_CalcClosure]: ",
             m1_max_num_msg, m1_max_num_msg);
 
-    // TODO: This needs to change
-    //       volform? We need to calc sqrtgamma probably additionally
     tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
             gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz, kzz, volform);
     tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz, fidu_w_lorentz,
@@ -75,17 +73,16 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
 
     {
         gsl_root_fsolver * gsl_solver = gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
+        const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
         grid.loop_all_device<1, 1, 1>(
             grid.nghostzones,
             [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-            // TODO: layout2 dependence
             const int ijk = layout2.linear(p.i, p.j, p.k);
             if (nuX_m1_mask[ijk]) {
                 for (int ig = 0; ig < nspecies*ngroups; ++ig) {
-                    // TODO: Unclear whether the following call will work
-                    int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
-                    rJ[i4D]   = 0;
+                    int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+		    rJ[i4D]   = 0;
                     rHt[i4D]  = 0;
                     rHx[i4D]  = 0;
                     rHy[i4D]  = 0;
@@ -129,7 +126,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
 
             for (int ig = 0; ig < nspecies*ngroups; ++ig) {
-                int const i4D = CCTK_VectGFIndex3D(cctkGH, i, j, k, ig);
+                int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
                 pack_F_d(betax[ijk], betay[ijk], betaz[ijk],
                     rFx[i4D], rFy[i4D], rFz[i4D], &F_d);

@@ -20,7 +20,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "utils.hh"
+#include "nuX_utils.hxx"
 
 extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CopyLevels;

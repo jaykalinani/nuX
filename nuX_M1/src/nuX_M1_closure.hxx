@@ -26,7 +26,7 @@
 
 #include "cctk.h"
 
-#include "utils_tensor.hh"
+#include "nuX_utils.hxx"
 
 // TODO: Rename namespaces
 

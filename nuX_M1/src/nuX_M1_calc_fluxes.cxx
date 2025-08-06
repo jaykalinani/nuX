@@ -12,7 +12,7 @@
 
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
-#include "utils.hxx"
+#include "nuX_utils.hxx"
 
 #define NDIM 3
 
@@ -64,8 +64,8 @@ void M1_CalcFlux(CCTK_ARGUMENTS) {
   //const vec<GF3D2<CCTK_REAL>, 5> gf_rhs = {rN_rhs, rFx_rhs, rFy_rhs, rFz_rhs, rE_rhs};
 
   /* grid functions */
-  //const vec<GF3D2<const CCTK_REAL>, dim> gf_beta{betax, betay, betaz};
-  //const smat<GF3D2<const CCTK_REAL>, dim> gf_g{gxx, gxy, gxz, gyy, gyz, gzz};
+  const vec<GF3D2<const CCTK_REAL>, dim> gf_beta{betax, betay, betaz};
+  const smat<GF3D2<const CCTK_REAL>, dim> gf_g{gxx, gxy, gxz, gyy, gyz, gzz};
 
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
@@ -93,13 +93,14 @@ void M1_CalcFlux(CCTK_ARGUMENTS) {
 
     for (int ig = 0; ig < groupspec; ++ig)
       {
-        int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
-        
+        int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+
         //--- Extract geometry at the face ---
         tensor::inv_metric<3> gamma_uu;
         tensor::inv_metric<4> g_uu;
         tensor::generic<CCTK_REAL, 4, 1> beta_u;
-        geom.get_inv_metric(ijk, &gamma_uu);
+        
+	geom.get_inv_metric(ijk, &gamma_uu);
         geom.get_inv_metric(ijk, &g_uu);
         geom.get_shift_vec(ijk, &beta_u);
 
@@ -269,7 +270,7 @@ void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS)
 
           // Update the RHS from the difference of flux between left face (flux_left) and the limited flux (flux_num).
           // Here we use the standard finite volume update:
-          int i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
+	  int const i4D = layout2.linear(p.i, p.j, p.k, ig);
           // We assume local_rhs is available as in the original CPU code; here we use r_rhs alias.
           // For demonstration, assume r_rhs for component iv is:
           //   r_rhs[0] corresponds to rN_rhs, r_rhs[1] to rFx_rhs, etc.

@@ -22,8 +22,8 @@
 #include "cctk_Parameters.h"
 
 #include <loop_device.hxx>
-#include "utils.hh"
-#include "nuX_M1_closure.hh"
+#include "nuX_utils.hxx"
+#include "nuX_M1_closure.hxx"
 
 using namespace utils;
 using namespace Loop;
@@ -58,7 +58,7 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
 
 		if (nuX_m1_mask[ijk]) {
 			for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-				int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
+			        int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 				radial_flux_0[i4D] = 0;
 				radial_flux_1[i4D] = 0;
 			}
@@ -92,7 +92,7 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
 			tensor::generic<CCTK_REAL, 4, 1> fnu_u;
 
 			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-				int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
+				int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 				pack_F_d(betax[ijk], betay[ijk], betaz[ijk], rFx[i4D], rFy[i4D],
 								 rFz[i4D], &F_d);
 				pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);

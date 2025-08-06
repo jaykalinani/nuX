@@ -20,7 +20,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "utils.hh"
+#include "nuX_utils.hxx"
 #include <loop_device.hxx>
 
 using namespace Loop;
@@ -46,7 +46,7 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 
 			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-				int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
+			        int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 				rE[i4D] = rad_E_floor;
 				rN[i4D] = rad_N_floor;
 				rFx[i4D] = 0.0;

@@ -26,7 +26,7 @@
 #include "nuX_M1_macro.hxx"
 #include <loop_device.hxx>
 
-#include "utils.hh"
+#include "nuX_utils.hxx"
 
 using namespace std;
 using namespace Loop;
@@ -58,9 +58,9 @@ extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
 		// int const ijk = CCTK_GFINDEX3D(cctkGH, i, j, k);
 		const int ijk = layout2.linear(p.i, p.j, p.k);
 
-		int const ijke = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, 0);
-		int const ijka = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, 1);
-		int const ijkx = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, 2);
+		int const ijke = layout2.linear(p.i, p.j, p.k, 0); 
+		int const ijka = layout2.linear(p.i, p.j, p.k, 1);
+		int const ijkx = layout2.linear(p.i, p.j, p.k, 2); 
 
 		CCTK_REAL const nb = rho[ijk] / mb;
 		ynue[ijk] = rnnu[ijke] / volform[ijk] / nb;

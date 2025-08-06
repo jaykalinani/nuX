@@ -22,7 +22,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "utils.hh"
+#include "nuX_utils.hxx"
 
 #define CGS_GCC (1.619100425158886e-18)
 

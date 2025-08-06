@@ -22,7 +22,7 @@
 #include "finite_difference.h"
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
-#include "utils.hh"
+#include "nuX_utils.hxx"
 
 #define FDORDER 2
 
@@ -91,7 +91,7 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
             }
 
             for (int ig = 0; ig < ngroups*nspecies; ++ig) {
-                int const i4D = CCTK_VectGFIndex3D(cctkGH, i, j, k, ig);
+                int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
                 // Radiation quantities
                 tensor::generic<CCTK_REAL, 3, 1> F_d;
