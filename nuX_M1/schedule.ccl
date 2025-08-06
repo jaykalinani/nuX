@@ -255,7 +255,7 @@ if (include_GR_sources) {
         READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior) ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
         READS: rF(interior) rP(interior)
         WRITES: rF_rhs(interior) rE_rhs(interior)
-
+        SYNC: rF_rhs rE_rhs
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
@@ -412,7 +412,7 @@ if (CCTK_Equals(nuX_m1_test, "equil")) {
     STORAGE: nuX_Core::densxp[1]
     STORAGE: nuX_Core::scon[1]
     STORAGE: nuX_Core::tau[1]
-    STORAGE: nuX_Core::volform[1]
+#    STORAGE: nuX_Core::volform[1]
 
     SCHEDULE nuX_ConsToAll IN HydroBase_Con2Prim
     {
