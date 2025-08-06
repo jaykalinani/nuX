@@ -1,5 +1,5 @@
-#ifndef NUX_UTILS_HXX
-#define NUX_UTILS_HXX
+#ifndef NUX_TENSOR_HXX
+#define NUX_TENSOR_HXX
 
 #include <cctk.h>
 #include <cstddef>
@@ -566,5 +566,5 @@ private:
 } // namespace tensor
 } // namespace nuX
 
-#endif // NUX_UTILS_HXX
+#endif // NUX_TENSOR_HXX
 
