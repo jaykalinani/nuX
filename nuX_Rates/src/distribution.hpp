@@ -29,7 +29,7 @@ distribution
  * distr_pars:  uses temp_t (fluid temperature) and eta_t (degeneracy parameter)
  * species:     species of neutrino
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 BS_REAL NuFThick(const BS_REAL omega, const NuDistributionParams* distr_pars,
                  const int nuid)
 {
@@ -48,10 +48,11 @@ density)
  * out_distr_pars:  computes trapped neutrino temperature and degeneracy
 parameter
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                                 NuDistributionParams* out_distribution_pars)
 {
+    printf("Inside ThickParamsFromM1\n");
     constexpr BS_REAL zero         = 0;
     constexpr BS_REAL one          = 1;
     constexpr BS_REAL half         = 0.5;
@@ -90,8 +91,10 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
         255.936658313629, 9.42360945627147e-5, 81.2467063138386,
         180.100197053091, 89.0343496217014,    143.849128123195};
 
+    printf("Starting species loop\n");
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
+        printf("Calculating species %i\n", nuid);
         const BS_REAL n   = fmax(1e-100, M1_pars->n[nuid]); // [nm^-3]
         const BS_REAL J   = fmax(1e-100, M1_pars->J[nuid]); // [MeV nm^-3]
         const BS_REAL chi = M1_pars->chi[nuid];
@@ -163,13 +166,17 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
             out_distribution_pars->eta_t[nuid] = twenty;
         }
 
+        printf("Finalizing distribution pars\n");
         out_distribution_pars->eta_t[nuid] =
             fmin(out_distribution_pars->eta_t[nuid], twenty);
+        printf("Set eta\n");
 
         out_distribution_pars->temp_t[nuid] =
             FDI_p2(out_distribution_pars->eta_t[nuid]) * J /
             (FDI_p3(out_distribution_pars->eta_t[nuid]) * n);
+        printf("Set temp\n");
     }
+    printf("Done with Thick\n");
 }
 
 /* ===========================================================================
@@ -184,7 +191,7 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
  * distr_pars:  optically thin parameters
  * species:     species of neutrino
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 BS_REAL NuFThin(const BS_REAL omega, const NuDistributionParams* distr_pars,
                 const int nuid)
 {
@@ -201,10 +208,11 @@ BS_REAL NuFThin(const BS_REAL omega, const NuDistributionParams* distr_pars,
  * M1_params:       uses n (neutrino number density) and J (neutrino energy
  * density) out_distr_pars:  computes free neutrino temperature and c_f
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
                                NuDistributionParams* out_distribution_pars)
 {
+    printf("Inside ThinParamsFromM1\n");
     constexpr BS_REAL zero      = 0;
     constexpr BS_REAL one       = 1;
     constexpr BS_REAL three     = 3;
@@ -247,7 +255,7 @@ void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
 /* Function for evaluating parameters of neutrino distribution function at
  * equilibrium
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 NuDistributionParams NuEquilibriumParams(const MyEOSParams* eos_pars)
 {
     constexpr BS_REAL zero     = 0;
@@ -292,7 +300,7 @@ NuDistributionParams NuEquilibriumParams(const MyEOSParams* eos_pars)
  * distr_pars:  neutrino distribution parameters for thick and thin regimes
  * species:     species of neutrino
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 BS_REAL TotalNuF(const BS_REAL omega, const NuDistributionParams* distr_pars,
                  const int nuid)
 {
@@ -317,15 +325,17 @@ BS_REAL TotalNuF(const BS_REAL omega, const NuDistributionParams* distr_pars,
  * M1_params:   M1 quantities
  * eos_params:  parameters from EOS
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
                                                 const MyEOSParams* eos_pars)
 {
+    printf("Inside DistrParamsFromM1\n");
     NuDistributionParams out;
 
     CalculateThickParamsFromM1(M1_pars, &out);
     CalculateThinParamsFromM1(M1_pars, &out);
 
+    printf("Done DistrParamsFromM1\n");
     return out;
 }
 
@@ -333,7 +343,7 @@ NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
  *
  * Computes this for three neutrino species
  */
-inline
+CCTK_DEVICE CCTK_HOST inline
 MyQuadratureIntegrand NuNumberIntegrand(BS_REAL* x, void* p)
 {
     NuDistributionParams* distr_pars = (NuDistributionParams*)p;
@@ -354,7 +364,7 @@ MyQuadratureIntegrand NuNumberIntegrand(BS_REAL* x, void* p)
  * Computes this for three neutrino species
  */
 /*
-inline MyQuadratureIntegrand NuNumber(NuDistributionParams* distr_pars)
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuNumber(NuDistributionParams* distr_pars)
 {
     MyFunctionMultiD integrand;
 
@@ -391,7 +401,7 @@ inline MyQuadratureIntegrand NuNumber(NuDistributionParams* distr_pars)
  *
  * Computes this for three neutrino species
  */
-inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
 {
     MyQuadratureIntegrand result = NuNumberIntegrand(x, p);
 
@@ -408,7 +418,7 @@ inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
  * Computes this for three neutrino species
  */
 /*
-inline MyQuadratureIntegrand NuEnergy(NuDistributionParams* distr_pars)
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuEnergy(NuDistributionParams* distr_pars)
 {
     MyFunctionMultiD integrand;
 
@@ -441,7 +451,7 @@ inline MyQuadratureIntegrand NuEnergy(NuDistributionParams* distr_pars)
 }
 */
 
-inline
+CCTK_DEVICE CCTK_HOST inline
 void ComputeM1DensitiesEq(const MyEOSParams* eos_pars,
                           const NuDistributionParams* nu_distribution_params,
                           M1Quantities* m1_pars)

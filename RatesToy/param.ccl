@@ -1,5 +1,15 @@
 # Parameter definitions for thorn RatesToy
 
+INT ngroups "Number of radiation energy groups" STEERABLE=ALWAYS
+{
+    1 :: "Only 1 is supported at the moment"
+} 1
+
+INT nspecies "Number of radiation species" STEERABLE=ALWAYS
+{
+    3 :: "Only 3 is supported at the moment"
+} 3
+
 CCTK_REAL set_n "Constant number density" STEERABLE=ALWAYS
 {
     (0:* :: "Any positive number"
@@ -12,7 +22,7 @@ CCTK_REAL set_J "Constant energy density" STEERABLE=ALWAYS
 
 CCTK_REAL set_Ht "Constant energy flux" STEERABLE=ALWAYS
 {
-    (0:* :: "Any positive number"
+    0:* :: "Any positive number"
 } 1e-5
 
 CCTK_REAL set_Hx "Constant x flux" STEERABLE=ALWAYS
