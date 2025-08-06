@@ -79,6 +79,14 @@ SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
 {
 } "M1 initial data group"
 
+SCHEDULE nuX_M1_InitialVolForm AT CCTK_INITIAL AFTER (nuX_M1_InitialData) \
+    BEFORE (nuX_M1_CalcClosure)
+{
+    LANG: C
+    READS: ADMBaseX::metric(everywhere)
+    WRITES: volform(everywhere)
+} "Compute the volume form"
+
 SCHEDULE nuX_M1_CalcClosure AT CCTK_INITIAL \
     AFTER (nuX_M1_InitialData nuX_M1_FiducialVelocity nuX_M1_SetToEquilibrium)
 {
