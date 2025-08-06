@@ -1,6 +1,6 @@
 # Interface definition for thorn nuX_M1
 IMPLEMENTS: nuX_M1
-INHERITS: ADMBaseX CarpetXRegrid HydroBaseX TmunuBaseX
+INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX
 
 USES INCLUDE: finite_difference.h
 USES INCLUDE: Symmetry.h

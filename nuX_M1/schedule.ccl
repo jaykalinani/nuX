@@ -57,13 +57,20 @@ SCHEDULE nuX_M1_Reset AT CCTK_INITIAL \
     BEFORE (nuX_M1_InitialData ReadInterpolate_ReadData)
 {
     LANG: C
+
+    WRITES: rN(everywhere) rFx(everywhere) rFy(everywhere) rFz(everywhere) nuX_m1_mask(everywhere)
 } "Initialize everything to zero"
 
 SCHEDULE nuX_M1_FiducialVelocity AT CCTK_INITIAL AFTER HydroBase_Prim2ConInitial
 {
     LANG: C
+    READS: ADMBaseX::metric(everywhere)
+    READS: AsterX::dens(everywhere)
+    READS: HydroBaseX::vel(everywhere)
 
-    
+
+    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+    WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
 
 SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
@@ -82,7 +89,8 @@ SCHEDULE nuX_M1_CalcClosure AT CCTK_INITIAL \
     READS: ADMBaseX::shift(everywhere)
     READS: ADMBaseX::curv(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
-    READS: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    READS: fidu_w_lorentz(everywhere)
+    READS: rP(everywhere) rF(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
@@ -111,12 +119,19 @@ if (reset_to_equilibrium) {
     SCHEDULE nuX_M1_Reset AT CCTK_POST_RECOVER_VARIABLES
     {
         LANG: C
+        WRITES: rN(everywhere) rFx(everywhere) rFy(everywhere) rFz(everywhere) nuX_m1_mask(everywhere)
     } "Initialize everything to zero"
 
     SCHEDULE nuX_M1_FiducialVelocity AT CCTK_POST_RECOVER_VARIABLES \
         AFTER nuX_M1_Reset
     {
         LANG: C
+         READS: ADMBaseX::metric(everywhere)
+         READS: AsterX::dens(everywhere)
+         READS: HydroBaseX::vel(everywhere)
+
+         WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+         WRITES: fidu_w_lorentz(everywhere)
     } "Compute the fiducial velocity"
 
     SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
@@ -161,6 +176,7 @@ SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL
 SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
 {
     LANG: C
+    WRITES: nuX_m1_mask(everywhere)
 } "Excise regions of the domain"
 
 SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
@@ -186,7 +202,11 @@ SCHEDULE nuX_M1_InitRHS IN nuX_M1_TimeStep
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
-
+    READS: ADMBaseX::metric(everywhere)
+    READS: AsterX::dens(everywhere)
+    READS: HydroBaseX::vel(everywhere) 
+    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+    WRITES: fidu_w_lorentz(everywhere)
     
 } "Compute the fiducial velocity"
 
@@ -198,8 +218,9 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
     READS: ADMBaseX::lapse(everywhere)
     READS: ADMBaseX::shift(everywhere)
     READS: ADMBaseX::curv(everywhere)
-    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
-    READS: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
+    READS: fidu_w_lorentz(everywhere)
+    READS: rP(everywhere) rF(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
@@ -220,6 +241,7 @@ if (include_fluxes) {
         READS: rN(everywhere) rE(everywhere) rF(everywhere)
         READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
         WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere)
+        WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
     } "Compute the radiation fluxes and add them the RHS"
 }
 
@@ -229,6 +251,11 @@ if (include_GR_sources) {
         BEFORE nuX_M1_CalcUpdate
     {
         LANG: C
+        
+        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior) ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+        READS: rF(interior) rP(interior)
+        WRITES: rF_rhs(interior) rE_rhs(interior)
+
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
@@ -286,6 +313,11 @@ if (add_to_Tmunu) {
     SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
     {
         LANG: C
+        READS: ADMBaseX::metric(everywhere)
+        READS: AsterX::dens(everywhere)
+        READS: HydroBaseX::vel(everywhere)  
+        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+        WRITES: fidu_w_lorentz(everywhere)
     } "Compute the fiducial velocity"
 
     SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
@@ -330,17 +362,21 @@ SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
     READS: ADMBaseX::lapse(everywhere)
     READS: ADMBaseX::shift(everywhere)
     READS: ADMBaseX::curv(everywhere)
-    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)  
-    READS: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
+    READS: fidu_w_lorentz(everywhere)
+    READS: rP(everywhere) rF(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
-    #TRIGGERS: rP rnnu rJ rHt rH
 } "Compute the M1 closure everywhere on the grid"
 
 SCHEDULE nuX_M1_Analysis AT CCTK_ANALYSIS AFTER nuX_M1_CalcClosure
 {
     LANG: C
     TRIGGERS: neutrino_fractions
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere)
+    READS: rnnu(everywhere) rJ(everywhere)
+    WRITES: ynue(everywhere) ynua(everywhere) ynux(everywhere)
+    WRITES: znue(everywhere) znua(everywhere) znux(everywhere)
 } "Computes M1 analysis quantities"
 
 SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
@@ -348,6 +384,9 @@ SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
              BEFORE outflow
 {
     LANG: C
+    READS: ADMBaseX::metric(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::lapse(everywhere)
+    READS: rHt(everywhere) rH(everywhere) rE(everywhere) rJ(everywhere) rN(everywhere)
+    WRITES: radial_fluxes(everywhere)
 } "Compute radial fluxes"
 
 ###############################################################################
