@@ -1,0 +1,6 @@
+# Configuration definitions for thorn nuX_Utils
+
+REQUIRES Loop AsterUtils
+PROVIDES nuX_Utils {
+}
+REQUIRES nuX_Utils 
