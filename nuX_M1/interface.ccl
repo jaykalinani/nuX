@@ -1,12 +1,12 @@
 # Interface definition for thorn nuX_M1
 IMPLEMENTS: nuX_M1
-INHERITS: ADMBaseX CarpetXRegrid HydroBaseX TmunuBaseX
+INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX
 
 USES INCLUDE: finite_difference.h
 USES INCLUDE: Symmetry.h
 USES INCLUDE: utils.hh
 USES INCLUDE: utils_macro.h
-USES INCLUDE: nuX_printer.hxx
+#USES INCLUDE: nuX_printer.hxx
 
 # === External functions ===
 
@@ -201,3 +201,5 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
 CCTK_INT nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
 
 CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"
+
+CCTK_REAL volform TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Sqrt of the determinant of the spatial metric"

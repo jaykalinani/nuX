@@ -80,13 +80,6 @@ void M1_CalcFlux(CCTK_ARGUMENTS) {
     const CCTK_REAL alp_avg = calc_avg_v2c(alp, p, dir);
     const vec<CCTK_REAL, 3> betas_avg(
         [&](int i) ARITH_INLINE { return calc_avg_v2c(gf_beta(i), p, dir); });
-    const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
-      return calc_avg_v2c(gf_g(i, j), p, dir);
-    });
-
-    /* determinant of spatial metric */
-    const CCTK_REAL detg_avg = calc_det(g_avg);
-    const CCTK_REAL sqrtg = sqrt(detg_avg);
 
     // Loop over groups/species.
     int groupspec = ngroups * nspecies;

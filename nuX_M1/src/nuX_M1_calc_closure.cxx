@@ -22,7 +22,6 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_utils.hxx"
-
 #include "nuX_M1_closure.hxx"
 
 using namespace utils;
@@ -58,13 +57,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
         snprintf(msg, BUFSIZ, "Unknown closure \"%s\"", closure);
         CCTK_ERROR(msg);
     }
-
-    // Setup Printer
-    nuX::Printer::start(
-            "[INFO|nuX|nuX_M1_CalcClosure]: ",
-            "[WARN|nuX|nuX_M1_CalcClosure]: ",
-            "[ERR|nuX|nuX_M1_CalcClosure]: ",
-            m1_max_num_msg, m1_max_num_msg);
 
     tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
             gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz, kzz, volform);
@@ -167,9 +159,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
         });
         gsl_root_fsolver_free(gsl_solver);
     }
-
-    // Done with printing
-    nuX::Printer::stop();
 
     // Restore GSL error handler
     gsl_set_error_handler(gsl_err);
