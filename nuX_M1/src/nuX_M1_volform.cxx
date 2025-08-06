@@ -45,6 +45,7 @@ extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
                 volform[p.I] = 0;
                 continue;
             }
+         const smat<GF3D2<const CCTK_REAL>, dim> gf_g{gxx, gxy, gxz, gyy, gyz, gzz};
          const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
             return calc_avg_v2c(gf_g(i, j), p, dir);
          });
