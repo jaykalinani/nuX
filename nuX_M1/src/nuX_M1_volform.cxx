@@ -56,12 +56,9 @@ extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
          assert(isfinite(volform[p.I]));
            
         });
-        gsl_root_fsolver_free(gsl_solver);
     }
 
     // Done with printing
    //  nuX::Printer::stop();
 
-    // Restore GSL error handler
-    gsl_set_error_handler(gsl_err);
 }
