@@ -8,6 +8,7 @@
 #ifndef BNS_NURATES_SRC_BNS_NURATES_H_
 #define BNS_NURATES_SRC_BNS_NURATES_H_
 
+#define NUX_ATTRIBUTE_NOINLINE __attribute__((__noinline__))
 #include <float.h>
 #include <math.h>
 #include <stdarg.h>

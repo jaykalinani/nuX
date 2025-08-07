@@ -63,7 +63,7 @@ void NRcatch(NRerror err)
 // safe_exp.c
 
 // Safe exp function to avoid underflow/overflow
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL SafeExp(const BS_REAL x)
 {
     return exp(fmin(fmax(x, kBS_ExpLowLim), kBS_ExpUppLim));
@@ -91,7 +91,7 @@ Description:
 */
 
 // static
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL bessi1(const BS_REAL x)
 /*------------------------------------------------------------*/
 /* PURPOSE: Evaluate modified Bessel function In(x) and n=1.  */
@@ -132,7 +132,7 @@ BS_REAL bessi1(const BS_REAL x)
 
 
 // static
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL bessk1(const BS_REAL x)
 /*------------------------------------------------------------*/
 /* PURPOSE: Evaluate modified Bessel function Kn(x) and n=1.  */
@@ -203,7 +203,7 @@ BS_REAL k1(const BS_REAL x) {
     }
 }
 
-inline BS_REAL poly(const BS_REAL *cof, const int n, const BS_REAL x) {
+NUX_ATTRIBUTE_NOINLINE BS_REAL poly(const BS_REAL *cof, const int n, const BS_REAL x) {
     // Common code: Evaluate a polynomial.
     BS_REAL ans = cof[n];
     for (int i=n-1;i>=0;i--) ans = ans*x+cof[i];
@@ -276,7 +276,7 @@ static BS_REAL apsics_data[16] = {
 static ChebSeries apsi_cs = {apsics_data, 15, -1, 1, 9};
 
 // Evaluation of the Chebyshev series cs at a given point x
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void ChebEvalE(const ChebSeries* cs, const BS_REAL x, SFResult* result)
 {
     int j;
@@ -319,7 +319,7 @@ void ChebEvalE(const ChebSeries* cs, const BS_REAL x, SFResult* result)
  * of the function
  */
 /*
-inline
+NUX_ATTRIBUTE_NOINLINE
 void SFPsiOutput(const BS_REAL x, SFResult* result)
 {
     const BS_REAL y = fabs(x);
@@ -419,7 +419,7 @@ void SFPsiOutput(const BS_REAL x, SFResult* result)
 
 // Evaluation of Psi (Digamma) function (only result)
 /*
-inline
+NUX_ATTRIBUTE_NOINLINE
 BS_REAL SFPsi(const BS_REAL x)
 {
     SFResult result;
@@ -434,7 +434,7 @@ BS_REAL SFPsi(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = -9/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_m92(const BS_REAL x)
 {
     const BS_REAL factor = -2. / 7.; // = 1/(k+1)
@@ -701,7 +701,7 @@ BS_REAL FDI_m92(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = -7/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_m72(const BS_REAL x)
 {
     const BS_REAL factor = -2. / 5.; // = 1/(k+1)
@@ -951,7 +951,7 @@ BS_REAL FDI_m72(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k=-5/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_m52(const BS_REAL x)
 {
     const BS_REAL factor = -2. / 3.; // = 1/(k+1)
@@ -1164,7 +1164,7 @@ BS_REAL FDI_m52(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = -3/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_m32(const BS_REAL x)
 {
     const BS_REAL factor = -2.; // = 1/(k+1)
@@ -1362,7 +1362,7 @@ BS_REAL FDI_m32(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = -1/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_m12(const BS_REAL x)
 {
     const BS_REAL factor = 2.; // = 1/(k+1)
@@ -1542,7 +1542,7 @@ BS_REAL FDI_m12(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 0 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_0(const BS_REAL y)
 {
     BS_REAL x, ex, t, s;
@@ -1608,7 +1608,7 @@ BS_REAL FDI_0(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 1/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p12(const BS_REAL x)
 {
     BS_REAL ex, t, w, s;
@@ -1787,7 +1787,7 @@ BS_REAL FDI_p12(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 1 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p1(const BS_REAL y)
 {
     BS_REAL x, ex, t, s;
@@ -1856,7 +1856,7 @@ BS_REAL FDI_p1(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 3/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p32(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 5.; // = 1/(k+1)
@@ -2043,7 +2043,7 @@ BS_REAL FDI_p32(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p2(const BS_REAL y)
 {
     BS_REAL x, ex, t, s;
@@ -2108,7 +2108,7 @@ BS_REAL FDI_p2(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 5/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p52(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 7.; // = 1/(k+1)
@@ -2285,7 +2285,7 @@ BS_REAL FDI_p52(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 3 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p3(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -2346,7 +2346,7 @@ BS_REAL FDI_p3(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 7/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p72(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 9.; // = 1/(k+1)
@@ -2527,7 +2527,7 @@ BS_REAL FDI_p72(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 4 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p4(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -2588,7 +2588,7 @@ BS_REAL FDI_p4(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 9/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p92(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 11.; // = 1/(k+1)
@@ -2770,7 +2770,7 @@ BS_REAL FDI_p92(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 5 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p5(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -2833,7 +2833,7 @@ BS_REAL FDI_p5(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 11/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p112(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 13.; // = 1/(k+1)
@@ -3020,7 +3020,7 @@ BS_REAL FDI_p112(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 6 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p6(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -3083,7 +3083,7 @@ BS_REAL FDI_p6(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 13/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p132(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 15.; // = 1/(k+1)
@@ -3287,7 +3287,7 @@ BS_REAL FDI_p132(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 7 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p7(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -3353,7 +3353,7 @@ BS_REAL FDI_p7(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 15/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p152(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 17.; // = 1/(k+1)
@@ -3555,7 +3555,7 @@ BS_REAL FDI_p152(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 8 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p8(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -3616,7 +3616,7 @@ BS_REAL FDI_p8(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 17/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p172(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 19.; // = 1/(k+1)
@@ -3816,7 +3816,7 @@ BS_REAL FDI_p172(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 9 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p9(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -3874,7 +3874,7 @@ BS_REAL FDI_p9(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 19/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p192(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 21.; // = 1/(k+1)
@@ -4085,7 +4085,7 @@ BS_REAL FDI_p192(const BS_REAL x)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 10 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p10(const BS_REAL y)
 {
     BS_REAL x, ex, t, s, y2;
@@ -4148,7 +4148,7 @@ BS_REAL FDI_p10(const BS_REAL y)
 
 /* BS_REAL precision rational minimax approximation of non-relativistic */
 /* Fermi-Dirac integral of order k = 21/2 */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FDI_p212(const BS_REAL x)
 {
     const BS_REAL factor = 2. / 23.; // = 1/(k+1)
@@ -4368,7 +4368,7 @@ BS_REAL FDI_p212(const BS_REAL x)
  * 	temp  [MeV] : temperature
  * 	mu    [MeV] : chemical potential
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL FermiDistr(const BS_REAL e, const BS_REAL temp, const BS_REAL mu)
 {
     const BS_REAL arg = (e - mu) / temp;
@@ -4393,7 +4393,7 @@ BS_REAL FermiDistr(const BS_REAL e, const BS_REAL temp, const BS_REAL mu)
 
 // Calculates the exponential-dependent factors in the denominator of the NEPS
 // kernel
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL NEPSExpFunc(BS_REAL x)
 {
     const BS_REAL exp_ = SafeExp(-fabs(x));
@@ -4412,7 +4412,7 @@ BS_REAL NEPSExpFunc(BS_REAL x)
 
 // Computation of gamma function
 // Taken from Numerical Recipes ("numerical.recipes/book/book.html")
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL Gammln(const BS_REAL xx)
 {
     int j;
@@ -4452,7 +4452,7 @@ BS_REAL Gammln(const BS_REAL xx)
 }
 
 // Compute the Gamma function using Serling's approximation
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL GammaStirling(const BS_REAL x)
 {
     constexpr BS_REAL zero  = 0;
@@ -4474,7 +4474,7 @@ BS_REAL GammaStirling(const BS_REAL x)
  */
 
 // Recursive formula for W0 real branch of Lambert function
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL W0(const BS_REAL x)
 {
     constexpr BS_REAL zero = 0;
@@ -4523,7 +4523,7 @@ constexpr int ntrial_1d   = 150;     // Maximum allowed number of iterations.
 constexpr BS_REAL xacc_1d = 1.0e-07; // Set the accuracy for Newton Raphson
 
 // 1D Newton-Raphson with analytic derivative
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL MNewt1d(BS_REAL guess, BS_REAL x1, BS_REAL x2, BS_REAL f0,
                 MyFunction* func, MyFunction* dfunc)
 {
@@ -4629,7 +4629,7 @@ BS_REAL MNewt1d(BS_REAL guess, BS_REAL x1, BS_REAL x2, BS_REAL f0,
  *	2 --> [1,0]
  *	3 --> [1,1]
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void Invert2DMat(BS_REAL* in, BS_REAL* out)
 {
     const BS_REAL den = in[0] * in[3] - in[1] * in[2];
@@ -4663,7 +4663,7 @@ const int ntrial_2d   = 1000;  // Max number of NR iterations
 const BS_REAL tolx_2d = 1.e-5; // Accuracy level on the variable
 const BS_REAL tolf_2d = 1.e-7; // Accuracy level on the functions
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void MNewt2d(BS_REAL* x, BS_REAL C[2],
              void (*fdf)(BS_REAL*, BS_REAL*, BS_REAL*, BS_REAL*))
 {
@@ -4708,7 +4708,7 @@ void MNewt2d(BS_REAL* x, BS_REAL C[2],
 #define a_heaviside 20.
 
 // Implementation with if statement
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL HeavisidePiecewise(const BS_REAL x)
 {
     constexpr BS_REAL zero = 0;
@@ -4725,7 +4725,7 @@ BS_REAL HeavisidePiecewise(const BS_REAL x)
 }
 
 // Continuous approximation with tanh - (Eq.5)
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL HeavisideTanhApprox(const BS_REAL x)
 {
     constexpr BS_REAL half = 0.5;
@@ -4753,7 +4753,7 @@ BS_REAL HeavisideTanhApprox(const BS_REAL x)
 
 // m1matrix.c
 //  \brief Routines for operating on M1Matrix structures
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void InitializeM1MatrixSingleFlavor(M1Matrix* mat, const int n, const int idx)
 {
     mat->m1_mat_ab[idx] = (BS_REAL**)malloc(sizeof(BS_REAL*) * 2 * n);
@@ -4774,7 +4774,7 @@ void InitializeM1MatrixSingleFlavor(M1Matrix* mat, const int n, const int idx)
     return;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void FreeM1MatrixSingleFlavor(M1Matrix* mat, const int n, const int idx)
 {
     for (int i = 0; i < 2 * n; i++)
@@ -4789,7 +4789,7 @@ void FreeM1MatrixSingleFlavor(M1Matrix* mat, const int n, const int idx)
     return;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void InitializeM1Matrix(M1Matrix* mat, const int n)
 {
     for (int idx = 0; idx < total_num_species; idx++)
@@ -4800,7 +4800,7 @@ void InitializeM1Matrix(M1Matrix* mat, const int n)
     return;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void FreeM1Matrix(M1Matrix* mat, const int n)
 {
     for (int idx = 0; idx < total_num_species; idx++)

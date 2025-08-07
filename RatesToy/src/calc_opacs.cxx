@@ -36,7 +36,7 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
                           .points = {0},
                           .w      = {0}};
   GaussLegendre(&my_quad);
-  printf("Quadratures generated.\n");
+  //printf("Quadratures generated.\n");
 
   // Opacity flags (activate all reactions)
   OpacityFlags opacity_flags = opacity_flags_default_all;
@@ -47,13 +47,13 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
   // Init EOS
   auto eos_3p = global_eos_3p_tab3d;
 
-  printf("Starting Loop.\n");
+  //printf("Starting Loop.\n");
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 
       // Init GreyOpacs struct
-      printf("Init Gray Opac Params.\n");
+      //printf("Init Gray Opac Params.\n");
       GreyOpacityParams my_grey_opacity_params;
 
       // my_grey_opacity_params.opacity_flags = {
@@ -78,7 +78,7 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
 
       const int ijk = layout2.linear(p.i, p.j, p.k);
 
-      printf("Loading Thermo Data.\n");
+      //printf("Loading Thermo Data.\n");
       // Load Thermodynamic Data
       CCTK_REAL rhoL = rho[ijk];
       CCTK_REAL tempL = temperature[ijk];
@@ -87,19 +87,20 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
       my_grey_opacity_params.eos_pars.temp = tempL;
       my_grey_opacity_params.eos_pars.yp   = yeL;
       my_grey_opacity_params.eos_pars.yn   = 1.0 - yeL;
+
       CCTK_REAL mu_pL, mu_nL, mu_eL;
-      eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, tempL, yeL, &mu_pL, &mu_nL, &mu_eL);
+      eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL, mu_eL);
       my_grey_opacity_params.eos_pars.mu_p = mu_pL;
       my_grey_opacity_params.eos_pars.mu_n = mu_nL;
       my_grey_opacity_params.eos_pars.mu_e = mu_eL;
 
       // Load M1 Data
-      printf("Loading M1 Data.\n");
+      //printf("Loading M1 Data.\n");
 			// for (int ig = 0; ig < ngroups * nspecies; ++ig) {
 			for (int ig = 0; ig < 3; ++ig) {
 				// int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
         const int i4D = layout2.linearVec3(p.i, p.j, p.k, ig);
-        // printf("At i4D = %i, ijk = %i, point = (%i, %i, %i), group %i.\n", i4D, ijk, p.i, p.j, p.k, ig);
+        // //printf("At i4D = %i, ijk = %i, point = (%i, %i, %i), group %i.\n", i4D, ijk, p.i, p.j, p.k, ig);
         my_grey_opacity_params.m1_pars.n[ig]   = rnt[i4D];
         my_grey_opacity_params.m1_pars.J[ig]   = rJt[i4D];
         my_grey_opacity_params.m1_pars.H[ig][0]   = rHt_t[i4D];
@@ -113,7 +114,7 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
           &my_grey_opacity_params.m1_pars,
           &my_grey_opacity_params.eos_pars);
           
-      printf("Done Loading Gray Opac Params.\n");
+      //printf("Done Loading Gray Opac Params.\n");
       // Set up quadrature on GPU
       MyQuadrature gpu_quad;
       gpu_quad.nx = my_quad.nx; 
@@ -130,7 +131,7 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
 			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
 				// int const i4D = CCTK_VectGFIndex3D(cctkGH, p.i, p.j, p.k, ig);
         const int i4D = layout2.linearVec3(p.i, p.j, p.k, ig);
-        printf("At idx (%i, %i, %i), rho T Ye = (%e, %e, %e), group %i; abs0[%i] = %e, abs1[%i] = %e\n", 
+        //printf("At idx (%i, %i, %i), rho T Ye = (%e, %e, %e), group %i; abs0[%i] = %e, abs1[%i] = %e\n", 
             p.i, p.j, p.k, rhoL, tempL, yeL, ig, coeffs.kappa_0_a[ig], coeffs.kappa_a[ig]);
 
         abs_0t[i4D] = coeffs.kappa_0_a[ig];

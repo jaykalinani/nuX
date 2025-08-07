@@ -29,7 +29,7 @@ distribution
  * distr_pars:  uses temp_t (fluid temperature) and eta_t (degeneracy parameter)
  * species:     species of neutrino
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL NuFThick(const BS_REAL omega, const NuDistributionParams* distr_pars,
                  const int nuid)
 {
@@ -48,7 +48,7 @@ density)
  * out_distr_pars:  computes trapped neutrino temperature and degeneracy
 parameter
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                                 NuDistributionParams* out_distribution_pars)
 {
@@ -191,7 +191,7 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
  * distr_pars:  optically thin parameters
  * species:     species of neutrino
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL NuFThin(const BS_REAL omega, const NuDistributionParams* distr_pars,
                 const int nuid)
 {
@@ -208,7 +208,7 @@ BS_REAL NuFThin(const BS_REAL omega, const NuDistributionParams* distr_pars,
  * M1_params:       uses n (neutrino number density) and J (neutrino energy
  * density) out_distr_pars:  computes free neutrino temperature and c_f
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
                                NuDistributionParams* out_distribution_pars)
 {
@@ -255,7 +255,7 @@ void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
 /* Function for evaluating parameters of neutrino distribution function at
  * equilibrium
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 NuDistributionParams NuEquilibriumParams(const MyEOSParams* eos_pars)
 {
     constexpr BS_REAL zero     = 0;
@@ -300,7 +300,7 @@ NuDistributionParams NuEquilibriumParams(const MyEOSParams* eos_pars)
  * distr_pars:  neutrino distribution parameters for thick and thin regimes
  * species:     species of neutrino
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL TotalNuF(const BS_REAL omega, const NuDistributionParams* distr_pars,
                  const int nuid)
 {
@@ -325,7 +325,7 @@ BS_REAL TotalNuF(const BS_REAL omega, const NuDistributionParams* distr_pars,
  * M1_params:   M1 quantities
  * eos_params:  parameters from EOS
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
                                                 const MyEOSParams* eos_pars)
 {
@@ -343,7 +343,7 @@ NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
  *
  * Computes this for three neutrino species
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 MyQuadratureIntegrand NuNumberIntegrand(BS_REAL* x, void* p)
 {
     NuDistributionParams* distr_pars = (NuDistributionParams*)p;
@@ -364,7 +364,7 @@ MyQuadratureIntegrand NuNumberIntegrand(BS_REAL* x, void* p)
  * Computes this for three neutrino species
  */
 /*
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuNumber(NuDistributionParams* distr_pars)
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand NuNumber(NuDistributionParams* distr_pars)
 {
     MyFunctionMultiD integrand;
 
@@ -401,7 +401,7 @@ CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuNumber(NuDistributionParams
  *
  * Computes this for three neutrino species
  */
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
 {
     MyQuadratureIntegrand result = NuNumberIntegrand(x, p);
 
@@ -418,7 +418,7 @@ CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x,
  * Computes this for three neutrino species
  */
 /*
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuEnergy(NuDistributionParams* distr_pars)
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand NuEnergy(NuDistributionParams* distr_pars)
 {
     MyFunctionMultiD integrand;
 
@@ -451,7 +451,7 @@ CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand NuEnergy(NuDistributionParams
 }
 */
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void ComputeM1DensitiesEq(const MyEOSParams* eos_pars,
                           const NuDistributionParams* nu_distribution_params,
                           M1Quantities* m1_pars)

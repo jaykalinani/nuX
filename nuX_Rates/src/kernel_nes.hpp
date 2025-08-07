@@ -26,7 +26,7 @@ constexpr BS_REAL kTaylorSeriesEpsilon = 1e-3;
 //---------------------------------------------------------------------------------------------------------------------
 
 // Saves the expression that are needed for the unapproximated integral
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void ComputeFDIForInelastic(BS_REAL w, BS_REAL wp, BS_REAL eta,
                             BS_REAL* fdi_diff_w, BS_REAL* fdi_diff_abs)
 {
@@ -47,7 +47,7 @@ void ComputeFDIForInelastic(BS_REAL w, BS_REAL wp, BS_REAL eta,
 //=========================================================================================================================================
 
 // Not approximated out kernel integral
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL MezzacappaIntOut(BS_REAL w, BS_REAL wp, BS_REAL x, BS_REAL y, int sign,
                          BS_REAL b1, BS_REAL b2, BS_REAL* fdi_diff_w,
                          BS_REAL* fdi_diff_abs)
@@ -79,7 +79,7 @@ BS_REAL MezzacappaIntOut(BS_REAL w, BS_REAL wp, BS_REAL x, BS_REAL y, int sign,
 
 // Taylor expansion in the lowest energy of the function MezzacappaIntOut and
 // MezzacappaIntIn
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL MezzacappaIntOneEnergy(BS_REAL x, BS_REAL y, int sign, BS_REAL b1,
                                BS_REAL b2, const BS_REAL* fdis)
 {
@@ -108,7 +108,7 @@ BS_REAL MezzacappaIntOneEnergy(BS_REAL x, BS_REAL y, int sign, BS_REAL b1,
 
 // Taylor expansion in both energies of the function MezzacappaIntOut and
 // MezzacappaIntIn
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL MezzacappaIntTwoEnergies(BS_REAL w, BS_REAL wp, BS_REAL x, BS_REAL y,
                                  BS_REAL b1, BS_REAL b2, const BS_REAL* fdis)
 {
@@ -136,7 +136,7 @@ BS_REAL MezzacappaIntTwoEnergies(BS_REAL w, BS_REAL wp, BS_REAL x, BS_REAL y,
 
 // Calculates and saves the neutrino electron scattering in and out kernel for
 // every neutrino species
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 MyKernelOutput NESKernels(InelasticScattKernelParams* kernel_params,
                           MyEOSParams* eos_params)
 {
@@ -237,7 +237,7 @@ MyKernelOutput NESKernels(InelasticScattKernelParams* kernel_params,
 
 // Calculates and saves the neutrino positron scattering in and out kernel for
 // every neutrino species
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 MyKernelOutput NPSKernels(InelasticScattKernelParams* kernel_params,
                           MyEOSParams* eos_params)
 {
@@ -338,7 +338,7 @@ MyKernelOutput NPSKernels(InelasticScattKernelParams* kernel_params,
 }
 
 // Calculates the full in and out kernels
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 MyKernelOutput InelasticScattKernels(InelasticScattKernelParams* kernel_params,
                                      MyEOSParams* eos_params)
 {
@@ -356,7 +356,7 @@ MyKernelOutput InelasticScattKernels(InelasticScattKernelParams* kernel_params,
     return tot_kernel;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void InelasticKernelsTable(const int n, BS_REAL* nu_array,
                            GreyOpacityParams* grey_pars, M1MatrixKokkos2D* out)
 {

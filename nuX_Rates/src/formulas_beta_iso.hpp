@@ -61,7 +61,7 @@
  *
  *  Output: j [nm^-3]
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL EtaNNAbs(const BS_REAL n_in, const BS_REAL n_out, const BS_REAL mu_hat,
                  const BS_REAL T)
 {
@@ -103,7 +103,7 @@ BS_REAL EtaNNAbs(const BS_REAL n_in, const BS_REAL n_out, const BS_REAL mu_hat,
  * Output:
  *      Eta_np from Bruenn (C14) [nm^-3]
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL EtaNP(const BS_REAL nn, const BS_REAL np, const BS_REAL mu_hat,
               const BS_REAL T)
 {
@@ -117,7 +117,7 @@ BS_REAL EtaNP(const BS_REAL nn, const BS_REAL np, const BS_REAL mu_hat,
  * Output:
  *      Eta_pn [nm^-3]
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL EtaPN(const BS_REAL nn, const BS_REAL np, const BS_REAL mu_hat,
               const BS_REAL T)
 {
@@ -137,7 +137,7 @@ BS_REAL EtaPN(const BS_REAL nn, const BS_REAL np, const BS_REAL mu_hat,
  *    out[0]: j_nue [s^-1], out[1]: 1/lamda_nue [s^-1], out[2]: j_anue [s^-1],
  * out[3]: 1/lamda_anue [s^-1]
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
                          MyEOSParams* eos_pars, const BS_REAL mass_lepton,
                          const BS_REAL mu_lepton, BS_REAL* out)
@@ -290,7 +290,7 @@ void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
  *
  * @TODO: add support for muons
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 MyOpacity AbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
                      MyEOSParams* eos_pars)
 {
@@ -329,7 +329,7 @@ MyOpacity AbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
  * Both opacities are energy dependent
  * @TODO: add support for muons
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 MyOpacity StimAbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
                          MyEOSParams* eos_pars)
 {
@@ -342,7 +342,7 @@ MyOpacity StimAbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
     return abs_opacity;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void BetaOpacitiesTable(MyQuadrature* quad, MyEOSParams* eos_pars,
                         OpacityParams* opacity_pars, BS_REAL t,
                         M1MatrixKokkos2D* out)
@@ -412,7 +412,7 @@ void BetaOpacitiesTable(MyQuadrature* quad, MyEOSParams* eos_pars,
  * @param yN    proton/neutron fraction
  * @return      The degeneracy parameter \f$\eta_{NN} [nm^-3]\f$
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL EtaNNSc(const BS_REAL nb, const BS_REAL temp, const BS_REAL yN)
 {
     constexpr BS_REAL zero         = 0;
@@ -452,7 +452,7 @@ BS_REAL EtaNNSc(const BS_REAL nb, const BS_REAL temp, const BS_REAL yN)
  * scattering)
  * @return              "Eq.(A41)" \f$[MeV nm^{3} s^{-1}]\f$
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL IsoScattNucleon(const BS_REAL omega, OpacityParams* opacity_pars,
                         MyEOSParams* eos_pars, const BS_REAL yN,
                         const int reacflag)
@@ -504,7 +504,7 @@ BS_REAL IsoScattNucleon(const BS_REAL omega, OpacityParams* opacity_pars,
  * @param eos_pars      structure for equation of state parameters
  * @return              "Eq.(A41)" \f$[MeV nm{^3} s^{-1}]\f$
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL IsoScattProton(const BS_REAL omega, OpacityParams* opacity_pars,
                        MyEOSParams* eos_pars)
 {
@@ -521,7 +521,7 @@ BS_REAL IsoScattProton(const BS_REAL omega, OpacityParams* opacity_pars,
  * @param eos_pars      structure for equation of state parameters
  * @return              "Eq.(A41)" \f$[MeV nm{^3} s^{-1}]\f$
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL IsoScattNeutron(const BS_REAL omega, OpacityParams* opacity_pars,
                         MyEOSParams* eos_pars)
 {
@@ -538,7 +538,7 @@ BS_REAL IsoScattNeutron(const BS_REAL omega, OpacityParams* opacity_pars,
  * @param eos_pars      structure for equation of state parameters
  * @return              "Eq.(A41)" \f$[MeV nm{^3} s^{-1}]\f$
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL IsoScattTotal(const BS_REAL omega, OpacityParams* opacity_pars,
                       MyEOSParams* eos_pars)
 {
@@ -564,7 +564,7 @@ BS_REAL IsoScattTotal(const BS_REAL omega, OpacityParams* opacity_pars,
  * @return              Legendre coefficient of order l of the isoscattering
  * kernel
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 BS_REAL IsoScattLegCoeff(const BS_REAL omega, OpacityParams* opacity_pars,
                          MyEOSParams* eos_pars, const int l)
 {

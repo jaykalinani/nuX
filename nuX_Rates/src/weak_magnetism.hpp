@@ -42,7 +42,7 @@ constexpr BS_REAL lamn = -1.913; // neutron magnetic moment
  *
  */
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void NucFrmFac(const BS_REAL E, BS_REAL* cv, BS_REAL* ca, BS_REAL* F2,
                const int reacflag)
 {
@@ -121,7 +121,7 @@ void NucFrmFac(const BS_REAL E, BS_REAL* cv, BS_REAL* ca, BS_REAL* F2,
 // -> l- + p) Rbar -> Correction for electron antineutrino absorption on proton
 // (anu_l + p -> l+ + n) reacflag = 3 (for nuclear form factors) Input: omega ->
 // neutrino energy [MeV]
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void WMAbsEm(const BS_REAL omega, BS_REAL* R, BS_REAL* Rbar)
 {
     constexpr BS_REAL one   = 1;
@@ -163,7 +163,7 @@ void WMAbsEm(const BS_REAL omega, BS_REAL* R, BS_REAL* Rbar)
 // Correction for (anti)neutrino scattering on nucleons (nu + N -> nu + N):
 // reacflag = 1 | 2 Input: omega -> neutrino energy [MeV] Output: correction to
 // zeroth (R0) and first Legendre (R1) coefficients of scattering kernel
-CCTK_DEVICE CCTK_HOST inline
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void WMScatt(const BS_REAL omega, BS_REAL* R0, BS_REAL* R1, const int reacflag)
 {
     constexpr BS_REAL two          = 2;
