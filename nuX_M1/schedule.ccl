@@ -3,9 +3,9 @@
 ###############################################################################
 # Storage
 ###############################################################################
-STORAGE: rN[timelevels]
-STORAGE: rE[timelevels]
-STORAGE: rF[timelevels]
+STORAGE: rN
+STORAGE: rE
+STORAGE: rF
 STORAGE: rP
 
 STORAGE: rnnu
@@ -13,7 +13,7 @@ STORAGE: rJ
 STORAGE: rHt
 STORAGE: rH
 
-STORAGE: radial_fluxes[timelevels]
+STORAGE: radial_fluxes
 STORAGE: neutrino_fractions
 
 STORAGE: opacs

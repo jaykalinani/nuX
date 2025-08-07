@@ -34,7 +34,8 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
                                           fidu_velz);
 
   // UTILS_LOOP3(thc_m1_calc_radial_fluxes, k, 0, cctk_lsh[2], j, 0,
-  // cctk_lsh[1], 						i, 0, cctk_lsh[0]) {
+  // cctk_lsh[1], 						i, 0,
+  // cctk_lsh[0]) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {

@@ -16,13 +16,23 @@ extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_InitialCopy");
   }
 
-  size_t siz = UTILS_GFSIZE(cctkGH) * nspecies * sizeof(CCTK_REAL);
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
-  std::memcpy(rN, rN_p, siz);
-  std::memcpy(rE, rE_p, siz);
-  std::memcpy(rFx, rFx_p, siz);
-  std::memcpy(rFy, rFy_p, siz);
-  std::memcpy(rFz, rFz_p, siz);
+  grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const int groupspec = ngroups * nspecies;
+
+        for (int ig = 0; ig < groupspec; ++ig) {
+          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
+
+          rN[i4D] = rN_p[i4D];
+          rE[i4D] = rE_p[i4D];
+          rFx[i4D] = rFx_p[i4D];
+          rFy[i4D] = rFy_p[i4D];
+          rFz[i4D] = rFz_p[i4D];
+        }
+      });
 }
 
 } // namespace nuX_M1

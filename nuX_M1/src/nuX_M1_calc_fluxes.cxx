@@ -139,7 +139,7 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
           }
 
           //--- Store the computed flux into the proper face-centered grid
-          //function ---
+          // function ---
           // TODO: need to define the following grid functions
           if (dir == 0) {
             for (int iv = 0; iv < 5; ++iv)
@@ -316,8 +316,9 @@ extern "C" void nuX_M1_CalcFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcFluxes;
   DECLARE_CCTK_PARAMETERS;
 
-  CCTK_INFO("nuX_M1_CalcFluxes");
-
+  if (verbose) {
+    CCTK_INFO("nuX_M1_CalcFluxes");
+  }
   // For each spatial direction, first compute the fluxes
 
   M1_CalcFlux<0>(CCTK_PASS_ARGUMENTS);
@@ -329,8 +330,9 @@ extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_UpdateRHSFromFluxes;
   DECLARE_CCTK_PARAMETERS;
 
-  CCTK_INFO("nuX_M1_CalcFluxes");
-
+  if (verbose) {
+    CCTK_INFO("nuX_M1_CalcFluxes");
+  }
   // next, update the cell-centered RHS using those fluxes.
 
   M1_UpdateRHSFromFluxes<0>(CCTK_PASS_ARGUMENTS);

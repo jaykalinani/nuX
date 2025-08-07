@@ -3,7 +3,8 @@
 namespace nuX_M1 {
 
 extern "C" int nuX_M1_Init(void) {
-  CCTK_RegisterBanner("nuX_M1: yetX anotherX M1X solverX forX CactusX");
+  CCTK_RegisterBanner(
+      "nuX_M1: the best M1 neutrino transport solver for CarpetX");
   return 0;
 }
 

@@ -13,7 +13,7 @@
 
 namespace nuX_M1 {
 
-using namespace utils;
+using namespace nuX_Utils;
 
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 pack_F_d(CCTK_REAL const betax, CCTK_REAL const betay, CCTK_REAL const betaz,

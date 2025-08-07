@@ -3,9 +3,14 @@
 # Source files in this directory
 SRCS = \
 nuX_M1_analysis.cxx \
-#nuX_M1_copy_levels.cxx \
-#nuX_M1_init.cxx \
-#nuX_M1_initial_copy.cxx \
+nuX_M1_copy_levels.cxx \
+nuX_M1_init.cxx \
+nuX_M1_initial_copy.cxx \
+nuX_M1_init_rhs.cxx \
+nuX_M1_param_check.cxx \
+nuX_M1_volform.cxx \
+nuX_M1_setmask.cxx \
+nuX_M1_reset.cxx \
 
 
 # Subdirectories containing source files

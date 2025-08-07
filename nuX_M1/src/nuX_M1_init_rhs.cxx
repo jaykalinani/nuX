@@ -16,13 +16,24 @@ extern "C" void nuX_M1_InitRHS(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_InitRHS");
   }
 
-  size_t siz = UTILS_GFSIZE(cctkGH) * nspecies * sizeof(CCTK_REAL);
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
-  std::memset(rN_rhs, 0, siz);
-  std::memset(rE_rhs, 0, siz);
-  std::memset(rFx_rhs, 0, siz);
-  std::memset(rFy_rhs, 0, siz);
-  std::memset(rFz_rhs, 0, siz);
+  grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const int groupspec = ngroups * nspecies; // total components
+
+        for (int ig = 0; ig < groupspec; ++ig) {
+          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
+
+          // Zero the RHS buffers
+          rN_rhs[i4D] = 0.0;
+          rE_rhs[i4D] = 0.0;
+          rFx_rhs[i4D] = 0.0;
+          rFy_rhs[i4D] = 0.0;
+          rFz_rhs[i4D] = 0.0;
+        }
+      });
 }
 
 } // namespace nuX_M1
