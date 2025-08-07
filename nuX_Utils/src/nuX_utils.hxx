@@ -8,8 +8,8 @@
 
 #include "nuX_tensor.hxx"
 
-namespace nuX {
-} // namespace nuX
+namespace nuX_Utils {
+} // namespace nuX_Utils
 
 #endif // NUX_UTILS_HXX
 

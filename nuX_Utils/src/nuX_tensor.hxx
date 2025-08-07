@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace nuX {
+namespace nuX_Utils {
 namespace tensor {
 
 //------------------------------------------------------------------------------
@@ -564,7 +564,7 @@ private:
 };
 
 } // namespace tensor
-} // namespace nuX
+} // namespace nuX_Utils
 
 #endif // NUX_TENSOR_HXX
 

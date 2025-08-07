@@ -2,6 +2,9 @@
 
 IMPLEMENTS: nuX_Utils
 
+INCLUDES HEADER: nuX_tensor.hxx IN nuX_tensor.hxx
+INCLUDES HEADER: nuX_utils.hxx IN nuX_utils.hxx
+
 USES INCLUDE HEADER: loop_device.hxx
 USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
 
