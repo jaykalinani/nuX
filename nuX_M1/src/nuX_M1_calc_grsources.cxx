@@ -12,8 +12,8 @@
 
 namespace nuX_M1 {
 
-using namespace aster_utils;
-using namespace nuX_utils;
+using namespace AsterUtils;
+using namespace nuX_Utils;
 
 // NOTE. Unlike the rest of the M1 code, here spatial indices go over 0,1,2
 extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
@@ -32,15 +32,15 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
   };
 
   // Slicing geometry
-  utils::tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy,
+  tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy,
                                              gxz, gyy, gyz, gzz, kxx, kxy, kxz,
                                              kyy, kyz, kzz, volform);
 
-#pragma omp parallel
-  {
-    UTILS_LOOP3(nuX_m1_grsource, k, NUX_M1_NGHOST, cctk_lsh[2] - NUX_M1_NGHOST,
-                j, NUX_M1_NGHOST, cctk_lsh[1] - NUX_M1_NGHOST, i, NUX_M1_NGHOST,
-                cctk_lsh[0] - NUX_M1_NGHOST) {
+   grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+
+
       int const ijk = CCTK_GFINDEX3D(cctkGH, i, j, k);
 
       // Skip masked points
@@ -49,18 +49,18 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
       }
 
       // Geometry on the slice
-      utils::tensor::inv_metric<3> g_uu;
+      tensor::inv_metric<3> g_uu;
       geom.get_inv_metric(ijk, &g_uu);
-      utils::tensor::symmetric2<CCTK_REAL, 3, 2> K_dd;
+      tensor::symmetric2<CCTK_REAL, 3, 2> K_dd;
       geom.get_extr_curv(ijk, &K_dd);
 
       // Lapse derivatives
-      utils::tensor::generic<CCTK_REAL, 3, 1> dalp_d;
+      tensor::generic<CCTK_REAL, 3, 1> dalp_d;
       for (int a = 0; a < 3; ++a) {
         dalp_d(a) = idelta[a] * cdiff_1(cctkGH, alp, i, j, k, a, FDORDER);
       }
       // Shift derivatives
-      utils::tensor::generic<CCTK_REAL, 3, 2> dbeta_du;
+      tensor::generic<CCTK_REAL, 3, 2> dbeta_du;
       for (int a = 0; a < 3; ++a)
         for (int b = 0; b < 3; ++b) {
           CCTK_REAL const *betab = geom.get_shift_comp(b);
@@ -68,7 +68,7 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
               idelta[a] * cdiff_1(cctkGH, betab, i, j, k, a, FDORDER);
         }
       // Metric derivatives
-      utils::tensor::symmetric2<CCTK_REAL, 3, 3> dg_ddd;
+      tensor::symmetric2<CCTK_REAL, 3, 3> dg_ddd;
       for (int a = 0; a < 3; ++a)
         for (int b = 0; b < 3; ++b)
           for (int c = b; c < 3; ++c) {
@@ -115,8 +115,7 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
         }
       }
     }
-    UTILS_ENDLOOP3(nuX_m1_grsource);
-  }
+
 }
 
 } // namespace nuX_M1

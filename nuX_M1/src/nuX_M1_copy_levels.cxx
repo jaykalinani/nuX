@@ -16,21 +16,26 @@ extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CopyLevels");
   }
 
-  size_t siz = UTILS_GFSIZE(cctkGH) * nspecies * sizeof(CCTK_REAL);
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        int const ijk = layout2.linear(p.i, p.j, p.k);
 
-  std::memcpy(rN_p, rN, siz);
-  std::memcpy(rE_p, rE, siz);
-  std::memcpy(rFx_p, rFx, siz);
-  std::memcpy(rFy_p, rFy, siz);
-  std::memcpy(rFz_p, rFz, siz);
+	// Loop over groups/species.
+        int groupspec = ngroups * nspecies;
 
-  if (timelevels > 2) {
-    std::memcpy(rN_p_p, rN, siz);
-    std::memcpy(rE_p_p, rE, siz);
-    std::memcpy(rFx_p_p, rFx, siz);
-    std::memcpy(rFy_p_p, rFy, siz);
-    std::memcpy(rFz_p_p, rFz, siz);
-  }
+        for (int ig = 0; ig < groupspec; ++ig) {
+          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          
+	  rN_p[i4D] = rN[i4D];
+	  rE_p[i4D] = rE[i4D];
+	  rFx_p[i4D] = rFx[i4D];
+	  rFy_p[i4D] = rFy[i4D];
+	  rFz_p[i4D] = rFz[i4D];
+	  
+	}    
+   });	
 }
 
 } // namespace nuX_M1

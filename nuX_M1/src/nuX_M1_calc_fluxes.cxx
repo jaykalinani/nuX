@@ -44,8 +44,9 @@ CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp, CCTK_REAL th) {
 
 namespace nuX_M1 {
 
-using namespace Loop using namespace Arith;
-using namespace utils; // nuXUtils;
+using namespace Loop;
+using namespace Arith;
+using namespace nuX_Utils;
 using namespace std;
 
 // Compute the numerical fluxes using a simple 2nd order flux-limited method

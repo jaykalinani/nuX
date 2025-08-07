@@ -11,7 +11,7 @@
 
 namespace nuX_M1 {
 
-using namespace utils;
+using namespace nuX_Utils;
 using namespace Loop;
 using namespace std;
 

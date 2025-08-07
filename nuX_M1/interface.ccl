@@ -126,6 +126,17 @@ CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"'
     rPxx, rPxy, rPxz, rPyy, rPyz, rPzz
 } "Radiation pressure in the lab frame, normalized with E"
 
+## TODO: add timelevels infrastructure, for now defining previous time_levels explicitly
+
+CCTK_REAL rN_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame for previous timelevel"
+
+CCTK_REAL rE_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame for previous time level"
+
+CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rF_rhs" checkpoint="yes"'
+{
+    rFx_p, rFy_p, rFz_p
+} "Radiation energy flux in the lab frame for previous time level"
+
 ## Fluid frame quantities
 CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"
 

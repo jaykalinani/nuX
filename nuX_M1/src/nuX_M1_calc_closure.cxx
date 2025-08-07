@@ -9,7 +9,7 @@
 
 namespace nuX_M1 {
 
-using namespace utils;
+using namespace nuX_Utils;
 using namespace std;
 
 extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {

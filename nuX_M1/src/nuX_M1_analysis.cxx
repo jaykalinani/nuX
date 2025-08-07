@@ -10,10 +10,9 @@
 #include "nuX_M1_macro.hxx"
 #include <loop_device.hxx>
 
-#include "nuX_utils.hxx"
-
 namespace nuX_M1 {
 
+using namespace nuX_Utils;
 using namespace std;
 using namespace Loop;
 
@@ -42,7 +41,6 @@ extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        // int const ijk = CCTK_GFINDEX3D(cctkGH, i, j, k);
         const int ijk = layout2.linear(p.i, p.j, p.k);
 
         int const ijke = layout2.linear(p.i, p.j, p.k, 0);

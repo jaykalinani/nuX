@@ -1,7 +1,12 @@
 # Main make.code.defn file for thorn nuX_M1
 
 # Source files in this directory
-SRCS = 
+SRCS = \
+nuX_M1_analysis.cxx \
+#nuX_M1_copy_levels.cxx \
+#nuX_M1_init.cxx \
+#nuX_M1_initial_copy.cxx \
+
 
 # Subdirectories containing source files
 SUBDIRS =
