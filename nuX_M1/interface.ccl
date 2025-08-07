@@ -2,11 +2,9 @@
 IMPLEMENTS: nuX_M1
 INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX
 
-USES INCLUDE: finite_difference.h
-USES INCLUDE: Symmetry.h
-USES INCLUDE: utils.hh
+USES INCLUDE: aster_fd.hxx aster_interp.hxx aster_utils.hxx
+USES INCLUDE: nuX_tensor.hxx nuX_utils.hxx
 USES INCLUDE: utils_macro.h
-#USES INCLUDE: nuX_printer.hxx
 
 # === External functions ===
 
@@ -118,7 +116,7 @@ CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs" checkp
 
 CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"' 
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rF_rhs" checkpoint="yes"' 
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
