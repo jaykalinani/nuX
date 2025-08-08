@@ -79,7 +79,7 @@ SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
 {
 } "M1 initial data group"
 
-SCHEDULE nuX_M1_InitialVolForm AT CCTK_INITIAL AFTER (nuX_M1_InitialData) \
+SCHEDULE nuX_M1_InitVolForm AT CCTK_INITIAL AFTER (nuX_M1_InitialData) \
     BEFORE (nuX_M1_CalcClosure)
 {
     LANG: C

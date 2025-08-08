@@ -3,12 +3,11 @@
 #include <sstream>
 #include <string>
 
-// TODO: Dependence on GSL
-
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
 
+#include "nuX_utils.hxx"
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
 
@@ -17,6 +16,7 @@
 
 namespace nuX_M1 {
 
+using namespace nuX_Utils;
 using namespace std;
 
 struct Parameters {

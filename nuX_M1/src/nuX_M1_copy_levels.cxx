@@ -4,8 +4,6 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_utils.hxx"
-
 namespace nuX_M1 {
 
 extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
