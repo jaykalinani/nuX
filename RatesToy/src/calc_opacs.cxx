@@ -102,6 +102,13 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
         my_grey_opacity_params.m1_pars.n[ig]   = rnt[i4D] * nuX_ndens_conv * in_fac; // fm^-3 to nm^-3
         my_grey_opacity_params.m1_pars.J[ig]   = rJt[i4D] * nuX_edens_conv * in_fac; // CU to MeV nm^-3
         my_grey_opacity_params.m1_pars.chi[ig] = chit[i4D];
+
+        // Fill data for anti-heavy neutrinos. We should handle this in a more robust way
+        if (ig == 2) {
+          my_grey_opacity_params.m1_pars.n[3]   = rnt[i4D] * nuX_ndens_conv * in_fac; // fm^-3 to nm^-3
+          my_grey_opacity_params.m1_pars.J[3]   = rJt[i4D] * nuX_edens_conv * in_fac; // CU to MeV nm^-3
+          my_grey_opacity_params.m1_pars.chi[3] = chit[i4D];
+        }
       }
 
       // Distribution parameters
