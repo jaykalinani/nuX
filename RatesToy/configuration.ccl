@@ -1,5 +1,5 @@
 # Configuration definitions for thorn RatesToy
-REQUIRES Loop EOSX
+REQUIRES Loop EOSX nuX_Rates
 
 PROVIDES RatesToy
 {

@@ -503,6 +503,17 @@ struct SpectralOpacities
 typedef struct SpectralOpacities SpectralOpacities;
 
 /* ==================================================================================
+ * Additional tricks for CarpetX
+ * ==================================================================================
+ */
+
+// Define namespace to store global reaction params
+namespace nuX_Rates {
+  extern OpacityFlags global_opac_flags;
+  extern OpacityParams global_opac_params;
+}
+
+/* ==================================================================================
  * Legacy and unused structures @TODO: repurpose or remove safely
  * ==================================================================================
  */

@@ -1,0 +1,53 @@
+# Parameter definitions for thorn nuX_Rates
+
+BOOLEAN use_beta "include beta reactions"
+{
+} "yes"
+
+BOOLEAN use_pair_procs "include pair processes"
+{
+} "yes"
+
+BOOLEAN use_bremsstrahlung "include bremsstrahlung"
+{
+} "yes"
+
+BOOLEAN use_inelastic "include inelastic scattering"
+{
+} "yes"
+
+BOOLEAN use_elastic "include elastic/isoenergetic scattering"
+{
+} "yes"
+
+BOOLEAN corr_dU "include dU correction"
+{
+} "no"
+
+BOOLEAN corr_dmeff "include dmeff correction"
+{
+} "no"
+
+BOOLEAN corr_WM_abs "include weak mag. absorption correction"
+{
+} "no"
+
+BOOLEAN corr_WM_scat "include weak mag. scattering correction"
+{
+} "no"
+
+BOOLEAN corr_decay "include nucleon decay correction"
+{
+} "no"
+
+BOOLEAN corr_BRT_brem "flag for computing NN brem rates using BRT06 instead of HR98"
+{
+} "no"
+
+BOOLEAN corr_NN_medium "flag for inclusion of medium correction to HR98 NN brem kernel as in Fischer16"
+{
+} "no"
+
+BOOLEAN neglect_blocking "neglect antineutrino blocking factor in pair processes"
+{
+} "no"

@@ -2,7 +2,7 @@
 # $Header:$
 
 # Source files in this directory
-SRCS = 
+SRCS = init_nuX_rates.cxx
 
 # Subdirectories containing source files
 SUBDIRS = 
