@@ -14,7 +14,9 @@ extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CopyLevels");
   }
 
+  const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
+
   grid.loop_int_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {

@@ -1,4 +1,4 @@
-#include <algorithm>   // harmless to keep
+#include <algorithm> // harmless to keep
 #include <cstring>
 
 #include "cctk.h"
@@ -23,7 +23,7 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout        layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
   if (CCTK_Equals(fiducial_velocity, "fluid")) {
 
@@ -32,9 +32,9 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const int ijk = layout2.linear(p.i, p.j, p.k);
 
-          fidu_velx[ijk]      = velx[ijk];
-          fidu_vely[ijk]      = vely[ijk];
-          fidu_velz[ijk]      = velz[ijk];
+          fidu_velx[ijk] = velx[ijk];
+          fidu_vely[ijk] = vely[ijk];
+          fidu_velz[ijk] = velz[ijk];
           fidu_w_lorentz[ijk] = w_lorentz[ijk];
         });
 
@@ -79,13 +79,12 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const int ijk = layout2.linear(p.i, p.j, p.k);
 
-          fidu_velx[ijk]      = CCTK_REAL(0);
-          fidu_vely[ijk]      = CCTK_REAL(0);
-          fidu_velz[ijk]      = CCTK_REAL(0);
+          fidu_velx[ijk] = CCTK_REAL(0);
+          fidu_vely[ijk] = CCTK_REAL(0);
+          fidu_velz[ijk] = CCTK_REAL(0);
           fidu_w_lorentz[ijk] = CCTK_REAL(1);
         });
   }
 }
 
 } // namespace nuX_M1
-

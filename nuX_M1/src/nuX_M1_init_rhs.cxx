@@ -16,6 +16,7 @@ extern "C" void nuX_M1_InitRHS(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_InitRHS");
   }
 
+  const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
   grid.loop_int_device<1, 1, 1>(

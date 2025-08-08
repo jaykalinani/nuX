@@ -13,7 +13,7 @@ using namespace nuX_Utils;
 using namespace std;
 
 extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTSX_nuX_M1_CalcClosure;
+  DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcClosure;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose) {
@@ -48,6 +48,8 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
   {
     gsl_root_fsolver *gsl_solver =
         gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
+
+    const GridDescBaseDevice grid(cctkGH);
     const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
     grid.loop_all_device<1, 1, 1>(

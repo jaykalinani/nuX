@@ -26,8 +26,8 @@ extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
 
           /* determinant of spatial metric */
           const CCTK_REAL detg_avg = calc_det(g_avg);
-          volform[p.I] = sqrt(detg_avg);
-          assert(isfinite(volform[p.I]));
+          volform(p.I) = sqrt(detg_avg);
+          assert(isfinite(volform(p.I)));
         });
   }
 }
