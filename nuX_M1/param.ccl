@@ -8,7 +8,7 @@ EXTENDS KEYWORD initial_hydro "Hydro initial data"
 
 SHARES: HydroBaseX
 #USES INT hydro_excision
-USES KEYWORD evolution_method
+#USES KEYWORD evolution_method
 
 RESTRICTED:
 
@@ -186,9 +186,9 @@ REAL equilibrium_rho_min "Set to equilibrium only if the density is larger than 
 ###############################################################################
 # Numerical settings
 ###############################################################################
-#BOOLEAN copy_levels "Fill past timelevels after initial data"
-#{
-#} "yes"
+BOOLEAN copy_levels "Fill past timelevels after initial data"
+{
+} "yes"
 
 # This requires cctk_nghostzones >= 4
 BOOLEAN optimize_prolongation "Disable prolongation during the intermediate steps of the time integrator"
