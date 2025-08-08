@@ -14,6 +14,7 @@ namespace nuX_M1 {
 
 using namespace AsterUtils; // calc_fd_v2c<>
 using namespace nuX_Utils;  // tensor helpers
+using namespace Loop;
 
 // NOTE: unlike the rest of M1, spatial indices run over 0,1,2 here
 extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {

@@ -9,6 +9,8 @@
 
 namespace nuX_M1 {
 
+using namespace Loop;
+
 extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_InitialCopy;
   DECLARE_CCTK_PARAMETERS

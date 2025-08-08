@@ -5,9 +5,9 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_utils.hxx"
-
 namespace nuX_M1 {
+
+using namespace Loop;
 
 extern "C" void nuX_M1_InitRHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_InitRHS;

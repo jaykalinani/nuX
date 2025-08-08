@@ -7,6 +7,8 @@
 
 namespace nuX_M1 {
 
+using namespace Loop;
+
 extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CopyLevels;
   DECLARE_CCTK_PARAMETERS

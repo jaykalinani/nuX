@@ -12,6 +12,7 @@ namespace nuX_M1 {
 
 using namespace nuX_Utils;
 using namespace std;
+using namespace Loop;
 
 extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcClosure;

@@ -7,6 +7,8 @@
 
 namespace nuX_M1 {
 
+using namespace Loop;
+
 extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_nuX_M1_InitVolform;
   DECLARE_CCTK_PARAMETERS;
