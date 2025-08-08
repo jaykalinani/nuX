@@ -213,8 +213,8 @@ SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
 SCHEDULE nuX_M1_InitRHS IN nuX_M1_TimeStep
 {
     LANG: C
-    WRITES: rN(interior) rE(interior) rF(interior)
-    SYNC: rN rE rF
+    WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior) 
+    SYNC: rN_rhs rE_rhs rF_rhs
 } "Initialize explicit RHSs to zero"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
@@ -258,9 +258,14 @@ if (include_fluxes) {
         READS: ADMBaseX::shift(interior)
         READS: rN(interior) rE(interior) rF(interior)
         READS: fidu_vel(interior) nuX_m1_mask(interior)
+        READS: rHt(interior) rH(interior)
+        READS: rP(interior) rJ(interior)
+        READS: fidu_w_lorentz(interior)
+        READS: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
+        READS: opacs(interior)
         WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
         WRITES: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
-        SYNC: rN_rhs rE_rhs rF_rhs nu_flux_x nu_flux_y nu_flux_z
+        SYNC: rN_rhs rE_rhs rF_rhs nu_flux_x nu_flux_y nu_flux_z rHt rH rP rJ fidu_w_lorentz
     } "Compute the radiation fluxes and add them the RHS"
 }
 
@@ -405,7 +410,10 @@ SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
 {
     LANG: C
     READS: ADMBaseX::metric(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::lapse(everywhere)
-    READS: rHt(everywhere) rH(everywhere) rE(everywhere) rJ(everywhere) rN(everywhere)
+    READS: ADMBaseX::curv(everywhere) volform(everywhere)
+    READS: rHt(everywhere) rH(everywhere) rE(everywhere) rJ(everywhere) rN(everywhere) rF(everywhere)
+    READS: fidu_vel(everywhere) fidu_w_lorentz(everywhere)
+    READS: nuX_m1_mask(everywhere)
     WRITES: radial_fluxes(everywhere)
 } "Compute radial fluxes"
 
