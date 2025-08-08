@@ -52,7 +52,6 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                                 NuDistributionParams* out_distribution_pars)
 {
-    printf("Inside ThickParamsFromM1\n");
     constexpr BS_REAL zero         = 0;
     constexpr BS_REAL one          = 1;
     constexpr BS_REAL half         = 0.5;
@@ -91,10 +90,8 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
         255.936658313629, 9.42360945627147e-5, 81.2467063138386,
         180.100197053091, 89.0343496217014,    143.849128123195};
 
-    printf("Starting species loop\n");
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
-        printf("Calculating species %i\n", nuid);
         const BS_REAL n   = fmax(1e-100, M1_pars->n[nuid]); // [nm^-3]
         const BS_REAL J   = fmax(1e-100, M1_pars->J[nuid]); // [MeV nm^-3]
         const BS_REAL chi = M1_pars->chi[nuid];
@@ -166,17 +163,13 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
             out_distribution_pars->eta_t[nuid] = twenty;
         }
 
-        printf("Finalizing distribution pars\n");
         out_distribution_pars->eta_t[nuid] =
             fmin(out_distribution_pars->eta_t[nuid], twenty);
-        printf("Set eta\n");
 
         out_distribution_pars->temp_t[nuid] =
             FDI_p2(out_distribution_pars->eta_t[nuid]) * J /
             (FDI_p3(out_distribution_pars->eta_t[nuid]) * n);
-        printf("Set temp\n");
     }
-    printf("Done with Thick\n");
 }
 
 /* ===========================================================================
@@ -212,7 +205,6 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
                                NuDistributionParams* out_distribution_pars)
 {
-    printf("Inside ThinParamsFromM1\n");
     constexpr BS_REAL zero      = 0;
     constexpr BS_REAL one       = 1;
     constexpr BS_REAL three     = 3;
@@ -329,13 +321,11 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
 NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
                                                 const MyEOSParams* eos_pars)
 {
-    printf("Inside DistrParamsFromM1\n");
     NuDistributionParams out;
 
     CalculateThickParamsFromM1(M1_pars, &out);
     CalculateThinParamsFromM1(M1_pars, &out);
 
-    printf("Done DistrParamsFromM1\n");
     return out;
 }
 

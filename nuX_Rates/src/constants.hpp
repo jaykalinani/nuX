@@ -32,6 +32,29 @@
 inline constexpr double kBS_MeV_double = 1.6021766341182763e+8;
 inline constexpr BS_REAL kBS_MeV       = kBS_MeV_double;
 
+// fm^-3 to nm^-3
+inline constexpr BS_REAL nuX_ndens_conv = 1.0e9;
+
+// CU to nm^-3
+inline constexpr double nuX_CUndens_conv = 3.1059132074685616e-37;
+
+// CU to g
+inline constexpr double nuX_mass_conv = 1.9889199999999999e+33;
+
+// CU to MeV
+inline constexpr double nuX_energy_conv = 1.1154161350360074e+60;
+
+// CU to g nm^-3
+inline constexpr BS_REAL nuX_dens_conv = nuX_CUndens_conv * nuX_mass_conv;
+
+// CU to MeV nm^-3
+inline constexpr BS_REAL nuX_edens_conv = nuX_CUndens_conv * nuX_energy_conv;
+
+// CU to s
+inline constexpr BS_REAL nuX_time_conv = 4.9257949707731345e-06;
+
+// CU to nm
+inline constexpr BS_REAL nuX_length_conv = 1476625038050.1248;
 
 ////////////////////////
 // PHYSICAL CONSTANTS //
@@ -222,6 +245,9 @@ inline constexpr BS_REAL kBS_MnGrams =
 // Proton mass in grams
 inline constexpr BS_REAL kBS_MpGrams =
     kBS_Mp * kBS_MeV_double / POW2(kBS_Clight);
+
+// Proton mass in grams
+inline constexpr BS_REAL kBS_MeVtog = kBS_MeV_double / POW2(kBS_Clight);
 
 // Geometric mean of nucleon masses in grams
 inline constexpr BS_REAL kBS_MAvgGrams =
