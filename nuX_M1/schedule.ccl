@@ -108,8 +108,9 @@ if (copy_levels) {
         AFTER (nuX_M1_InitialData nuX_M1_SetToEquilibrium)
     {
         LANG: C
-        READS: rN(everywhere) rE(everywhere) rF(everywhere)
-        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
+        READS: rN(interior) rE(interior) rF(interior)
+        WRITES: rN_p(interior) rE_p(interior) rF_p(interior)
+        SYNC: rN_p rE_p rF_p
     } "Copy data to past timelevels"
 }
 
@@ -168,6 +169,9 @@ SCHEDULE nuX_M1_InitialCopy AT CCTK_EVOL \
     BEFORE (MoL_Evolution nuX_M1_WRAP)
 {
     LANG: C
+    READS: rN_p(interior) rE_p(interior) rF_p(interior)
+    WRITES: rN(interior) rE(interior) rF(interior)
+    SYNC: rN rE rF
 } "Copy the data from the previous time-level to the current one"
 
 SCHEDULE GROUP nuX_M1_WRAP AT CCTK_EVOL \
@@ -209,6 +213,8 @@ SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
 SCHEDULE nuX_M1_InitRHS IN nuX_M1_TimeStep
 {
     LANG: C
+    WRITES: rN(interior) rE(interior) rF(interior)
+    SYNC: rN rE rF
 } "Initialize explicit RHSs to zero"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
@@ -247,13 +253,14 @@ if (include_fluxes) {
         AFTER (nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
     {
         LANG: C
-        READS: ADMBaseX::metric(everywhere)
-        READS: ADMBaseX::lapse(everywhere)
-        READS: ADMBaseX::shift(everywhere)
-        READS: rN(everywhere) rE(everywhere) rF(everywhere)
-        READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
-        WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere)
-        WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
+        READS: ADMBaseX::metric(interior)
+        READS: ADMBaseX::lapse(interior)
+        READS: ADMBaseX::shift(interior)
+        READS: rN(interior) rE(interior) rF(interior)
+        READS: fidu_vel(interior) nuX_m1_mask(interior)
+        WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+        WRITES: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
+        SYNC: rN_rhs rE_rhs rF_rhs nu_flux_x nu_flux_y nu_flux_z
     } "Compute the radiation fluxes and add them the RHS"
 }
 
@@ -264,10 +271,9 @@ if (include_GR_sources) {
     {
         LANG: C
         
-        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior) ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
-        READS: rF(interior) rP(interior)
-        WRITES: rF_rhs(interior) rE_rhs(interior)
-        SYNC: rF_rhs rE_rhs
+        READS: ADMBaseX::metric(exterior) ADMBaseX::curv(exterior) ADMBaseX::lapse(exterior) ADMBaseX::shift(exterior)
+        READS: rF(exterior) rP(exterior)
+        WRITES: rF_rhs(exterior) rE_rhs(exterior)
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
