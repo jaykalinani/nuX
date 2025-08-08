@@ -108,6 +108,8 @@ if (copy_levels) {
         AFTER (nuX_M1_InitialData nuX_M1_SetToEquilibrium)
     {
         LANG: C
+        READS: rN(everywhere) rE(everywhere) rF(everywhere)
+        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
     } "Copy data to past timelevels"
 }
 
@@ -153,6 +155,8 @@ if (reset_to_equilibrium) {
             AFTER nuX_M1_SetToEquilibrium
         {
             LANG: C
+            READS: rN(everywhere) rE(everywhere) rF(everywhere)
+            WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
         } "Copy data to past timelevels"
     }
 }
