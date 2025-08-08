@@ -271,9 +271,9 @@ if (include_GR_sources) {
     {
         LANG: C
         
-        READS: ADMBaseX::metric(exterior) ADMBaseX::curv(exterior) ADMBaseX::lapse(exterior) ADMBaseX::shift(exterior)
-        READS: rF(exterior) rP(exterior)
-        WRITES: rF_rhs(exterior) rE_rhs(exterior)
+        READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+        READS: rF(everywhere) rP(everywhere)
+        WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
