@@ -1,4 +1,5 @@
 #include <cassert>
+#include <loop_device.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"

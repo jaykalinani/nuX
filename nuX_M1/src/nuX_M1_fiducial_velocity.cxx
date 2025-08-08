@@ -1,11 +1,11 @@
-#include <algorithm> // harmless to keep
+#include <algorithm> 
 #include <cstring>
+#include <loop_device.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include <loop_device.hxx>
 #include "nuX_utils.hxx"
 
 #define CGS_GCC (1.619100425158886e-18)

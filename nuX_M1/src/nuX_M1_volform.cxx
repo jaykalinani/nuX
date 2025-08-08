@@ -1,4 +1,5 @@
 #include <cassert>
+#include <loop_device.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
@@ -14,8 +15,7 @@ extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_InitVolform");
   }
 
-  {
-    grid.loop_all_device<1, 1, 1>(
+  grid.loop_all_device<1, 1, 1>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const smat<GF3D2<const CCTK_REAL>, dim> gf_g{gxx, gxy, gxz,
@@ -29,7 +29,7 @@ extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
           volform(p.I) = sqrt(detg_avg);
           assert(isfinite(volform(p.I)));
         });
-  }
+  
 }
 
 } // namespace nuX_M1

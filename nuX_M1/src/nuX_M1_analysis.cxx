@@ -2,13 +2,13 @@
 #include <cassert>
 #include <sstream>
 #include <cmath>
+#include <loop_device.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_macro.hxx"
-#include <loop_device.hxx>
 
 namespace nuX_M1 {
 

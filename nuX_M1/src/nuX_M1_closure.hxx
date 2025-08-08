@@ -1,8 +1,6 @@
 #ifndef NUX_M1_CLOSURE_HXX
 #define NUX_M1_CLOSURE_HXX
 
-// TODO: GSL dependence
-
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>

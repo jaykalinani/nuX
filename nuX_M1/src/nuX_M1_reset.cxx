@@ -1,11 +1,11 @@
 #include <cstring>
+#include <loop_device.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
 #include "nuX_utils.hxx"
-#include <loop_device.hxx>
 
 namespace nuX_M1 {
 

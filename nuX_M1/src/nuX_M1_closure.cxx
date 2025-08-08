@@ -2,17 +2,18 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <loop_device.hxx>
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
 
+#include "cctk_Arguments.h"
+#include "cctk_Parameters.h"
+
 #include "nuX_utils.hxx"
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
-
-#include <cctk_Arguments.h>
-#include <cctk_Parameters.h>
 
 namespace nuX_M1 {
 
