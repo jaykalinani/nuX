@@ -353,6 +353,9 @@ if (add_to_Tmunu) {
         READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
         READS: volform(everywhere) rE(everywhere) rF(everywhere) 
         READS: ADMBaseX::shift(everywhere)
+        READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
+        WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
+        SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
     } "Adds the contribution of radiation to the global stress-energy tensor"
 }
 
@@ -475,29 +478,29 @@ if ((CCTK_Equals(nuX_m1_test, "kerrschild")) || (CCTK_Equals(nuX_m1_test, "spher
 }
 
 if (CCTK_Equals(nuX_m1_test, "kerrschild")) {
-    SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
-        AFTER nuX_M1_ApplyBCs
-    {
-        LANG: C
-    } "Apply custom boundary conditions"
+#    SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
+#        AFTER nuX_M1_ApplyBCs
+#    {
+#        LANG: C
+#    } "Apply custom boundary conditions"
+#
+     SCHEDULE nuX_M1_KerrSchild_Mask IN nuX_M1_EVOL \
+         AFTER nuX_M1_SetMask \
+         BEFORE nuX_M1_TimeStep
+     {
+         LANG: C
+         WRITES: nuX_m1_mask(everywhere)
+         WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
+     } "Cheap excision for the Kerr Schild test"
+ }
 
-    SCHEDULE nuX_M1_KerrSchild_Mask IN nuX_M1_EVOL \
-        AFTER nuX_M1_SetMask \
-        BEFORE nuX_M1_TimeStep
-    {
-        LANG: C
-        WRITES: nuX_m1_mask(everywhere)
-        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
-    } "Cheap excision for the Kerr Schild test"
-}
-
-if (CCTK_Equals(nuX_m1_test, "shadow")) {
-    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
-        AFTER nuX_M1_ApplyBCs
-    {
-        LANG: C
-    } "Apply custom boundary conditions"
-}
+#if (CCTK_Equals(nuX_m1_test, "shadow")) {
+#    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
+#        AFTER nuX_M1_ApplyBCs
+#    {
+#        LANG: C
+#    } "Apply custom boundary conditions"
+#}
 
 # This would need to change if we want to couple with another hydro solver
 # if (!CCTK_Equals(evolution_method, "nuXode")) {
