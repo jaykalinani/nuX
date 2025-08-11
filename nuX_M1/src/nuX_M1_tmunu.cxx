@@ -5,8 +5,8 @@
 #include "nuX_M1_macro.hxx"
 #include "nuX_M1_closure.hxx"
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_roots.h>
+//#include <gsl/gsl_errno.h>
+//#include <gsl/gsl_roots.h>
 
 namespace nuX_M1 {
 
@@ -21,7 +21,7 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   }
 
   // Disable GSL error handler
-  gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
+  //gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
 
   // Pick closure
   closure_t closure_fun = nullptr;
@@ -90,7 +90,7 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
       gsl_root_fsolver *gsl_solver =
           gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
 
-      calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, gsl_solver, g_dd,
+      calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun,  g_dd,
                    g_uu, n_d, W, u_u, v_d, proj_ud, rE[i4D], F_d, mychi, P_dd);
 
       gsl_root_fsolver_free(gsl_solver);
