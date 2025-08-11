@@ -17,6 +17,8 @@
 #include "nuX_utils.hxx"
 #include "nuX_M1_macro.hxx"
 
+#include "roots.hxx"
+
 namespace nuX_M1 {
 
 using namespace nuX_Utils;
@@ -541,9 +543,9 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
 
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
-  if ((zFunction(x_lo, &params)*zFunction(x_hi, &params) >= 0) {
-    double const z_ed = zFunction(1. / 3., F.params);
-    double const z_th = zFunction(1., F.params);
+  if (zFunction(x_lo, &params)*zFunction(x_hi, &params) >= 0) {
+    double const z_ed = zFunction(1. / 3., &params);
+    double const z_th = zFunction(1., &params);
     if (abs(z_th) < abs(z_ed)) {
       *chi = 1.0;
     } else {
