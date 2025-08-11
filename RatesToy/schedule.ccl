@@ -1,4 +1,4 @@
-# Schedule definitions for thorn nuX_M1
+# Schedule definitions for thorn RatesToy
 
 SCHEDULE RatesToy_Init AT CCTK_INITIAL AFTER AsterX_InitialGroup 
 {

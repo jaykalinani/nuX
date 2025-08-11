@@ -1,8 +1,8 @@
-# Main make.code.defn file for thorn nuX_Rates
+# Main make.code.defn file for thorn nuX_FakeRates
 # $Header:$
 
 # Source files in this directory
-SRCS = init_nuX_rates.cxx
+SRCS = 
 
 # Subdirectories containing source files
 SUBDIRS = 

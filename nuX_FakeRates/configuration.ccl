@@ -1,0 +1,5 @@
+# Configuration definitions for thorn nuX_FakeRates
+
+PROVIDES nuX_FakeRates
+{
+}

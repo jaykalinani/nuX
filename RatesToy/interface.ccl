@@ -4,6 +4,7 @@ INHERITS: HydrobaseX
 
 USES INCLUDE: loop_device.hxx
 USES INCLUDE: m1_opacities.hpp
+USES INCLUDE: nuX_fakerates.hxx
 
 ## Fluid frame quantities
 CCTK_REAL rnt[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"

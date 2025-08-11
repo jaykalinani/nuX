@@ -6,11 +6,15 @@
 
 #include "setup_eos.hxx"
 #include "m1_opacities.hpp"
+#include "nuX_fakerates.hxx"
 
 namespace RatesToy {
 using namespace Loop;
 using namespace EOSX;
 using namespace nuX_Rates;
+using namespace nuX_FakeRates;
+
+enum class rates_t { NuRates, FakeRates};
 
 extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_RatesToy_Calc;
@@ -19,6 +23,70 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
   // Set ccc layout
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
+
+  // Set Rates function
+  rates_t ratestype;
+  if (CCTK_EQUALS(rates_type, "nurates")) {
+    ratestype = rates_t::NuRates;
+  } else if (CCTK_EQUALS(rates_type, "fakerates")) {
+    ratestype = rates_t::FakeRates;
+  } else {
+    CCTK_ERROR("Unknown value for parameter \"rates_type\"");
+  }
+
+  const auto calcrates =
+      [=] CCTK_DEVICE(const MyQuadrature* quad_1d,
+                     const MyQuadrature* quad_2d,
+                     GreyOpacityParams* my_grey_opacity_params) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        M1Opacities ratesout;
+        switch (ratestype) {
+
+        case rates_t::FakeRates: {
+          // this should just be plain fluid mass density in CU
+          const BS_REAL rhoL = my_grey_opacity_params->eos_pars.nb / nuX_dens_conv / (particle_mass * kBS_MeVtog);
+
+          // Electron neutrinos
+          ratesout.kappa_0_a[0] = rhoL * kappa_abs_nue;
+          ratesout.kappa_a[0]   = rhoL * kappa_abs_nue;
+          ratesout.kappa_s[0]   = rhoL * kappa_scat_nue;
+          ratesout.eta_0[0]     = rhoL * eta_nue;
+          ratesout.eta[0]       = rhoL * eta_nue;
+
+          // Anti-electron neutrinos
+          ratesout.kappa_0_a[1] = rhoL * kappa_abs_nua;
+          ratesout.kappa_a[1]   = rhoL * kappa_abs_nua;
+          ratesout.kappa_s[1]   = rhoL * kappa_scat_nua;
+          ratesout.eta_0[1]     = rhoL * eta_nua;
+          ratesout.eta[1]       = rhoL * eta_nua;
+
+          // Heavy neutrinos
+          ratesout.kappa_0_a[2] = rhoL * kappa_abs_nux;
+          ratesout.kappa_a[2]   = rhoL * kappa_abs_nux;
+          ratesout.kappa_s[2]   = rhoL * kappa_scat_nux;
+          ratesout.eta_0[2]     = rhoL * eta_nux;
+          ratesout.eta[2]       = rhoL * eta_nux;
+
+          // Heavy neutrinos
+          ratesout.kappa_0_a[3] = rhoL * kappa_abs_anux;
+          ratesout.kappa_a[3]   = rhoL * kappa_abs_anux;
+          ratesout.kappa_s[3]   = rhoL * kappa_scat_anux;
+          ratesout.eta_0[3]     = rhoL * eta_anux;
+          ratesout.eta[3]       = rhoL * eta_anux;
+
+          break;
+        }
+
+        case rates_t::NuRates: {
+          ratesout = ComputeM1Opacities(quad_1d, quad_2d, my_grey_opacity_params);
+          break;
+        }
+
+        default:
+          assert(0);
+        }
+
+        return ratesout;
+      };
 
   // Init structs for nurates calls
   MyQuadrature my_quad = {.type   = kGauleg,
@@ -95,7 +163,7 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
 
       // Convert M1 Data to nurates
 			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-        const int i4D = layout2.linearVec3(p.i, p.j, p.k, ig);
+        const int i4D = layout2.linear(p.i, p.j, p.k, ig);
         CCTK_REAL in_fac = 1.0;
         if (ig == 2)
           CCTK_REAL in_fac = 1.0/4.0; // Heavy neutrinos account for 4 species
@@ -125,12 +193,12 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
           gpu_quad.points[idx] = my_quad.points[idx];
       }
 
-      M1Opacities coeffs = ComputeM1Opacities(&gpu_quad, &gpu_quad,
+      M1Opacities coeffs = calcrates(&gpu_quad, &gpu_quad,
                                               &my_grey_opacity_params);
             
       // Convert emissivities, opacities from nurates
 			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-        const int i4D = layout2.linearVec3(p.i, p.j, p.k, ig);
+        const int i4D = layout2.linear(p.i, p.j, p.k, ig);
 
         CCTK_REAL out_fac = 1.0;
         if (ig == 2)

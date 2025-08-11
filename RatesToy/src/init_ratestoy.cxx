@@ -19,7 +19,7 @@ extern "C" void RatesToy_Init(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 
 			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-				int const i4D = layout2.linearVec3(p.i, p.j, p.k, ig);
+				int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
 				rnt[i4D] = set_n;
 				rJt[i4D] = set_J;

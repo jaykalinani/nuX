@@ -1,0 +1,4 @@
+# Interface definition for thorn nuX_FakeRates
+
+IMPLEMENTS: nuX_FakeRates
+INCLUDES HEADER: nuX_fakerates.hxx IN nuX_fakerates.hxx
