@@ -577,7 +577,13 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   };
 
   auto result = Algo::brent(fn, a, b, minbits, closure_maxiter, iter);
+  // Bracket endpoints
+  CCTK_REAL a_root = result.first;
+  CCTK_REAL b_root = result.second;
 
+  // average approach:
+  CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+  *chi = closure_fun(xi);
 /*
   do {
     ++iter;
