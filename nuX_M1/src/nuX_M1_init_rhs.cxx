@@ -1,26 +1,13 @@
-//  Templated Hydrodynamics Code: an hydro code built on top of HRSCCore
-//  Copyright (C) 2020, David Radice <david.radice@psu.edu>
-//
-//  This program is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 #include <cstring>
+#include <loop_device.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "utils.hh"
+namespace nuX_M1 {
+
+using namespace Loop;
 
 extern "C" void nuX_M1_InitRHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_InitRHS;
@@ -30,11 +17,25 @@ extern "C" void nuX_M1_InitRHS(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_InitRHS");
   }
 
-  size_t siz = UTILS_GFSIZE(cctkGH) * nspecies * sizeof(CCTK_REAL);
+  const GridDescBaseDevice grid(cctkGH);
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
-  std::memset(rN_rhs, 0, siz);
-  std::memset(rE_rhs, 0, siz);
-  std::memset(rFx_rhs, 0, siz);
-  std::memset(rFy_rhs, 0, siz);
-  std::memset(rFz_rhs, 0, siz);
+  grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const int groupspec = ngroups * nspecies; // total components
+
+        for (int ig = 0; ig < groupspec; ++ig) {
+          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
+
+          // Zero the RHS buffers
+          rN_rhs[i4D] = 0.0;
+          rE_rhs[i4D] = 0.0;
+          rFx_rhs[i4D] = 0.0;
+          rFy_rhs[i4D] = 0.0;
+          rFz_rhs[i4D] = 0.0;
+        }
+      });
 }
+
+} // namespace nuX_M1

@@ -1,7 +1,23 @@
 # Main make.code.defn file for thorn nuX_M1
 
 # Source files in this directory
-SRCS = 
+SRCS = \
+nuX_M1_analysis.cxx \
+nuX_M1_calc_closure.cxx \
+nuX_M1_calc_fluxes.cxx \
+nuX_M1_calc_grsources.cxx \
+nuX_M1_calc_radial_fluxes.cxx \
+nuX_M1_closure.cxx \
+nuX_M1_copy_levels.cxx \
+nuX_M1_fiducial_velocity.cxx \
+nuX_M1_init.cxx \
+nuX_M1_initial_copy.cxx \
+nuX_M1_init_rhs.cxx \
+nuX_M1_param_check.cxx \
+nuX_M1_reset.cxx \
+nuX_M1_setmask.cxx \
+nuX_M1_volform.cxx \
 
 # Subdirectories containing source files
 SUBDIRS =
+

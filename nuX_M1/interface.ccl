@@ -1,12 +1,12 @@
 # Interface definition for thorn nuX_M1
 IMPLEMENTS: nuX_M1
-INHERITS: ADMBaseX CarpetXRegrid HydroBaseX TmunuBaseX
+INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX
 
-USES INCLUDE: finite_difference.h
-USES INCLUDE: Symmetry.h
-USES INCLUDE: utils.hh
-USES INCLUDE: utils_macro.h
-USES INCLUDE: nuX_printer.hxx
+INCLUDES HEADER: nuX_M1_macro.hxx IN nuX_M1_macro.hxx
+INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx 
+
+USES INCLUDE: aster_fd.hxx aster_interp.hxx aster_utils.hxx
+USES INCLUDE: nuX_metric.hxx nuX_pow.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx
 
 # === External functions ===
 
@@ -118,7 +118,7 @@ CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs" checkp
 
 CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"' 
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rF_rhs" checkpoint="yes"' 
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
@@ -127,6 +127,17 @@ CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"'
 {
     rPxx, rPxy, rPxz, rPyy, rPyz, rPzz
 } "Radiation pressure in the lab frame, normalized with E"
+
+## TODO: add timelevels infrastructure, for now defining previous time_levels explicitly
+
+CCTK_REAL rN_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame for previous timelevel"
+
+CCTK_REAL rE_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame for previous time level"
+
+CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rF_rhs" checkpoint="yes"'
+{
+    rFx_p, rFy_p, rFz_p
+} "Radiation energy flux in the lab frame for previous time level"
 
 ## Fluid frame quantities
 CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"
@@ -201,3 +212,5 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
 CCTK_INT nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
 
 CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"
+
+CCTK_REAL volform TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Sqrt of the determinant of the spatial metric"
