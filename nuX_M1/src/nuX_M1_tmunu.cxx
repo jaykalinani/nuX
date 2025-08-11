@@ -89,18 +89,18 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
           pack_F_d(betax[ijk], betay[ijk], betaz[ijk], rFx[i4D], rFy[i4D],
-                   rFz[i4D], F_d);
+                   rFz[i4D], &F_d);
 
           CCTK_REAL mychi = 0.5;
           // gsl_root_fsolver *gsl_solver =
           //     gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
 
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                       W, u_u, v_d, proj_ud, rE[i4D], F_d, mychi, P_dd);
+                       W, u_u, v_d, proj_ud, rE[i4D], F_d, &mychi, &P_dd, closure_epsilon, closure_maxiter);
 
           // gsl_root_fsolver_free(gsl_solver);
 
-          assemble_rT(n_d, rE[i4D], F_d, P_dd, rT_dd);
+          assemble_rT(n_d, rE[i4D], F_d, P_dd, &rT_dd);
 
           eTtt[p.I] += rT_dd(0, 0) * iV;
           eTtx[p.I] += rT_dd(0, 1) * iV;
