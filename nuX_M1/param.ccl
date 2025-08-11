@@ -277,3 +277,6 @@ CCTK_REAL kerr_mask_radius "Excision radius for the Kerr Schild test"
 {
     0:* :: "Any non-negative number"
 } 2.0
+
+SHARES: EOSX
+USES CCTK_REAL particle_mass

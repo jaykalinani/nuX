@@ -28,6 +28,7 @@ using namespace std;
 typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
 
 struct Parameters {
+  CCTK_HOST CCTK_DEVICE
   Parameters(closure_t _closure, tensor::metric<4> const &_g_dd,
              tensor::inv_metric<4> const &_g_uu,
              tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
