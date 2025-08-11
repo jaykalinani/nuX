@@ -329,26 +329,32 @@ SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
 {
 } "Apply boundary conditions"
 
-#if (add_to_Tmunu) {
-#    SCHEDULE GROUP nuX_M1_Tmunu IN AddToTmunu
-#    {
-#    } "Adds the contribution of radiation to the global stress-energy tensor"
-#
-#    SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
-#    {
-#        LANG: C
-#        READS: ADMBaseX::metric(everywhere)
-#        READS: AsterX::dens(everywhere)
-#        READS: HydroBaseX::vel(everywhere)  
-#        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
-#        WRITES: fidu_w_lorentz(everywhere)
-#    } "Compute the fiducial velocity"
-#
-#    SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
-#    {
-#        LANG: C
-#    } "Adds the contribution of radiation to the global stress-energy tensor"
-#}
+if (add_to_Tmunu) {
+    SCHEDULE GROUP nuX_M1_Tmunu IN AddToTmunu
+    {
+    } "Adds the contribution of radiation to the global stress-energy tensor"
+
+    SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
+    {
+        LANG: C
+        READS: ADMBaseX::metric(everywhere)
+        READS: AsterX::dens(everywhere)
+        READS: HydroBaseX::vel(everywhere)  
+        READS: nuX_m1_mask(everywhere)
+        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+        WRITES: fidu_w_lorentz(everywhere)
+    } "Compute the fiducial velocity"
+
+    SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
+    {
+        LANG: C
+        READS: nuX_m1_mask(everywhere)
+        READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+        READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
+        READS: volform(everywhere) rE(everywhere) rF(everywhere) 
+        READS: ADMBaseX::shift(everywhere)
+    } "Adds the contribution of radiation to the global stress-energy tensor"
+}
 
 ###############################################################################
 # Stuff outside of the main loop
@@ -421,62 +427,83 @@ SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
 ###############################################################################
 # Tests
 ###############################################################################
-#if (CCTK_Equals(initial_hydro, "nuX_M1")) {
-#    SCHEDULE nuX_M1_SetupTest_Hydro IN HydroBase_Initial
-#    {
-#        LANG: C
-#    } "Initialize hydro quantities"
-#}
+if (CCTK_Equals(initial_hydro, "nuX_M1")) {
+    SCHEDULE nuX_M1_SetupTest_Hydro IN HydroBase_Initial
+    {
+        LANG: C
+        WRITES: HydroBaseX::rho(everywhere) HydroBaseX::vel(everywhere)
+    } "Initialize hydro quantities"
+}
 
-#if (!CCTK_Equals(nuX_m1_test, "none")) {
-#    SCHEDULE nuX_M1_SetupTest IN nuX_M1_InitialData
-#    {
-#        LANG: C
-#    } "Setup initial data for simple tests"
-#}
+if (CCTK_Equals(nuX_m1_test, "beam")) {
+    SCHEDULE nuX_M1_SetupTest_beam IN nuX_M1_InitialData
+    {
+        LANG: C
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
+    } "Setup initial data for beam test"
+}
 
-#if (CCTK_Equals(nuX_m1_test, "equil")) {
-#    STORAGE: nuX_Core::dens[1]
-#    STORAGE: nuX_Core::densxn[1]
-#    STORAGE: nuX_Core::densxp[1]
-#    STORAGE: nuX_Core::scon[1]
-#    STORAGE: nuX_Core::tau[1]
-#    STORAGE: nuX_Core::volform[1]
-#
-#    SCHEDULE nuX_ConsToAll IN HydroBase_Con2Prim
-#    {
-#        LANG: C
-#    } "Computes the primitives from the conservatives"
-#}
+if (CCTK_Equals(nuX_m1_test, "diff")) {
+    SCHEDULE nuX_M1_SetupTest_diff IN nuX_M1_InitialData
+    {
+        LANG: C
+        READS: rE(everywhere) fidu_w_lorentz(everywhere) fidu_vel(everywhere)
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
+    } "Setup initial data for diff test"
+}
 
-#if (CCTK_Equals(nuX_m1_test, "kerrschild")) {
-#    SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
-#        AFTER nuX_M1_ApplyBCs
-#    {
-#        LANG: C
-#    } "Apply custom boundary conditions"
-#
-#    SCHEDULE nuX_M1_KerrSchild_Mask IN nuX_M1_EVOL \
-#        AFTER nuX_M1_SetMask \
-#        BEFORE nuX_M1_TimeStep
-#    {
-#        LANG: C
-#    } "Cheap excision for the Kerr Schild test"
-#}
+if (CCTK_Equals(nuX_m1_test, "equil")) {
+    SCHEDULE nuX_M1_SetupTest_equil IN nuX_M1_InitialData
+    {
+        LANG: C
+        READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere) 
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
 
-#if (CCTK_Equals(nuX_m1_test, "shadow")) {
-#    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
-#        AFTER nuX_M1_ApplyBCs
-#    {
-#        LANG: C
-#    } "Apply custom boundary conditions"
-#}
+   #    SCHEDULE nuX_ConsToAll IN HydroBase_Con2Prim
+   # {
+   #     LANG: C
+   # } "Computes the primitives from the conservatives"
+   } "Setup initial data for equil test"
+}
+
+if ((CCTK_Equals(nuX_m1_test, "kerrschild")) || (CCTK_Equals(nuX_m1_test, "sphere")) || (CCTK_Equals(nuX_m1_test, "shadow"))) {
+    SCHEDULE nuX_M1_SetupTest_kss IN nuX_M1_InitialData
+    {
+        LANG: C
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
+    } "Setup initial data to vacuum for KS, Spherical, Shadow data"
+}
+
+if (CCTK_Equals(nuX_m1_test, "kerrschild")) {
+    SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
+        AFTER nuX_M1_ApplyBCs
+    {
+        LANG: C
+    } "Apply custom boundary conditions"
+
+    SCHEDULE nuX_M1_KerrSchild_Mask IN nuX_M1_EVOL \
+        AFTER nuX_M1_SetMask \
+        BEFORE nuX_M1_TimeStep
+    {
+        LANG: C
+        WRITES: nuX_m1_mask(everywhere)
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
+    } "Cheap excision for the Kerr Schild test"
+}
+
+if (CCTK_Equals(nuX_m1_test, "shadow")) {
+    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
+        AFTER nuX_M1_ApplyBCs
+    {
+        LANG: C
+    } "Apply custom boundary conditions"
+}
 
 # This would need to change if we want to couple with another hydro solver
-#if (!CCTK_Equals(evolution_method, "nuXode")) {
+# if (!CCTK_Equals(evolution_method, "nuXode")) {
 #    SCHEDULE nuX_M1_MoLRegister IN MoL_Register
 #    {
 #        LANG: C
 #        OPTIONS: GLOBAL
 #    } "Register variables with MoL"
-#}
+#  }

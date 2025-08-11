@@ -16,7 +16,8 @@ nuX_M1_param_check.cxx \
 nuX_M1_reset.cxx \
 nuX_M1_setmask.cxx \
 nuX_M1_volform.cxx \
-
+nuX_M1_tmunu.cxx \
+nuX_M1_setup_test.cxx \
 # Subdirectories containing source files
 SUBDIRS =
 

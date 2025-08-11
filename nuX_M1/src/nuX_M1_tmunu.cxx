@@ -4,6 +4,7 @@
 
 #include "nuX_M1_macro.hxx"
 #include "nuX_M1_closure.hxx"
+#include "nuX_utils.hxx"
 
 //#include <gsl/gsl_errno.h>
 //#include <gsl/gsl_roots.h>
@@ -11,6 +12,7 @@
 namespace nuX_M1 {
 
 using namespace Loop;
+using namespace nuX_Utils;
 
 extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_AddToTmunu;
@@ -37,7 +39,12 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
     CCTK_VINFO("Unknown closure \"%s\"", closure);
     CCTK_ERROR("Unsupported closure");
   }
-
+  tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
+                                      gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz,
+                                      kzz, volform);
+  tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz,
+                                          fidu_w_lorentz, fidu_velx, fidu_vely,
+                                          fidu_velz);
   // Setup grid layout
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
@@ -55,17 +62,16 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
     tensor::metric<4> g_dd;
     tensor::inv_metric<4> g_uu;
     tensor::generic<CCTK_REAL, 4, 1> n_d;
-    get_metric(ijk, alp, betax, betay, betaz, gxx, gxy, gxz, gyy, gyz, gzz,
+    geom.get_metric(ijk, alp, betax, betay, betaz, gxx, gxy, gxz, gyy, gyz, gzz,
                g_dd);
-    get_inv_metric(ijk, gxx, gxy, gxz, gyy, gyz, gzz, g_uu);
-    get_normal_form(ijk, alp, betax, betay, betaz, n_d);
+    geom.get_inv_metric(ijk, gxx, gxy, gxz, gyy, gyz, gzz, g_uu);
+    geom.get_normal_form(ijk, alp, betax, betay, betaz, n_d);
 
     CCTK_REAL const W = fidu_w_lorentz[ijk];
     tensor::generic<CCTK_REAL, 4, 1> u_u;
     tensor::generic<CCTK_REAL, 4, 1> u_d;
     tensor::generic<CCTK_REAL, 4, 2> proj_ud;
-    get_fluid_velocity(ijk, alp, betax, betay, betaz, fidu_w_lorentz, fidu_velx,
-                       fidu_vely, fidu_velz, u_u);
+    fidu.get(ijk,&u_u);
     tensor::contract(g_dd, u_u, u_d);
     calc_proj(u_d, u_u, proj_ud);
 
@@ -97,16 +103,16 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
 
       assemble_rT(n_d, rE[i4D], F_d, P_dd, rT_dd);
 
-      eTtt[ijk] += rT_dd(0, 0) * iV;
-      eTtx[ijk] += rT_dd(0, 1) * iV;
-      eTty[ijk] += rT_dd(0, 2) * iV;
-      eTtz[ijk] += rT_dd(0, 3) * iV;
-      eTxx[ijk] += rT_dd(1, 1) * iV;
-      eTxy[ijk] += rT_dd(1, 2) * iV;
-      eTxz[ijk] += rT_dd(1, 3) * iV;
-      eTyy[ijk] += rT_dd(2, 2) * iV;
-      eTyz[ijk] += rT_dd(2, 3) * iV;
-      eTzz[ijk] += rT_dd(3, 3) * iV;
+      eTtt[p.I] += rT_dd(0, 0) * iV;
+      eTtx[p.I] += rT_dd(0, 1) * iV;
+      eTty[p.I] += rT_dd(0, 2) * iV;
+      eTtz[p.I] += rT_dd(0, 3) * iV;
+      eTxx[p.I] += rT_dd(1, 1) * iV;
+      eTxy[p.I] += rT_dd(1, 2) * iV;
+      eTxz[p.I] += rT_dd(1, 3) * iV;
+      eTyy[p.I] += rT_dd(2, 2) * iV;
+      eTyz[p.I] += rT_dd(2, 3) * iV;
+      eTzz[p.I] += rT_dd(3, 3) * iV;
     }
   });
 
