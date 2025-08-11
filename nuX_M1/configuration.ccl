@@ -1,6 +1,6 @@
 # Configuration definitions for thorn nuX_M1
 
-REQUIRES Loop GSL HDF5
+REQUIRES Algo Loop HDF5
 
 PROVIDES nuX_M1
 {

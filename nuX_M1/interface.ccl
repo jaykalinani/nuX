@@ -5,8 +5,9 @@ INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX
 INCLUDES HEADER: nuX_M1_macro.hxx IN nuX_M1_macro.hxx
 INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx 
 
-USES INCLUDE: aster_fd.hxx aster_interp.hxx aster_utils.hxx
-USES INCLUDE: nuX_metric.hxx nuX_pow.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx
+USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
+USES INCLUDE HEADER: nuX_metric.hxx nuX_pow.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx
+USES INCLUDE HEADER: roots.hxx
 
 # === External functions ===
 
