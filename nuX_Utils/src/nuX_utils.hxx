@@ -11,8 +11,6 @@
 #include "nuX_tensor.hxx"
 #include "nuX_valencia.hxx"
 
-namespace nuX_Utils {
-} // namespace nuX_Utils
+namespace nuX_Utils {} // namespace nuX_Utils
 
 #endif // NUX_UTILS_HXX
-
