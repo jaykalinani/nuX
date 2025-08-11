@@ -90,7 +90,7 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
                   r_d(a) * irr * calc_E_flux(alp[ijk], beta_u, rE[i4D], F_u, a);
             }
 
-            assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u);
+            assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
             CCTK_REAL const Gamma = alp[ijk] * fnu_u(0);
             // Note that nnu is densitized here
             CCTK_REAL const nnu = rN[i4D] / Gamma;
