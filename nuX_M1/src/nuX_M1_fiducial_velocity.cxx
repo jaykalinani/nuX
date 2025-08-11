@@ -1,4 +1,4 @@
-#include <algorithm> 
+#include <algorithm>
 #include <cstring>
 #include <loop_device.hxx>
 
@@ -6,13 +6,16 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
+#include "aster_utils.hxx"
 #include "nuX_utils.hxx"
 
 #define CGS_GCC (1.619100425158886e-18)
 
 namespace nuX_M1 {
 
+using namespace Arith;
 using namespace Loop;
+using namespace AsterUtils;
 
 extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_FiducialVelocity;
@@ -24,6 +27,13 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const smat<GF3D2<const CCTK_REAL8>, 3> gf_g{
+      GF3D2<const CCTK_REAL8>(layout2, gxx),
+      GF3D2<const CCTK_REAL8>(layout2, gxy),
+      GF3D2<const CCTK_REAL8>(layout2, gxz),
+      GF3D2<const CCTK_REAL8>(layout2, gyy),
+      GF3D2<const CCTK_REAL8>(layout2, gyz),
+      GF3D2<const CCTK_REAL8>(layout2, gzz)};
 
   if (CCTK_Equals(fiducial_velocity, "fluid")) {
 
@@ -32,10 +42,26 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const int ijk = layout2.linear(p.i, p.j, p.k);
 
+          const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
+            return calc_avg_v2c(gf_g(i, j), p);
+          });
+
+          vec<CCTK_REAL, 3> v_up;
+          vec<CCTK_REAL, 3> v_low;
+          CCTK_REAL w_lorentz;
+
           fidu_velx[ijk] = velx[ijk];
           fidu_vely[ijk] = vely[ijk];
           fidu_velz[ijk] = velz[ijk];
-          fidu_w_lorentz[ijk] = w_lorentz[ijk];
+
+          v_up(0) = velx[ijk];
+          v_up(1) = vely[ijk];
+          v_up(2) = velz[ijk];
+
+          v_low = calc_contraction(g_avg, v_up);
+          w_lorentz = calc_wlorentz(v_low, v_up);
+
+          fidu_w_lorentz[ijk] = w_lorentz;
         });
 
   } else if (CCTK_Equals(fiducial_velocity, "mixed")) {

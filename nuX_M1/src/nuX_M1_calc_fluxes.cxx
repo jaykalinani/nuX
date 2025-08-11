@@ -14,6 +14,7 @@
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
 #include "nuX_utils.hxx"
+#include "aster_utils.hxx"
 
 #define NDIM 3
 
@@ -37,7 +38,7 @@
 
 namespace {
 
-CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp, CCTK_REAL th) {
+CCTK_HOST CCTK_DEVICE inline CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp, CCTK_REAL th) {
   return min(1.0, min(th * rl, th * rp));
 }
 
@@ -47,6 +48,7 @@ namespace nuX_M1 {
 
 using namespace Loop;
 using namespace Arith;
+using namespace AsterUtils;
 using namespace nuX_Utils;
 using namespace std;
 
@@ -62,11 +64,34 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
   // rE_rhs};
 
   /* grid functions */
-  const vec<GF3D2<const CCTK_REAL>, dim> gf_beta{betax, betay, betaz};
-  const smat<GF3D2<const CCTK_REAL>, dim> gf_g{gxx, gxy, gxz, gyy, gyz, gzz};
+  const GF3D2layout layout(cctkGH, {0, 0, 0});
+
+  const vec<GF3D2<const CCTK_REAL8>, dim> gf_beta{
+      GF3D2<const CCTK_REAL8>(layout, betax),
+      GF3D2<const CCTK_REAL8>(layout, betay),
+      GF3D2<const CCTK_REAL8>(layout, betaz)};
+
+  const smat<GF3D2<const CCTK_REAL8>, dim> gf_g{
+      GF3D2<const CCTK_REAL8>(layout, gxx),
+      GF3D2<const CCTK_REAL8>(layout, gxy),
+      GF3D2<const CCTK_REAL8>(layout, gxz),
+      GF3D2<const CCTK_REAL8>(layout, gyy),
+      GF3D2<const CCTK_REAL8>(layout, gyz),
+      GF3D2<const CCTK_REAL8>(layout, gzz)};
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
+
+  tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
+                                      gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz,
+                                      kzz, volform);
+  tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz,
+                                          fidu_w_lorentz, fidu_velx, fidu_vely,
+                                          fidu_velz);
+
+  const int GFNSIZE = cctk_lsh[0] * cctk_lsh[1] * cctk_lsh[2];
+
+  auto &nu_flux_dir = (dir == 0 ? nu_flux_x : dir == 1 ? nu_flux_y : nu_flux_z);
 
   // Reconstruct flux quantities at interfaces
   grid.loop_int_device<1, 1, 1>(
@@ -75,11 +100,12 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
         int const ijk = layout2.linear(p.i, p.j, p.k);
 
         /* Interpolate metric components from vertices to centers */
-        const CCTK_REAL alp_avg = calc_avg_v2c(alp, p, dir);
+/*
+       	const CCTK_REAL alp_avg = calc_avg_v2c(alp, p, dir);
         const vec<CCTK_REAL, 3> betas_avg([&](int i) ARITH_INLINE {
           return calc_avg_v2c(gf_beta(i), p, dir);
         });
-
+*/
         // Loop over groups/species.
         int groupspec = ngroups * nspecies;
 
@@ -143,16 +169,23 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
           //--- Store the computed flux into the proper face-centered grid
           // function ---
           // TODO: need to define the following grid functions
-          if (dir == 0) {
-            for (int iv = 0; iv < 5; ++iv)
-              nu_flux_x[PINDEX1D(ig, iv)][ijk] = flux[iv];
-          } else if (dir == 1) {
-            for (int iv = 0; iv < 5; ++iv)
-              nu_flux_y[PINDEX1D(ig, iv)][ijk] = flux[iv];
-          } else if (dir == 2) {
-            for (int iv = 0; iv < 5; ++iv)
-              nu_flux_z[PINDEX1D(ig, iv)][ijk] = flux[iv];
+          /*
+                    if (dir == 0) {
+                      for (int iv = 0; iv < 5; ++iv)
+                        nu_flux_x[PINDEX1D(ig, iv)][ijk] = flux[iv];
+                    } else if (dir == 1) {
+                      for (int iv = 0; iv < 5; ++iv)
+                        nu_flux_y[PINDEX1D(ig, iv)][ijk] = flux[iv];
+                    } else if (dir == 2) {
+                      for (int iv = 0; iv < 5; ++iv)
+                        nu_flux_z[PINDEX1D(ig, iv)][ijk] = flux[iv];
+                    }
+          */
+          for (int iv = 0; iv < 5; ++iv) {
+            int comp = PINDEX1D(ig, iv);
+            nu_flux_dir[comp * GFNSIZE + ijk] = flux[iv];
           }
+
         } // end loop over ig
       } // end lambda
   ); // end grid.loop_int_device
@@ -169,7 +202,24 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_UpdateRHSFromFluxes;
   DECLARE_CCTK_PARAMETERS;
 
+  const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const int GFNSIZE = cctk_lsh[0] * cctk_lsh[1] * cctk_lsh[2];
+
+  // Grid data
+  CCTK_REAL const delta[3] = {
+      CCTK_DELTA_SPACE(0),
+      CCTK_DELTA_SPACE(1),
+      CCTK_DELTA_SPACE(2),
+  };
+  CCTK_REAL const idelta[3] = {
+      1.0 / CCTK_DELTA_SPACE(0),
+      1.0 / CCTK_DELTA_SPACE(1),
+      1.0 / CCTK_DELTA_SPACE(2),
+  };
+
+  auto &nu_flux_dir = (dir == 0 ? nu_flux_x : dir == 1 ? nu_flux_y : nu_flux_z);
+  CCTK_REAL *r_rhs[5] = {rN_rhs, rFx_rhs, rFy_rhs, rFz_rhs, rE_rhs};
 
   // Loop over cell centers.
   grid.loop_int_device<1, 1, 1>(
@@ -186,7 +236,7 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
           face_left_idx = layout2.linear(p.i, p.j - 1, p.k);
           face_right_idx = ijk;
         } else { // dir == 2
-          face_left_idx = layout2.linear(p.i, p.j, p.k);
+          face_left_idx = layout2.linear(p.i, p.j, p.k - 1);
           face_right_idx = ijk;
         }
 
@@ -195,17 +245,23 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
         // Loop over groups/species and over the 5 flux components.
         for (int ig = 0; ig < groupspec; ++ig) {
           for (int iv = 0; iv < 5; ++iv) {
-            CCTK_REAL flux_left, flux_right;
-            if (dir == 0) {
-              flux_left = nu_flux_x[PINDEX1D(ig, iv)][face_left_idx];
-              flux_right = nu_flux_x[PINDEX1D(ig, iv)][face_right_idx];
-            } else if (dir == 1) {
-              flux_left = nu_flux_y[PINDEX1D(ig, iv)][face_left_idx];
-              flux_right = nu_flux_y[PINDEX1D(ig, iv)][face_right_idx];
-            } else { // dir == 2
-              flux_left = nu_flux_z[PINDEX1D(ig, iv)][face_left_idx];
-              flux_right = nu_flux_z[PINDEX1D(ig, iv)][face_right_idx];
-            }
+
+            int comp = PINDEX1D(ig, iv);
+            CCTK_REAL flux_left = nu_flux_dir[comp * GFNSIZE + face_left_idx];
+            CCTK_REAL flux_right = nu_flux_dir[comp * GFNSIZE + face_right_idx];
+            /*
+                        CCTK_REAL flux_left, flux_right;
+                        if (dir == 0) {
+                          flux_left = nu_flux_x[PINDEX1D(ig,
+               iv)][face_left_idx]; flux_right = nu_flux_x[PINDEX1D(ig,
+               iv)][face_right_idx]; } else if (dir == 1) { flux_left =
+               nu_flux_y[PINDEX1D(ig, iv)][face_left_idx]; flux_right =
+               nu_flux_y[PINDEX1D(ig, iv)][face_right_idx]; } else { // dir == 2
+                          flux_left = nu_flux_z[PINDEX1D(ig,
+               iv)][face_left_idx]; flux_right = nu_flux_z[PINDEX1D(ig,
+               iv)][face_right_idx];
+                        }
+            */
 
             // --- Optional: Apply flux-limiter/dissipation fix ---
             // For demonstration we recompute a limited flux using neighboring
@@ -266,8 +322,8 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                 0.5 * (abs_1[idx] + abs_1[idx_p] + scat_1[idx] + scat_1[idx_p]);
             CCTK_REAL A = 1.0;
             if (kapp * delta[dir] > 1.0) {
-              A = std::min(1.0, 1.0 / (delta[dir] * kapp));
-              A = std::max(A, mindiss);
+              A = min(1.0, 1.0 / (delta[dir] * kapp));
+              A = max(A, mindiss);
             }
 
             // Compute difference ratios for limiter.
@@ -284,7 +340,7 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
             assert(isfinite(phi));
             // Compute limited flux: we mimic the CPU formulation.
             // Here we combine the left and right fluxes.
-            CCTK_REAL cmx = std::max(std::abs(flux_left), std::abs(flux_right));
+            CCTK_REAL cmx = max(abs(flux_left), abs(flux_right));
             CCTK_REAL flux_low =
                 0.5 * (flux_left + flux_right - cmx * (ujp - uj));
             CCTK_REAL flux_high = 0.5 * (flux_left + flux_right);
@@ -323,9 +379,9 @@ extern "C" void nuX_M1_CalcFluxes(CCTK_ARGUMENTS) {
   }
   // For each spatial direction, first compute the fluxes
 
-  M1_CalcFlux<0>(CCTK_PASS_ARGUMENTS);
-  M1_CalcFlux<1>(CCTK_PASS_ARGUMENTS);
-  M1_CalcFlux<2>(CCTK_PASS_ARGUMENTS);
+  M1_CalcFlux<0>(cctkGH);
+  M1_CalcFlux<1>(cctkGH);
+  M1_CalcFlux<2>(cctkGH);
 }
 
 extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
@@ -333,13 +389,13 @@ extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose) {
-    CCTK_INFO("nuX_M1_CalcFluxes");
+    CCTK_INFO("nuX_M1_UpdateRHSFromFluxes");
   }
   // next, update the cell-centered RHS using those fluxes.
 
-  M1_UpdateRHSFromFluxes<0>(CCTK_PASS_ARGUMENTS);
-  M1_UpdateRHSFromFluxes<1>(CCTK_PASS_ARGUMENTS);
-  M1_UpdateRHSFromFluxes<2>(CCTK_PASS_ARGUMENTS);
+  M1_UpdateRHSFromFluxes<0>(cctkGH);
+  M1_UpdateRHSFromFluxes<1>(cctkGH);
+  M1_UpdateRHSFromFluxes<2>(cctkGH);
 }
 
 } // end namespace nuX_M1

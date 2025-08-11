@@ -73,8 +73,8 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
               rPyz[i4D] = 0;
               rPzz[i4D] = 0;
               rnnu[i4D] = 0;
+              continue;
             }
-            continue;
           }
 
           tensor::metric<4> g_dd;
@@ -110,8 +110,8 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             pack_F_d(betax[ijk], betay[ijk], betaz[ijk], rFx[i4D], rFy[i4D],
                      rFz[i4D], &F_d);
 
-            calc_closure(cctkGH, i, j, k, ig, closure_fun, gsl_solver, g_dd,
-                         g_uu, n_d, W, u_u, v_d, proj_ud, rE[i4D], F_d,
+            calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, gsl_solver,
+                         g_dd, g_uu, n_d, W, u_u, v_d, proj_ud, rE[i4D], F_d,
                          &chi[i4D], &P_dd);
 
             unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],

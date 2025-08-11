@@ -12,8 +12,8 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_utils.hxx"
-#include "nuX_M1_closure.hxx"
 #include "nuX_M1_macro.hxx"
+#include "nuX_M1_closure.hxx"
 
 namespace nuX_M1 {
 
@@ -54,6 +54,7 @@ enum ClosFlag : CCTK_INT {
   GSL_MAXIT = 5, // GSL solver reached max iterations
 };
 
+/*
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 print_stuff(cGH const *cctkGH, const PointDesc &p, int const ig, ostream &ss) {
   DECLARE_CCTK_ARGUMENTS;
@@ -113,6 +114,7 @@ print_stuff(cGH const *cctkGH, const PointDesc &p, int const ig, ostream &ss) {
   }
   ss << "\b\b)\n";
 }
+*/
 
 // Function to rootfind in order to determine the closure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline double
@@ -134,8 +136,6 @@ zFunction(double xi, void *params) {
   CCTK_REAL const H2 = tensor::dot(p->g_uu, H_d, H_d);
   return SQ(J * xi) - H2;
 }
-
-} // anonymous namespace
 
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 pack_F_d(CCTK_REAL const betax, CCTK_REAL const betay, CCTK_REAL const betaz,
@@ -319,26 +319,6 @@ flux_factor(tensor::inv_metric<4> const &g_uu, CCTK_REAL const J,
   return max(0.0, min(xi, 1.0));
 }
 
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-eddington(CCTK_REAL const xi) {
-  return 1.0 / 3.0;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-kershaw(CCTK_REAL const xi) {
-  return 1.0 / 3.0 + 2.0 / 3.0 * xi * xi;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-minerbo(CCTK_REAL const xi) {
-  return 1.0 / 3.0 + xi * xi * (6.0 - 2.0 * xi + 6.0 * xi * xi) / 15.0;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-thin(CCTK_REAL const xi) {
-  return 1.0;
-}
-
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 apply_closure(tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
               tensor::generic<CCTK_REAL, 4, 1> const &n_d,
@@ -450,6 +430,32 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
     clos_flag_local = false;
   }
 #endif
+  switch (clos_flag_code) {
+  case CLOS_OK:
+    printf("Closure succeeded.\n");
+    break;
+  case CLOS_I:
+    printf("Initial value closure NaN or inf.\n");
+    // print_stuff(cctkGH, ig, &params, ss); // Won't work, only have point
+    // information during loop.
+    break;
+  case GSL_I:
+    printf("Initial GSL solver error.\n");
+    // print_stuff(cctkGH, ig, &params, ss);
+    break;
+  case CLOS_IT:
+    printf("Iteration closure NaN or inf.\n");
+    // print_stuff(cctkGH, ig, &params, ss);
+    break;
+  case GSL_IT:
+    printf("Iterative GSL solver error.\n");
+    // print_stuff(cctkGH, ig, &params, ss);
+    break;
+  case GSL_MAXIT:
+    printf("GSL solver reached max iterations.\n");
+    // print_stuff(cctkGH, ig, &params, ss);
+    break;
+  }
 
   // We are done, update the closure with the newly found chi
   apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
@@ -586,33 +592,6 @@ apply_floor(tensor::symmetric2<CCTK_REAL, 4, 2> const &g_uu, CCTK_REAL *E,
       F_d->at(a) *= fac;
     }
   }
-}
-
-switch (clos_flag_code) {
-case CLOS_OK:
-  printf("Closure succeeded.\n");
-  break;
-case CLOS_I:
-  printf("Initial value closure NaN or inf.\n");
-  // print_stuff(cctkGH, ig, &params, ss); // Won't work, only have point
-  // information during loop.
-  break;
-case GSL_I:
-  printf("Initial GSL solver error.\n");
-  // print_stuff(cctkGH, ig, &params, ss);
-  break;
-case CLOS_IT:
-  printf("Iteration closure NaN or inf.\n");
-  // print_stuff(cctkGH, ig, &params, ss);
-  break;
-case GSL_IT:
-  printf("Iterative GSL solver error.\n");
-  // print_stuff(cctkGH, ig, &params, ss);
-  break;
-case GSL_MAXIT:
-  printf("GSL solver reached max iterations.\n");
-  // print_stuff(cctkGH, ig, &params, ss);
-  break;
 }
 
 } // namespace nuX_M1

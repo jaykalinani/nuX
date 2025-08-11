@@ -47,12 +47,6 @@ SCHEDULE nuX_M1_ParamCheck AT CCTK_PARAMCHECK
     OPTIONS: GLOBAL
 } "Check parameters"
 
-SCHEDULE nuX_M1_SetSym AT CCTK_BASEGRID
-{
-    LANG: C
-    OPTIONS: GLOBAL
-} "Setup symmetries"
-
 SCHEDULE nuX_M1_Reset AT CCTK_INITIAL \
     BEFORE (nuX_M1_InitialData ReadInterpolate_ReadData)
 {
@@ -79,7 +73,7 @@ SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
 {
 } "M1 initial data group"
 
-SCHEDULE nuX_M1_InitVolForm AT CCTK_INITIAL AFTER (nuX_M1_InitialData) \
+SCHEDULE nuX_M1_InitVolform AT CCTK_INITIAL AFTER (nuX_M1_InitialData) \
     BEFORE (nuX_M1_CalcClosure)
 {
     LANG: C
@@ -118,19 +112,19 @@ if (copy_levels) {
 # Initial data
 ###############################################################################
 
-if (set_to_equilibrium) {
-    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_INITIAL \
-        BEFORE (ADMBase_PostInitial SetTmunu)
-    {
-        LANG: C
-    } "Set radiation quantities to equilibrium"
-}
+#if (set_to_equilibrium) {
+#    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_INITIAL \
+#        BEFORE (ADMBase_PostInitial SetTmunu)
+#    {
+#        LANG: C
+#    } "Set radiation quantities to equilibrium"
+#}
 
 if (reset_to_equilibrium) {
     SCHEDULE nuX_M1_Reset AT CCTK_POST_RECOVER_VARIABLES
     {
         LANG: C
-        WRITES: rN(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
     } "Initialize everything to zero"
 
     SCHEDULE nuX_M1_FiducialVelocity AT CCTK_POST_RECOVER_VARIABLES \
@@ -145,11 +139,11 @@ if (reset_to_equilibrium) {
          WRITES: fidu_w_lorentz(everywhere)
     } "Compute the fiducial velocity"
 
-    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
-        AFTER (nuX_M1_Reset nuX_M1_FiducialVelocity)
-    {
-        LANG: C
-    } "Set radiation quantities to equilibrium"
+#    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
+#        AFTER (nuX_M1_Reset nuX_M1_FiducialVelocity)
+#    {
+#        LANG: C
+#    } "Set radiation quantities to equilibrium"
 
     if (copy_levels) {
         SCHEDULE nuX_M1_CopyLevels AT CCTK_POST_RECOVER_VARIABLES \
@@ -183,11 +177,11 @@ SCHEDULE GROUP nuX_M1_EVOL IN nuX_M1_WRAP
 {
 } "Radiation updates go here"
 
-SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL
-{
-    LANG: C
-    OPTIONS: LEVEL
-} "Set the time integrator index"
+#SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL
+#{
+#    LANG: C
+#    OPTIONS: LEVEL
+#} "Set the time integrator index"
 
 SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
 {
@@ -195,12 +189,12 @@ SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
     WRITES: nuX_m1_mask(everywhere)
 } "Excise regions of the domain"
 
-SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
-    AFTER nuX_M1_TimeStep
-{
-    LANG: C
-    OPTIONS: LEVEL
-} "Clenups after the time integration"
+#SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
+#    AFTER nuX_M1_TimeStep
+#{
+#    LANG: C
+#    OPTIONS: LEVEL
+#} "Clenups after the time integration"
 
 #------------------------------------------------------------------------------
 SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
@@ -243,10 +237,10 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
-SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
-{
-    LANG: C
-} "Compute the opacities"
+#SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+#{
+#    LANG: C
+#} "Compute the opacities"
 
 if (include_fluxes) {
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
@@ -256,17 +250,32 @@ if (include_fluxes) {
         READS: ADMBaseX::metric(interior)
         READS: ADMBaseX::lapse(interior)
         READS: ADMBaseX::shift(interior)
+        READS: ADMBaseX::curv(interior)
         READS: rN(interior) rE(interior) rF(interior)
         READS: fidu_vel(interior) nuX_m1_mask(interior)
         READS: rHt(interior) rH(interior)
         READS: rP(interior) rJ(interior)
+        READS: volform(interior)
         READS: fidu_w_lorentz(interior)
         READS: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
         READS: opacs(interior)
-        WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
         WRITES: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
-        SYNC: rN_rhs rE_rhs rF_rhs nu_flux_x nu_flux_y nu_flux_z rHt rH rP rJ fidu_w_lorentz
+        SYNC: nu_flux_x nu_flux_y nu_flux_z rHt rH rP rJ fidu_w_lorentz
     } "Compute the radiation fluxes and add them the RHS"
+
+   SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
+        AFTER (nuX_M1_CalcFluxes nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
+    {
+        LANG: C
+        READS: rN(interior) rE(interior) rF(interior)
+        READS: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
+        READS: opacs(interior)
+        READS: nuX_m1_mask(interior)
+        WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+        SYNC: rN_rhs rE_rhs rF_rhs 
+    } "Compute the radiation fluxes and add them the RHS"
+
+
 }
 
 if (include_GR_sources) {
@@ -277,16 +286,17 @@ if (include_GR_sources) {
         LANG: C
         
         READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
-        READS: rF(everywhere) rP(everywhere)
+        READS: rE(everywhere) rF(everywhere) rP(everywhere)
+        READS: volform(everywhere) nuX_m1_mask(everywhere)
         WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
-SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
-{
-    LANG: C
-} "Semi-implicit update of radiation and matter fields"
+#SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
+#    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
+#{
+#    LANG: C
+#} "Semi-implicit update of radiation and matter fields"
 
 if (backreact) {
     SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
@@ -300,28 +310,19 @@ if (backreact) {
 }
 
 # -----------------------------------------------------------------------------
-if (optimize_prolongation) {
-    SCHEDULE nuX_M1_ControlProlongation in nuX_M1_TimeStep BEFORE nuX_M1_BoundaryConditions AFTER nuX_M1_CalcUpdate
-    {
-        LANG: C
-        OPTIONS: level
-    } "enable / disable prolongation during RK steps"
-}
+#if (optimize_prolongation) {
+#    SCHEDULE nuX_M1_ControlProlongation in nuX_M1_TimeStep BEFORE nuX_M1_BoundaryConditions AFTER nuX_M1_CalcUpdate
+#    {
+#        LANG: C
+#        OPTIONS: level
+#    } "enable / disable prolongation during RK steps"
+#}
 
 SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
     AFTER nuX_M1_CalcUpdate
 {
 } "Apply boundary conditions during the evolution"
 # -----------------------------------------------------------------------------
-
-SCHEDULE nuX_M1_SelectBC IN nuX_M1_BoundaryConditions
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rN
-    SYNC: rE
-    SYNC: rF
-} "Select boundary conditions"
 
 SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
     AFTER nuX_M1_SelectBC

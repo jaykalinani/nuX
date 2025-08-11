@@ -32,6 +32,8 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
+  const GF3D2<const CCTK_REAL> gf_alp(layout2, alp);
+
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -45,7 +47,6 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
         tensor::symmetric2<CCTK_REAL, 3, 2> K_dd;
         geom.get_extr_curv(ijk, &K_dd);
 
-        GF3D2<const CCTK_REAL> gf_alp{alp};
         tensor::generic<CCTK_REAL, 3, 1> dalp_d;
         for (int a = 0; a < 3; ++a) {
           dalp_d(a) = calc_fd_v2c<FDORDER>(gf_alp, p, a);
@@ -53,7 +54,8 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
 
         tensor::generic<CCTK_REAL, 3, 2> dbeta_du;
         for (int b = 0; b < 3; ++b) {
-          GF3D2<const CCTK_REAL> gf_beta_b{geom.get_shift_comp(b)};
+          const GF3D2<const CCTK_REAL> gf_beta_b(layout2,
+                                                 geom.get_shift_comp(b));
           for (int a = 0; a < 3; ++a) {
             dbeta_du(a, b) = calc_fd_v2c<FDORDER>(gf_beta_b, p, a);
           }
@@ -62,7 +64,8 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
         tensor::symmetric2<CCTK_REAL, 3, 3> dg_ddd;
         for (int b = 0; b < 3; ++b)
           for (int c = b; c < 3; ++c) {
-            GF3D2<const CCTK_REAL> gf_g_bc{geom.get_space_metric_comp(b, c)};
+            const GF3D2<const CCTK_REAL> gf_g_bc(
+                layout2, geom.get_space_metric_comp(b, c));
             for (int a = 0; a < 3; ++a) {
               dg_ddd(a, b, c) = calc_fd_v2c<FDORDER>(gf_g_bc, p, a);
             }

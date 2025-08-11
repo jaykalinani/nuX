@@ -91,10 +91,26 @@ flux_factor(tensor::inv_metric<4> const &g_uu, CCTK_REAL const J,
 
 // Closures
 typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
-CCTK_REAL eddington(CCTK_REAL const xi);
-CCTK_REAL kershaw(CCTK_REAL const xi);
-CCTK_REAL minerbo(CCTK_REAL const xi);
-CCTK_REAL thin(CCTK_REAL const xi);
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+eddington(CCTK_REAL const xi) {
+  return 1.0 / 3.0;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+kershaw(CCTK_REAL const xi) {
+  return 1.0 / 3.0 + 2.0 / 3.0 * xi * xi;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+minerbo(CCTK_REAL const xi) {
+  return 1.0 / 3.0 + xi * xi * (6.0 - 2.0 * xi + 6.0 * xi * xi) / 15.0;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+thin(CCTK_REAL const xi) {
+  return 1.0;
+}
 
 // Computes the closure in the lab frame given the Eddington factor chi
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
