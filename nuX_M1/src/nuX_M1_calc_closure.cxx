@@ -112,7 +112,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
 
             calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, gsl_solver,
                          g_dd, g_uu, n_d, W, u_u, v_d, proj_ud, rE[i4D], F_d,
-                         &chi[i4D], &P_dd);
+                         &chi[i4D], &P_dd, closure_epsilon, closure_maxiter);
 
             unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
                         &rPyz[i4D], &rPzz[i4D]);
@@ -127,7 +127,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
 
             rJ[i4D] = calc_J_from_rT(rT_dd, u_u);
             calc_H_from_rT(rT_dd, u_u, proj_ud, &H_d);
-            apply_floor(g_uu, &rJ[i4D], &H_d);
+            apply_floor(g_uu, &rJ[i4D], &H_d, rad_E_floor, rad_eps);
 
             unpack_H_d(H_d, &rHt[i4D], &rHx[i4D], &rHy[i4D], &rHz[i4D]);
             assert(isfinite(rHt[i4D]));
@@ -136,9 +136,10 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             assert(isfinite(rHz[i4D]));
 
             tensor::contract(g_uu, H_d, &H_u);
-            assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u);
+            assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
             CCTK_REAL const Gamma =
-                compute_Gamma(fidu_w_lorentz[ijk], v_u, rJ[i4D], rE[i4D], F_d);
+                compute_Gamma(fidu_w_lorentz[ijk], v_u, rJ[i4D], rE[i4D], F_d,
+                              rad_E_floor, rad_eps);
             assert(Gamma > 0);
             rnnu[i4D] = rN[i4D] / Gamma;
           }

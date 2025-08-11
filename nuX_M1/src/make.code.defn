@@ -7,7 +7,6 @@ nuX_M1_calc_closure.cxx \
 nuX_M1_calc_fluxes.cxx \
 nuX_M1_calc_grsources.cxx \
 nuX_M1_calc_radial_fluxes.cxx \
-nuX_M1_closure.cxx \
 nuX_M1_copy_levels.cxx \
 nuX_M1_fiducial_velocity.cxx \
 nuX_M1_init.cxx \

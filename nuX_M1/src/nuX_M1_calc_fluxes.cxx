@@ -23,27 +23,6 @@
 
 #define PINDEX1D(ig, iv) ((iv) + (ig) * 5)
 
-// TODO: User–defined limits; adjust as needed
-#ifndef nuX_M1_NGHOST
-#define nuX_M1_NGHOST 2
-#endif
-
-#ifndef nuX_M1_MAX_K
-#define nuX_M1_MAX_K 512
-#endif
-
-#ifndef MAX_GROUPSPECIES
-#define MAX_GROUPSPECIES 64
-#endif
-
-namespace {
-
-CCTK_HOST CCTK_DEVICE inline CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp, CCTK_REAL th) {
-  return min(1.0, min(th * rl, th * rp));
-}
-
-} // namespace
-
 namespace nuX_M1 {
 
 using namespace Loop;
@@ -51,6 +30,11 @@ using namespace Arith;
 using namespace AsterUtils;
 using namespace nuX_Utils;
 using namespace std;
+
+CCTK_HOST CCTK_DEVICE inline CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp,
+                                               CCTK_REAL th) {
+  return min(1.0, min(th * rl, th * rp));
+}
 
 // Compute the numerical fluxes using a simple 2nd order flux-limited method
 // with high-Peclet limit fix. The fluxes are then added to the RHSs.
@@ -100,12 +84,12 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
         int const ijk = layout2.linear(p.i, p.j, p.k);
 
         /* Interpolate metric components from vertices to centers */
-/*
-       	const CCTK_REAL alp_avg = calc_avg_v2c(alp, p, dir);
-        const vec<CCTK_REAL, 3> betas_avg([&](int i) ARITH_INLINE {
-          return calc_avg_v2c(gf_beta(i), p, dir);
-        });
-*/
+        /*
+                const CCTK_REAL alp_avg = calc_avg_v2c(alp, p, dir);
+                const vec<CCTK_REAL, 3> betas_avg([&](int i) ARITH_INLINE {
+                  return calc_avg_v2c(gf_beta(i), p, dir);
+                });
+        */
         // Loop over groups/species.
         int groupspec = ngroups * nspecies;
 
@@ -144,11 +128,11 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
           tensor::contract(g_uu, H_d, &H_u);
           tensor::contract(g_uu, F_d, &F_u);
           tensor::contract(g_uu, P_dd, &P_ud);
-          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u);
+          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
 
           // Compute Gamma and nnu (densitized neutrino number).
-          CCTK_REAL Gamma =
-              compute_Gamma(fidu_w_lorentz[ijk], v_u, rJ[i4D], rE[i4D], F_d);
+          CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, rJ[i4D],
+                                          rE[i4D], F_d, rad_E_floor, rad_eps);
           CCTK_REAL nnu = rN[i4D] / Gamma;
 
           //--- Compute the flux components at the face ---
