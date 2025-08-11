@@ -102,16 +102,16 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
 
           assemble_rT(n_d, rE[i4D], F_d, P_dd, &rT_dd);
 
-          eTtt[p.I] += rT_dd(0, 0) * iV;
-          eTtx[p.I] += rT_dd(0, 1) * iV;
-          eTty[p.I] += rT_dd(0, 2) * iV;
-          eTtz[p.I] += rT_dd(0, 3) * iV;
-          eTxx[p.I] += rT_dd(1, 1) * iV;
-          eTxy[p.I] += rT_dd(1, 2) * iV;
-          eTxz[p.I] += rT_dd(1, 3) * iV;
-          eTyy[p.I] += rT_dd(2, 2) * iV;
-          eTyz[p.I] += rT_dd(2, 3) * iV;
-          eTzz[p.I] += rT_dd(3, 3) * iV;
+          eTtt[ijk] += rT_dd(0, 0) * iV;
+          eTtx[ijk] += rT_dd(0, 1) * iV;
+          eTty[ijk] += rT_dd(0, 2) * iV;
+          eTtz[ijk] += rT_dd(0, 3) * iV;
+          eTxx[ijk] += rT_dd(1, 1) * iV;
+          eTxy[ijk] += rT_dd(1, 2) * iV;
+          eTxz[ijk] += rT_dd(1, 3) * iV;
+          eTyy[ijk] += rT_dd(2, 2) * iV;
+          eTyz[ijk] += rT_dd(2, 3) * iV;
+          eTzz[ijk] += rT_dd(3, 3) * iV;
         }
       });
 
