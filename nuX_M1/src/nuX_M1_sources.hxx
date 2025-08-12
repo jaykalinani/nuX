@@ -18,6 +18,18 @@
 #define NUX_M1_SOURCE_SCAT 4
 #define NUX_M1_SOURCE_FAIL 5
 
+// TODO: replace GSL_SUCCESS, GSL_EBADFUNC with alternative error flags
+#define GSL_SUCCESS 0
+#define GSL_EBADFUNC 5
+
+// TODO: may need to move this to a different file
+// Define a simple name for a 4D CCTK_REAL Arith::vec vector
+// to replace gsl_vector
+// and a 4x4 CCTK_REAL Arith::mat matrix
+// to replace arith_matrix
+typedef Arith::vec<CCTK_REAL, 4> arith_vector; 
+typedef Arith::mat<CCTK_REAL, 4> arith_matrix; 
+
 namespace nuX_M1 {
 
 using namespace nuX_Utils;
@@ -26,7 +38,7 @@ using namespace std;
 
 struct Params {
   Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
-         int const _ig, closure_t _closure, gsl_root_fsolver *_gsl_solver_1d,
+         int const _ig, closure_t _closure,
          CCTK_REAL const _cdt, CCTK_REAL const _alp,
          tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
@@ -41,7 +53,7 @@ struct Params {
          tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d, CCTK_REAL const _chi,
          CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig),
-        closure(_closure), // gsl_solver_1d(_gsl_solver_1d),
+        closure(_closure),
         cdt(_cdt), alp(_alp), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u),
         gamma_ud(_gamma_ud), u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u),
         proj_ud(_proj_ud), W(_W), Estar(_Estar), Fstar_d(_Fstar_d), chi(_chi),
@@ -52,7 +64,6 @@ struct Params {
   int const k;
   int const ig;
   closure_t closure;
-  gsl_root_fsolver *gsl_solver_1d;
   CCTK_REAL const cdt;
   CCTK_REAL const alp;
   tensor::metric<4> const &g_dd;
@@ -106,8 +117,7 @@ CCTK_HOST CCTK_DEVICE void
 __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
                             double kapa, double kaps, double vup[4],
                             double vdown[4], double v2, double W, double alpha,
-                            double cdt, double *qstar),
-//        gsl_matrix * J)
+                            double cdt, double *qstar, arith_matrix * J)
 {
   const double kapas = kapa + kaps;
   const double alpW = alpha * W;
@@ -218,28 +228,28 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
   };
   for (int a = 0; a < 4; ++a)
     for (int b = 0; b < 4; ++b) {
-      // gsl_matrix_set(J, a, b, A_data[a][b]);
+      J[a][b] = A_data[a][b];
     }
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_closure(gsl_vector const *q, Params *p) {
-  p->E = max(gsl_vector_get(q, 0), 0.0);
+CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector const *q, Params *p) {
+  p->E = max(q(0), 0.0);
   if (p->E < 0) {
     return GSL_EBADFUNC;
   }
   pack_F_d(-p->alp * p->n_u(1), -p->alp * p->n_u(2), -p->alp * p->n_u(3),
-           gsl_vector_get(q, 1), gsl_vector_get(q, 2), gsl_vector_get(q, 3),
+           q(1), q(2), q(3),
            &p->F_d);
   tensor::contract(p->g_uu, p->F_d, &p->F_u);
 
-  calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure, p->gsl_solver_1d,
+  calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure,
                p->g_dd, p->g_uu, p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E,
                p->F_d, &p->chi, &p->P_dd);
 
   return GSL_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_sources(gsl_vector const *q, Params *p) {
+CCTK_HOST CCTK_DEVICE int prepare_sources(arith_vector const *q, Params *p) {
   assemble_rT(p->n_d, p->E, p->F_d, p->P_dd, &p->T_dd);
 
   p->J = calc_J_from_rT(p->T_dd, p->u_u);
@@ -253,8 +263,8 @@ CCTK_HOST CCTK_DEVICE int prepare_sources(gsl_vector const *q, Params *p) {
   return GSL_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare(gsl_vector const *q, Params *p) {
-  int ierr = prepare_closure(q, p);
+CCTK_HOST CCTK_DEVICE int prepare(arith_vector const *q, Params *p) {
+  int ierr = prepare_closure(&q, &p);
   if (ierr != GSL_SUCCESS) {
     return ierr;
   }
@@ -269,22 +279,17 @@ CCTK_HOST CCTK_DEVICE int prepare(gsl_vector const *q, Params *p) {
 
 // Function to rootfind for
 //    f(q) = q - q^* - dt S[q]
-CCTK_HOST CCTK_DEVICE int impl_func_val(gsl_vector const *q, void *params,
-                                        gsl_vector *f) {
+CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector const *q, void *params,
+                                        arith_vector *f) {
   Params *p = reinterpret_cast<Params *>(params);
   int ierr = prepare(q, p);
   if (ierr != GSL_SUCCESS) {
     return ierr;
   }
 
-#define EVALUATE_ZFUNC                                                         \
-  gsl_vector_set(f, 0, gsl_vector_get(q, 0) - p->Estar - p->cdt * p->Edot);    \
-  gsl_vector_set(f, 1,                                                         \
-                 gsl_vector_get(q, 1) - p->Fstar_d(1) - p->cdt * p->tS_d(1));  \
-  gsl_vector_set(f, 2,                                                         \
-                 gsl_vector_get(q, 2) - p->Fstar_d(2) - p->cdt * p->tS_d(2));  \
-  gsl_vector_set(f, 3,                                                         \
-                 gsl_vector_get(q, 3) - p->Fstar_d(3) - p->cdt * p->tS_d(3));
+#define EVALUATE_ZFUNC \
+  f(0)=q(0) - p->Estar - p->cdt * p->Edot; f(1)=q(1) - p->Fstar_d(1) - p->cdt * p->tS_d(1);\
+  f(2)=q(2) - p->Fstar_d(2) - p->cdt * p->tS_d(2);f(3)=q(3) - p->Fstar_d(3) - p->cdt * p->tS_d(3);                                                          \
 
   EVALUATE_ZFUNC
 
@@ -292,8 +297,8 @@ CCTK_HOST CCTK_DEVICE int impl_func_val(gsl_vector const *q, void *params,
 }
 
 // Jacobian of the implicit function
-CCTK_HOST CCTK_DEVICE int impl_func_jac(gsl_vector const *q, void *params,
-                                        gsl_matrix *J) {
+CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector const *q, void *params,
+                                        arith_matrix *J) {
   Params *p = reinterpret_cast<Params *>(params);
   int ierr = prepare(q, p);
   if (ierr != GSL_SUCCESS) {
@@ -324,8 +329,8 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(gsl_vector const *q, void *params,
 }
 
 // Function and Jacobian evaluation
-CCTK_HOST CCTK_DEVICE int impl_func_val_jac(gsl_vector const *q, void *params,
-                                            gsl_vector *f, gsl_matrix *J) {
+CCTK_HOST CCTK_DEVICE int impl_func_val_jac(arith_vector const *q, void *params,
+                                            arith_vector *f, arith_matrix *J) {
   Params *p = reinterpret_cast<Params *>(params);
   int ierr = prepare(q, p);
   if (ierr != 0) {
@@ -386,8 +391,6 @@ explicit_update(Params *p, CCTK_REAL *Enew,
 CCTK_HOST CCTK_DEVICE inline int source_update(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
     closure_t closure_fun,
-    //        gsl_root_fsolver * gsl_solver_1d,
-    //        gsl_multiroot_fdfsolver * gsl_solver_nd,
     CCTK_REAL const cdt, CCTK_REAL const alp, tensor::metric<4> const &g_dd,
     tensor::inv_metric<4> const &g_uu,
     tensor::generic<CCTK_REAL, 4, 1> const &n_d,
@@ -408,24 +411,16 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
            gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta,
            kabs, kscat);
 
-  //    gsl_multiroot_function_fdf zfunc = {
-  //        impl_func_val,
-  //        impl_func_jac,
-  //        impl_func_val_jac,
-  //        4, &p};
-
   // Old solution
-  CCTK_REAL qold[] = {Eold, Fold_d(1), Fold_d(2), Fold_d(3)};
-  //    gsl_vector_view xold = gsl_vector_view_array(qold, 4);
+  arith_vector qold{Eold, Fold_d(1), Fold_d(2), Fold_d(3)};
 
   // Non stiff limit, use explicit update
   if (cdt * kabs < 1 && cdt * kscat < 1) {
-    prepare(&xold.vector, &p);
+    prepare(&qold, &p);
     explicit_update(&p, Enew, Fnew_d);
 
-    CCTK_REAL q[4] = {*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
-    //        gsl_vector_view x = gsl_vector_view_array(q, 4);
-    prepare_closure(&x.vector, &p);
+    arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
+    prepare_closure(&q, &p);
     *chi = p.chi;
 
     return NUX_M1_SOURCE_THIN;
@@ -444,44 +439,43 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   }
 
   // Initial guess for the solution
-  CCTK_REAL q[4] = {*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
-  //    gsl_vector_view x = gsl_vector_view_array(q, 4);
+  arith_vector q_initial_guess{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
 
-  //    int ierr = gsl_multiroot_fdfsolver_set(gsl_solver_nd, &zfunc,
-  //    &x.vector);
-  int iter = 0;
-  do {
-    if (iter < source_maxiter) {
-      //           ierr = gsl_multiroot_fdfsolver_iterate(gsl_solver_nd);
-      iter++;
-    }
-    // The nonlinear solver is stuck.
-    if (ierr == GSL_ENOPROG || ierr == GSL_ENOPROGJ || ierr == GSL_EBADFUNC ||
-        iter >= source_maxiter) {
-
+  // Now we are going to do the ND Newton-Raphson solve  
+  // First define the function that we will input to Algo::newton_raphson_nd
+  // it needs to only take a arith_vector as an input and return 
+  // std::pair< arith_vector f, arith_matrix jac >
+  auto fn_nd = [&p](arith_vector q)
+      -> std::pair<arith_vector, arith_matrix > {
+       arith_vector f;
+       arith_matrix J;
+       // compute the function output and the jacobian
+       impl_func_val_jac(q, p, f, J);
+       return {f, J};
+  };
+  
+  // then do the ND newton-raphson
+  int iters;
+  bool failed;
+  const int minbits = static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
+  auto q_out = newton_raphson_nd(fn_nd, q_initial_guess,
+                                 arith_vector{0.0,0.0,0.0,0.0},
+                                 arith_vector{10.0,10.0,10.0,10.0}, minbits,
+                                 source_maxiter, iters, failed);
+  if (failed){
       // If we are here, then we are in trouble
 #ifdef WARN_FOR_SRC_FIX
-      ostringstream ss;
-      if (ierr == GSL_EBADFUNC) {
-        ss << "NaNs or Infs found in the implicit solve.\n";
-      } else if (iter > source_maxiter) {
-        ss << "Source solver exceeded the maximum number of iterations\n";
-      } else {
-        ss << "Stuck nonlinear solver.\n";
-      }
-      ss << "Trying to save the day... ";
+     printf("newton_raphson_nd failed in the implicit solve!\n");
 #endif
 
       // We are optically thick, suggest to retry with Eddington closure
       if (closure_fun != eddington) {
 #ifdef WARN_FOR_SRC_FIX
-        ss << "Eddington closure\n";
-//                print_stuff(cctkGH, i, j, k, ig, &p, ss);
-//                Printer::print_warn(ss.str());
+        printf("Eddington closure\n");
+        // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
         ierr = source_update(
             cctkGH, i, j, k, ig,
-            //                    eddington, gsl_solver_1d, gsl_solver_nd, cdt,
             eddington, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d,
             v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat,
             chi, Enew, Fnew_d);
@@ -492,36 +486,24 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         }
       } else {
 #ifdef WARN_FOR_SRC_FIX
-        ss << "using initial guess\n";
-//                print_stuff(cctkGH, i, j, k, ig, &p, ss);
-//                Printer::print_warn(ss.str());
+        printf("using initial guess\n");
+        // TODO: print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
         return NUX_M1_SOURCE_FAIL;
       }
-    } else if (ierr != GSL_SUCCESS) {
-      char msg[BUFSIZ];
-      snprintf(msg, BUFSIZ,
-               "Unexpected error in "
-               "gsl_multirootroot_fdfsolver_iterate, error code \"%d\"",
-               ierr);
-#pragma omp critical
-      CCTK_ERROR(msg);
-    }
-    //        ierr = gsl_multiroot_test_delta(gsl_solver_nd->dx,
-    //        gsl_solver_nd->x,
-    //                source_epsabs, source_epsrel);
-  } while (ierr == GSL_CONTINUE);
+  }
 
-  //    *Enew = gsl_vector_get(gsl_solver_nd->x, 0);
-  //    Fnew_d->at(1) = gsl_vector_get(gsl_solver_nd->x, 1);
-  //    Fnew_d->at(2) = gsl_vector_get(gsl_solver_nd->x, 2);
-  //    Fnew_d->at(3) = gsl_vector_get(gsl_solver_nd->x, 3);
+  // assign the output of the ND Newton-Raphson solver to the "new" variables
+  *Enew = q_out(0);
+  Fnew_d->at(1) = q_out(1);
+  Fnew_d->at(2) = q_out(2);
+  Fnew_d->at(3) = q_out(3);
 
-  //    // F_0 = g_0i F^i = beta_i F^i = beta^i F_i
+  // F_0 = g_0i F^i = beta_i F^i = beta^i F_i
   Fnew_d->at(0) = -alp * n_u(1) * Fnew_d->at(1) - alp * n_u(2) * Fnew_d->at(2) -
                   alp * n_u(3) * Fnew_d->at(3);
 
-  //    prepare_closure(gsl_solver_nd->x, &p);
+  prepare_closure(&q_out, &p);
   *chi = p.chi;
 
   return NUX_M1_SOURCE_OK;
