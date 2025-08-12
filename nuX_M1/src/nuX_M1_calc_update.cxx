@@ -46,12 +46,13 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CalcUpdate");
   }
 
+  closure_t const closure_fun = pick_closure_fun(closure);
+
   // Stage dt
   // TODO: correctly compute dt
   //  CCTK_REAL const dt = CCTK_DELTA_TIME /
   //  static_cast<CCTK_REAL>(*TimeIntegratorStage);
   //  --(*TimeIntegratorStage);
-
   CCTK_REAL const dt = CCTK_DELTA_TIME;
 
   // Geometry & velocity field accessors
@@ -67,11 +68,15 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                        particle_mass /
                        (2.99792458e10 * 2.99792458e10); // AverageBaryonMass();
 
-  closure_t const closure_fun = pick_closure_fun(closure);
-
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
+  // Steps
+  // 1. F^m   = F^k + dt/2 [ A[F^k] + S[F^m]   ]
+  // 2. F^k+1 = F^k + dt   [ A[F^m] + S[F^k+1] ]
+  // At each step we solve an implicit problem in the form
+  //    F = F^* + cdt S[F]
+  // Where F^* = F^k + cdt A
   grid.loop_int_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -127,20 +132,22 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_EXPL)
 
           // Explicit sources (THC EXPL)
+
+          // Radiation fields
           CCTK_REAL E = rE[i4D];
           pack_F_d(betax[ijk], betay[ijk], betaz[ijk], rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
           tensor::generic<CCTK_REAL, 4, 1> F_u, S_d, tS_d;
           tensor::contract(g_uu, F_d, &F_u);
 
-          // Fluid-frame quantities
+          // Compute radiation quantities in the fluid frame
           CCTK_REAL J = rJ[i4D];
           CCTK_REAL const Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, J, E,
                                                 F_d, rad_E_floor, rad_eps);
           tensor::generic<CCTK_REAL, 4, 1> H_d;
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
 
-          // Source terms
+          // Compute radiation sources
           calc_rad_sources(eta_1[i4D] * volform[ijk], abs_1[i4D], scat_1[i4D],
                            u_d, J, H_d, &S_d);
           DrE[ig] = dt * calc_rE_source(alp[ijk], n_u, S_d);
@@ -153,7 +160,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
 #else // NUX_M1_SRC_METHOD != NUX_M1_SRC_EXPL
 
-          // Predictor (advection)
+          // Here we boost to the fluid frame, compute fluid matter
+          // interaction, and boost back. These values are used as
+          // initial guess for the implicit solve.
+
+          // Predictor (advect radiation)
           CCTK_REAL Estar = rE_p[i4D] + dt * rE_rhs[i4D];
           pack_F_d(betax[ijk], betay[ijk], betaz[ijk],
                    rFx_p[i4D] + dt * rFx_rhs[i4D],
@@ -163,7 +174,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           CCTK_REAL Nstar = std::max(rN_p[i4D] + dt * rN_rhs[i4D], rad_N_floor);
           CCTK_REAL Enew = Estar;
 
-          // Closure (GPU-safe; gsl pointer ignored)
+          // Closure (GPU-safe; gsl pointer ignored) 
+          // Compute quantities in the fluid frame
           tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
           calc_closure(cctkGH, i, j, k, ig, closure_fun, g_dd, g_uu, n_d,
                        fidu_w_lorentz[ijk], u_u, v_d, proj_ud, Estar, Fstar_d,
@@ -182,6 +194,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           CCTK_REAL Jnew = (Jstar + dtau * eta_1[i4D] * volform[ijk]) /
                            (1 + dtau * abs_1[i4D]);
 
+          // Only three components of H^a are independent H^0 is found by
+          // requiring H^a u_a = 0
           CCTK_REAL const khat = (abs_1[i4D] + scat_1[i4D]);
           tensor::generic<CCTK_REAL, 4, 1> Hnew_d;
           for (int a = 1; a < 4; ++a)
@@ -193,12 +207,14 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           // Update T^{μν} pieces
           CCTK_REAL const H2 = tensor::dot(g_uu, Hnew_d, Hnew_d);
 
-#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST) ||                                 \
-    (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
+// TODO: Boost library is not GPU compatible, so the first condition is never true. Hence we have the 
+// second "(NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)" condition
+#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST) || (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
           // BOOST (and IMPlicit fallback here): compute xi and use chosen
           // closure
           CCTK_REAL const xi = (Jnew > rad_E_floor ? sqrt(H2) / Jnew : 0.0);
-          chi[i4D] = closure_fun ? closure_fun(xi) : (CCTK_REAL)(1.0 / 3.0);
+          chi[i4D] = closure_fun(xi);
+          //chi[i4D] = closure_fun ? closure_fun(xi) : (CCTK_REAL)(1.0 / 3.0);
 #else
           // Thick-limit default
           chi[i4D] = (CCTK_REAL)(1.0 / 3.0);
@@ -221,6 +237,26 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           calc_H_from_rT(rT_dd, n_u, gamma_ud, &Fnew_d);
           apply_floor(g_uu, &Enew, &Fnew_d);
 
+#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
+          // Compute interaction with matter
+          (void)source_update(cctkGH, i, j, k, ig,
+                  closure_fun, dt,
+                  alp[ijk], g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u,
+                  v_d, v_u, proj_ud, fidu_w_lorentz[ijk], Estar, Fstar_d,
+                  Estar, Fstar_d, volform[ijk]*eta_1[i4D],
+                  abs_1[i4D], scat_1[i4D], &chi[i4D], &Enew, &Fnew_d);
+          apply_floor(g_uu, &Enew, &Fnew_d);
+
+          // Update closure
+          apply_closure(g_dd, g_uu, n_d, fidu_w_lorentz[ijk],
+                  u_u, v_d, proj_ud, Enew, Fnew_d, chi[i4D], &P_dd);
+
+          // Compute new radiation energy density in the fluid frame
+          tensor::symmetric2<CCTK_REAL, 4, 2> T_dd;
+          assemble_rT(n_d, Enew, Fnew_d, P_dd, &T_dd);
+          Jnew = calc_J_from_rT(T_dd, u_u);
+#endif
+
           // Changes (predictor → updated)
           DrE[ig] = Enew - Estar;
           DrFx[ig] = Fnew_d(1) - Fstar_d(1);
@@ -232,6 +268,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                               rad_E_floor, rad_eps);
 
           // Number density update
+          // N^k+1 = N^* + dt ( eta - abs N^k+1 )
           if (source_therm_limit < 0 || dt * abs_0[i4D] < source_therm_limit) {
             DrN[ig] =
                 (Nstar + dt * alp[ijk] * volform[ijk] * eta_0[i4D]) /
@@ -239,6 +276,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                              (fidu_w_lorentz[ijk] > 0 ? fidu_w_lorentz[ijk]
                                                       : 1.0)) -
                 Nstar;
+          // The neutrino number density is updated assuming the neutrino
+          // average energies are those of the equilibrium
           } else {
             DrN[ig] = (nueave[i4D] > 0
                            ? (fidu_w_lorentz[ijk] * Jnew) / nueave[i4D] - Nstar
@@ -292,7 +331,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         for (int ig = 0; ig < groupspec; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
-          // Radiation fields
+          // Update radiation quantities
           CCTK_REAL E = rE_p[i4D] + dt * rE_rhs[i4D] + theta * DrE[ig];
           F_d(1) = rFx_p[i4D] + dt * rFx_rhs[i4D] + theta * DrFx[ig];
           F_d(2) = rFy_p[i4D] + dt * rFy_rhs[i4D] + theta * DrFy[ig];
@@ -302,7 +341,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           CCTK_REAL N = rN_p[i4D] + dt * rN_rhs[i4D] + theta * DrN[ig];
           N = max(N, rad_N_floor);
 
-          // Fluid backreaction at last substep only
+          // Compute back reaction on the fluid
+          // NOTE: fluid backreaction is only needed at the last substep
           if (backreact && 0 == *TimeIntegratorStage) {
             assert(ngroups == 1);
             assert(nspecies == 3);
@@ -316,7 +356,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
             netheat[ijk] -= theta * DrE[ig];
           }
 
-          // Store
+          // Save updated results into grid functions
           rE[i4D] = E;
           unpack_F_d(F_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
           rN[i4D] = N;
