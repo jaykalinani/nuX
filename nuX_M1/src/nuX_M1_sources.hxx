@@ -39,8 +39,8 @@ using namespace std;
 struct Params {
   Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
          int const _ig, closure_t _closure,
-         CCTK_REAL const _closure_epsilon,
-         CCTK_INT const _closure_maxiter,
+         CCTK_REAL _closure_epsilon,
+         CCTK_INT _closure_maxiter,
          CCTK_REAL const _cdt, CCTK_REAL const _alp,
          tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
@@ -66,8 +66,8 @@ struct Params {
   int const k;
   int const ig;
   closure_t closure;
-  CCTK_REAL const closure_epsilon;
-  CCTK_INT const closure_maxiter;
+  CCTK_REAL closure_epsilon;
+  CCTK_INT closure_maxiter;
   CCTK_REAL const cdt;
   CCTK_REAL const alp;
   tensor::metric<4> const &g_dd;
@@ -248,7 +248,7 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
 
   calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure,
                p->g_dd, p->g_uu, p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E,
-               p->F_d, &p->chi, &p->P_dd, &p->closure_epsilon, &p->closure_maxiter);
+               p->F_d, &p->chi, &p->P_dd, p->closure_epsilon, p->closure_maxiter);
 
   return GSL_SUCCESS;
 }
@@ -392,7 +392,7 @@ explicit_update(Params *p, CCTK_REAL *Enew,
 
 CCTK_HOST CCTK_DEVICE inline int source_update(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
-    closure_t closure_fun,
+    closure_t closure_fun, CCTK_REAL closure_epsilon, CCTK_INT closure_maxiter,
     CCTK_REAL const cdt, CCTK_REAL const alp, tensor::metric<4> const &g_dd,
     tensor::inv_metric<4> const &g_uu,
     tensor::generic<CCTK_REAL, 4, 1> const &n_d,
@@ -408,7 +408,6 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL const eta, CCTK_REAL const kabs, CCTK_REAL const kscat,
     CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
 
-  DECLARE_CCTK_PARAMETERS;
   Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter, cdt, alp, g_dd, g_uu, n_d, n_u,
            gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta,
            kabs, kscat);

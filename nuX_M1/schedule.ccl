@@ -305,15 +305,18 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     READS: rN(interior) rE(interior) rF(interior)  
     READS: rN_p(interior) rE_p(interior) rF_p(interior)
     READS: rJ(interior) rHt(interior) rH(interior) 
-    READS: opacs(interior)
+    READS: opacs(interior) nueave(interior)
     READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     READS: chi(interior)
-     
+    READS: HydroBaseX::Ye(interior) AsterX::dens(interior)
+    READS: TimeIntegratorStage
+ 
     WRITES: chi(interior)
     WRITES: fluidsources(interior)  
+    WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi fluidsources rN rE rF
+    SYNC: chi fluidsources rN rE rF AsterX::mom AsterX::tau AsterX::DYe
 
 } "Semi-implicit update of radiation and matter fields"
 

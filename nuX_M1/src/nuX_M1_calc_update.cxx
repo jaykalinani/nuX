@@ -19,8 +19,9 @@ using namespace nuX_Utils;
 
 // Fallback if header didn't set it
 #ifndef MAX_GROUPSPECIES
-#define MAX_GROUPSPECIES 64
+#define MAX_GROUPSPECIES 3
 #endif
+
 
 // Map closure string → function pointer
 static inline closure_t pick_closure_fun(const char *name) {
@@ -118,12 +119,13 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         int const groupspec = ngroups * nspecies;
 
         // Source RHS are stored here
-        CCTK_REAL DrE[ngroups * nspecies];
-        CCTK_REAL DrFx[ngroups * nspecies];
-        CCTK_REAL DrFy[ngroups * nspecies];
-        CCTK_REAL DrFz[ngroups * nspecies];
-        CCTK_REAL DrN[ngroups * nspecies];
-        CCTK_REAL DDxp[ngroups * nspecies];
+	// TODO: to use ngroups * nspecies instead of MAX_GROUPSPECIES
+        CCTK_REAL DrE[MAX_GROUPSPECIES];
+        CCTK_REAL DrFx[MAX_GROUPSPECIES];
+        CCTK_REAL DrFy[MAX_GROUPSPECIES];
+        CCTK_REAL DrFz[MAX_GROUPSPECIES];
+        CCTK_REAL DrN[MAX_GROUPSPECIES];
+        CCTK_REAL DDxp[MAX_GROUPSPECIES];
 
         // --------------------------
         // Step 1 — compute sources
@@ -242,7 +244,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
           // Compute interaction with matter
           (void)source_update(cctkGH, p.i, p.j, p.k, ig,
-                  closure_fun, dt,
+                  closure_fun, closure_epsilon, closure_maxiter, dt,
                   alp[ijk], g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u,
                   v_d, v_u, proj_ud, fidu_w_lorentz[ijk], Estar, Fstar_d,
                   Estar, Fstar_d, volform[ijk]*eta_1[i4D],
@@ -319,10 +321,10 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           }
           if (DYe > 0) {
             theta = min(theta, source_limiter *
-                                   max(source_Ye_max - Y_e[ijk], 0.0) / DYe);
+                                   max(source_Ye_max - Ye[ijk], 0.0) / DYe);
           } else if (DYe < 0) {
             theta = min(theta, source_limiter *
-                                   min(source_Ye_min - Y_e[ijk], 0.0) / DYe);
+                                   min(source_Ye_min - Ye[ijk], 0.0) / DYe);
           }
           theta = max((CCTK_REAL)0.0, theta);
         }
@@ -352,8 +354,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
             momy[ijk] -= theta * DrFy[ig];
             momz[ijk] -= theta * DrFz[ig];
             tau[ijk] -= theta * DrE[ig];
-            densxp[ijk] += theta * DDxp[ig];
-            densxn[ijk] -= theta * DDxp[ig];
+            DYe[ijk] += theta * DDxp[ig];
+            //densxn[ijk] -= theta * DDxp[ig];
             netabs[ijk] += theta * DDxp[ig];
             netheat[ijk] -= theta * DrE[ig];
           }
