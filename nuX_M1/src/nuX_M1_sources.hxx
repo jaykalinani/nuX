@@ -26,7 +26,7 @@
 // Define a simple name for a 4D CCTK_REAL Arith::vec vector
 // to replace gsl_vector
 // and a 4x4 CCTK_REAL Arith::mat matrix
-// to replace arith_matrix
+// to replace gsl_matrix
 typedef Arith::vec<CCTK_REAL, 4> arith_vector; 
 typedef Arith::mat<CCTK_REAL, 4> arith_matrix; 
 
@@ -39,6 +39,8 @@ using namespace std;
 struct Params {
   Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
          int const _ig, closure_t _closure,
+         CCTK_REAL const _closure_epsilon,
+         CCTK_INT const _closure_maxiter,
          CCTK_REAL const _cdt, CCTK_REAL const _alp,
          tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
@@ -52,8 +54,8 @@ struct Params {
          CCTK_REAL const _Estar,
          tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d, CCTK_REAL const _chi,
          CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
-      : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig),
-        closure(_closure),
+      : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig), 
+        closure(_closure), closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
         cdt(_cdt), alp(_alp), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u),
         gamma_ud(_gamma_ud), u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u),
         proj_ud(_proj_ud), W(_W), Estar(_Estar), Fstar_d(_Fstar_d), chi(_chi),
@@ -64,6 +66,8 @@ struct Params {
   int const k;
   int const ig;
   closure_t closure;
+  CCTK_REAL const closure_epsilon;
+  CCTK_INT const closure_maxiter;
   CCTK_REAL const cdt;
   CCTK_REAL const alp;
   tensor::metric<4> const &g_dd;
@@ -117,7 +121,7 @@ CCTK_HOST CCTK_DEVICE void
 __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
                             double kapa, double kaps, double vup[4],
                             double vdown[4], double v2, double W, double alpha,
-                            double cdt, double *qstar, arith_matrix * J)
+                            double cdt, double *qstar, arith_matrix & J)
 {
   const double kapas = kapa + kaps;
   const double alpW = alpha * W;
@@ -228,11 +232,11 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
   };
   for (int a = 0; a < 4; ++a)
     for (int b = 0; b < 4; ++b) {
-      J[a][b] = A_data[a][b];
+      J(a, b) = A_data[a][b];
     }
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector const *q, Params *p) {
+CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
   p->E = max(q(0), 0.0);
   if (p->E < 0) {
     return GSL_EBADFUNC;
@@ -244,12 +248,12 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector const *q, Params *p) {
 
   calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure,
                p->g_dd, p->g_uu, p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E,
-               p->F_d, &p->chi, &p->P_dd);
+               p->F_d, &p->chi, &p->P_dd, &p->closure_epsilon, &p->closure_maxiter);
 
   return GSL_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_sources(arith_vector const *q, Params *p) {
+CCTK_HOST CCTK_DEVICE int prepare_sources(arith_vector &q, Params *p) {
   assemble_rT(p->n_d, p->E, p->F_d, p->P_dd, &p->T_dd);
 
   p->J = calc_J_from_rT(p->T_dd, p->u_u);
@@ -263,8 +267,8 @@ CCTK_HOST CCTK_DEVICE int prepare_sources(arith_vector const *q, Params *p) {
   return GSL_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare(arith_vector const *q, Params *p) {
-  int ierr = prepare_closure(&q, &p);
+CCTK_HOST CCTK_DEVICE int prepare(arith_vector &q, Params *p) {
+  int ierr = prepare_closure(q, p);
   if (ierr != GSL_SUCCESS) {
     return ierr;
   }
@@ -279,9 +283,8 @@ CCTK_HOST CCTK_DEVICE int prepare(arith_vector const *q, Params *p) {
 
 // Function to rootfind for
 //    f(q) = q - q^* - dt S[q]
-CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector const *q, void *params,
-                                        arith_vector *f) {
-  Params *p = reinterpret_cast<Params *>(params);
+CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector &q, Params *p,
+                                        arith_vector &f) {
   int ierr = prepare(q, p);
   if (ierr != GSL_SUCCESS) {
     return ierr;
@@ -297,8 +300,8 @@ CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector const *q, void *params,
 }
 
 // Jacobian of the implicit function
-CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector const *q, void *params,
-                                        arith_matrix *J) {
+CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector &q, void *params,
+                                        arith_matrix &J) {
   Params *p = reinterpret_cast<Params *>(params);
   int ierr = prepare(q, p);
   if (ierr != GSL_SUCCESS) {
@@ -329,9 +332,8 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector const *q, void *params,
 }
 
 // Function and Jacobian evaluation
-CCTK_HOST CCTK_DEVICE int impl_func_val_jac(arith_vector const *q, void *params,
-                                            arith_vector *f, arith_matrix *J) {
-  Params *p = reinterpret_cast<Params *>(params);
+CCTK_HOST CCTK_DEVICE int impl_func_val_jac(arith_vector &q, Params *p,
+                                            arith_vector &f, arith_matrix &J) {
   int ierr = prepare(q, p);
   if (ierr != 0) {
     return ierr;
@@ -407,7 +409,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
 
   DECLARE_CCTK_PARAMETERS;
-  Params p(cctkGH, i, j, k, ig, closure_fun, cdt, alp, g_dd, g_uu, n_d, n_u,
+  Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter, cdt, alp, g_dd, g_uu, n_d, n_u,
            gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta,
            kabs, kscat);
 
@@ -416,11 +418,11 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
 
   // Non stiff limit, use explicit update
   if (cdt * kabs < 1 && cdt * kscat < 1) {
-    prepare(&qold, &p);
+    prepare(qold, &p);
     explicit_update(&p, Enew, Fnew_d);
 
     arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
-    prepare_closure(&q, &p);
+    prepare_closure(q, &p);
     *chi = p.chi;
 
     return NUX_M1_SOURCE_THIN;
@@ -450,7 +452,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
        arith_vector f;
        arith_matrix J;
        // compute the function output and the jacobian
-       impl_func_val_jac(q, p, f, J);
+       impl_func_val_jac(q, &p, f, J);
        return {f, J};
   };
   
@@ -458,7 +460,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   int iters;
   bool failed;
   const int minbits = static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
-  auto q_out = newton_raphson_nd(fn_nd, q_initial_guess,
+  auto q_out = Algo::newton_raphson_nd(fn_nd, q_initial_guess,
                                  arith_vector{0.0,0.0,0.0,0.0},
                                  arith_vector{10.0,10.0,10.0,10.0}, minbits,
                                  source_maxiter, iters, failed);
@@ -474,7 +476,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         printf("Eddington closure\n");
         // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
-        ierr = source_update(
+        int ierr = source_update(
             cctkGH, i, j, k, ig,
             eddington, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d,
             v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat,
@@ -503,7 +505,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   Fnew_d->at(0) = -alp * n_u(1) * Fnew_d->at(1) - alp * n_u(2) * Fnew_d->at(2) -
                   alp * n_u(3) * Fnew_d->at(3);
 
-  prepare_closure(&q_out, &p);
+  prepare_closure(q_out, &p);
   *chi = p.chi;
 
   return NUX_M1_SOURCE_OK;

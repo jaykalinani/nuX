@@ -6,9 +6,9 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_utils.hxx"
 #include "nuX_M1_macro.hxx"
 #include "nuX_M1_closure.hxx"
+#include "nuX_utils.hxx"
 #include "nuX_M1_sources.hxx"
 
 namespace nuX_M1 {
@@ -39,7 +39,7 @@ static inline closure_t pick_closure_fun(const char *name) {
 }
 
 extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcUpdate;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose) {
@@ -57,7 +57,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
   // Geometry & velocity field accessors
   tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
-                                      gyy, gyz, gzz, volform);
+                                      gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz,
+                                      kzz, volform);
   tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz,
                                           fidu_w_lorentz, fidu_velx, fidu_vely,
                                           fidu_velz);
@@ -83,8 +84,9 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         netabs[ijk] = 0;
         netheat[ijk] = 0;
-        if (nuX_m1_mask[ijk])
-          continue;
+        if (nuX_m1_mask[ijk]) {
+          return;
+        }
 
         // Metric, normal, projectors
         tensor::metric<4> g_dd;
@@ -170,14 +172,14 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                    rFx_p[i4D] + dt * rFx_rhs[i4D],
                    rFy_p[i4D] + dt * rFy_rhs[i4D],
                    rFz_p[i4D] + dt * rFz_rhs[i4D], &Fstar_d);
-          apply_floor(g_uu, &Estar, &Fstar_d);
+          apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
           CCTK_REAL Nstar = std::max(rN_p[i4D] + dt * rN_rhs[i4D], rad_N_floor);
           CCTK_REAL Enew = Estar;
 
           // Closure (GPU-safe; gsl pointer ignored) 
           // Compute quantities in the fluid frame
           tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
-          calc_closure(cctkGH, i, j, k, ig, closure_fun, g_dd, g_uu, n_d,
+          calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        fidu_w_lorentz[ijk], u_u, v_d, proj_ud, Estar, Fstar_d,
                        &chi[i4D], &P_dd, closure_epsilon, closure_maxiter);
 
@@ -235,17 +237,17 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           // Boost back to lab frame
           Enew = calc_J_from_rT(rT_dd, n_u);
           calc_H_from_rT(rT_dd, n_u, gamma_ud, &Fnew_d);
-          apply_floor(g_uu, &Enew, &Fnew_d);
+          apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
           // Compute interaction with matter
-          (void)source_update(cctkGH, i, j, k, ig,
+          (void)source_update(cctkGH, p.i, p.j, p.k, ig,
                   closure_fun, dt,
                   alp[ijk], g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u,
                   v_d, v_u, proj_ud, fidu_w_lorentz[ijk], Estar, Fstar_d,
                   Estar, Fstar_d, volform[ijk]*eta_1[i4D],
                   abs_1[i4D], scat_1[i4D], &chi[i4D], &Enew, &Fnew_d);
-          apply_floor(g_uu, &Enew, &Fnew_d);
+          apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
           // Update closure
           apply_closure(g_dd, g_uu, n_d, fidu_w_lorentz[ijk],
@@ -336,7 +338,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           F_d(1) = rFx_p[i4D] + dt * rFx_rhs[i4D] + theta * DrFx[ig];
           F_d(2) = rFy_p[i4D] + dt * rFy_rhs[i4D] + theta * DrFy[ig];
           F_d(3) = rFz_p[i4D] + dt * rFz_rhs[i4D] + theta * DrFz[ig];
-          apply_floor(g_uu, &E, &F_d);
+          apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
 
           CCTK_REAL N = rN_p[i4D] + dt * rN_rhs[i4D] + theta * DrN[ig];
           N = max(N, rad_N_floor);
