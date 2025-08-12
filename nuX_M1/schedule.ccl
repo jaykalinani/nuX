@@ -349,7 +349,7 @@ SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
 } "Apply boundary conditions"
 
 if (add_to_Tmunu) {
-    SCHEDULE GROUP nuX_M1_Tmunu IN AddToTmunu
+    SCHEDULE GROUP nuX_M1_Tmunu IN TmunuBaseX_AddToTmunu
     {
     } "Adds the contribution of radiation to the global stress-energy tensor"
 
