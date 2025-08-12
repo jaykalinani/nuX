@@ -285,18 +285,37 @@ if (include_GR_sources) {
     {
         LANG: C
         
-        READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+        READS: ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+        READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere)
         READS: rE(everywhere) rF(everywhere) rP(everywhere)
         READS: volform(everywhere) nuX_m1_mask(everywhere)
         WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
-#SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-#    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
-#{
-#    LANG: C
-#} "Semi-implicit update of radiation and matter fields"
+SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
+{
+    LANG: C
+    
+    READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+    READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+    READS: volform(interior) nuX_m1_mask(interior)
+    READS: fidu_vel(interior) fidu_w_lorentz(interior) 
+    READS: rN(interior) rE(interior) rF(interior)  
+    READS: rN_p(interior) rE_p(interior) rF_p(interior)
+    READS: rJ(interior) rHt(interior) rH(interior) 
+    READS: opacs(interior)
+    READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+    READS: chi(interior)
+     
+    WRITES: chi(interior)
+    WRITES: fluidsources(interior)  
+    WRITES: rN(interior) rE(interior) rF(interior)
+     
+    SYNC: chi fluidsources rN rE rF
+
+} "Semi-implicit update of radiation and matter fields"
 
 if (backreact) {
     SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
