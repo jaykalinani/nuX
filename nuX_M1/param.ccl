@@ -10,6 +10,9 @@ SHARES: HydroBaseX
 #USES INT hydro_excision
 #USES KEYWORD evolution_method
 
+SHARES:EOSX
+USES CCTK_REAL particle_mass
+
 RESTRICTED:
 
 ###############################################################################

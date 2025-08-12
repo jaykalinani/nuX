@@ -9,11 +9,13 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_macro.hxx"
+#include "m1_opacities.hpp"
 
 namespace nuX_M1 {
 
 using namespace std;
 using namespace Loop;
+using namespace nuX_Rates;
 
 extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_Analysis;
@@ -25,10 +27,7 @@ extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
 
   // particle_mass is in MeV
   // normfact (?) * cgs2cactusMass * mev_to_erg / (clight*clight)
-  CCTK_REAL particle_mass = 1.0;
-  CCTK_REAL const mb = (1e50) * (5.0278543128934301e-34) * (1.60217733e-6) *
-                       particle_mass /
-                       (2.99792458e10 * 2.99792458e10); // AverageBaryonMass();
+  CCTK_REAL const mb = AverageBaryonMass(particle_mass);
 
   assert(nspecies == 3);
   assert(ngroups == 1);

@@ -1606,4 +1606,65 @@ ComputeSpectralOpacitiesStimulatedAbs(const BS_REAL nu, MyQuadrature* quad_1d,
     return spec_opacs;
 }
 
+/* Computes neutrino number and energy densities. This is the one function that both takes and returns
+ * values in code units! */
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+void NeutrinoDens(BS_REAL mu_n, BS_REAL mu_p, BS_REAL mu_e, BS_REAL temp, BS_REAL &n_nue, BS_REAL &n_anue,
+                  BS_REAL &n_nux, BS_REAL &en_nue, BS_REAL &en_anue, BS_REAL &en_nux) {
+
+  BS_REAL eta_nue = (mu_p + mu_e - mu_n) / temp;
+  BS_REAL eta_anue = -eta_nue;
+  BS_REAL eta_nux = 0.0;
+
+  // const BS_REAL hc_mevnm = 1.23984172e-10 * 1e7; // hc in units of MeV*nm
+  // const BS_REAL hc_mevnm3 = hc_mevnm * hc_mevnm * hc_mevnm;
+  const BS_REAL temp3 = temp * temp * temp;
+  const BS_REAL temp4 = temp3 * temp;
+
+  n_nue = kBS_FourPi_hc3 * temp3 * FDI_p2(eta_nue);    // [nm^-3]
+  n_anue = kBS_FourPi_hc3 * temp3 * FDI_p2(eta_anue);  // [nm^-3]
+  n_nux = 4.0 * kBS_FourPi_hc3 * temp3 * FDI_p2(eta_nux);   // [nm^-3]
+
+  en_nue = kBS_FourPi_hc3 * temp4 * FDI_p3(eta_nue);    // [MeV nm^-3]
+  en_anue = kBS_FourPi_hc3 * temp4 * FDI_p3(eta_anue);  // [MeV nm^-3]
+  en_nux = 4.0 * kBS_FourPi_hc3 * temp4 * FDI_p3(eta_nux);   // [MeV nm^-3]
+
+  // n_nue = 4.0 * M_PI / hc_mevnm3 * temp3 * Fermi::fermi2(eta_nue);    // [nm^-3]
+  // n_anue = 4.0 * M_PI / hc_mevnm3 * temp3 * Fermi::fermi2(eta_anue);  // [nm^-3]
+  // n_nux = 16.0 * M_PI / hc_mevnm3 * temp3 * Fermi::fermi2(eta_nux);   // [nm^-3]
+
+  // en_nue = 4.0 * M_PI / hc_mevnm3 * temp4 * Fermi::fermi3(eta_nue);    // [MeV nm^-3]
+  // en_anue = 4.0 * M_PI / hc_mevnm3 * temp4 * Fermi::fermi3(eta_anue);  // [MeV nm^-3]
+  // en_nux = 16.0 * M_PI / hc_mevnm3 * temp4 * Fermi::fermi3(eta_nux);   // [MeV nm^-3]
+
+  // assert(Kokkos::isfinite(n_nue));
+  // assert(Kokkos::isfinite(n_anue));
+  // assert(Kokkos::isfinite(n_nux));
+  // assert(Kokkos::isfinite(en_nue));
+  // assert(Kokkos::isfinite(en_anue));
+  // assert(Kokkos::isfinite(en_nux));
+
+  // convert to code units
+  // Primitive::UnitSystem nurates_units = Primitive::MakeNGS();
+
+  // Note that the number densities are always in EOS units
+  // BS_REAL const unit_num_dens = eos_units.NumberDensityConversion(nurates_units);
+  // BS_REAL const unit_ene_dens = code_units.EnergyDensityConversion(nurates_units);
+
+  n_nue = n_nue / nuX_ndens_conv;
+  n_anue = n_anue / nuX_ndens_conv;
+  n_nux = n_nux / nuX_ndens_conv;
+
+  en_nue = en_nue / nuX_edens_conv;
+  en_anue = en_anue / nuX_edens_conv;
+  en_nux = en_nux / nuX_edens_conv;
+}
+
+CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_REAL AverageBaryonMass(CCTK_REAL mev_mass) {
+  // This factor sets rho / m_b to units of fm^-3, which is used for number density throughout the code
+  const CCTK_REAL inv_ndens_CU_to_fm_m3 = nuX_ndens_conv / nuX_CUndens_conv;
+  return mev_mass * kBS_MeV / (kBS_Clight * kBS_Clight) / nuX_mass_conv * inv_ndens_CU_to_fm_m3;
+}
+
 #endif // BNS_NURATES_SRC_OPACITIES_M1_OPACITIES_H_
