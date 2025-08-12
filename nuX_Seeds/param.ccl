@@ -15,7 +15,7 @@ KEYWORD test_type "Type of test to set up" STEERABLE=never
 KEYWORD nuX_test_case "Perform simple tests"
 {
     "beam"       :: "Evolve a single beam propagating through the grid"
-    "diff_step"  :: "Diffusion test"
+    "adv_step"   :: "Advective step"
     "diff_gauss" :: "Gaussian packet diffusion test"
     "diff_square":: "Square pulse diffusion test"
     "equil"      :: "Thermal equilibrium test"
@@ -25,7 +25,7 @@ KEYWORD nuX_test_case "Perform simple tests"
     "sphere"     :: "Homogeneous sphere test"
 } "none"
 
-CCTK_REAL beam_test_dir[3] "Direction of propagation for the beam"
+CCTK_REAL test_nvec[3] "Direction of propagation for the initial packet"
 {
     * :: "The direction vector will be normalized; defaults to x-direction"
 } 0.0
@@ -87,3 +87,10 @@ CCTK_REAL press_atmosphere "floor pressure in the atmosphere"
 BOOLEAN verbose "Debug output" STEERABLE=always
 {
 } "no"
+
+SHARES: EOSX
+USES KEYWORD evolution_eos
+
+SHARES: nuX_M1
+USES CCTK_INT ngroups
+USES CCTK_INT nspecies

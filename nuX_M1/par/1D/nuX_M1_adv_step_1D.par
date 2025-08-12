@@ -5,6 +5,7 @@ ActiveThorns = "
    nuX_Seeds
    HydroBaseX  
    ADMBaseX 
+   EOSX
    "
 
 
@@ -21,4 +22,4 @@ nuX_M1::verbose            = "yes"
 nuX_Seeds::verbose         = "yes"
 nuX_Seeds::nuX_test_case   = "diff_step"
 
-
+EOSX::evolution_eos = "IdealGas"

@@ -1,9 +1,7 @@
 #Main make.code.defn file for thorn AsterSeeds
 
 # Source files in this directory
-SRCS = 1D_tests.cxx \
-2D_tests.cxx \ 
-3D_tests.cxx \
+SRCS = nuX_adv_step.cxx \
 
 
 #Subdirectories containing source files
