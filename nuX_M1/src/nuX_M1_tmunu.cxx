@@ -96,7 +96,8 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
           //     gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
 
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                       W, u_u, v_d, proj_ud, rE[i4D], F_d, &mychi, &P_dd, closure_epsilon, closure_maxiter);
+                       W, u_u, v_d, proj_ud, rE[i4D], F_d, &mychi, &P_dd,
+                       closure_epsilon, closure_maxiter);
 
           // gsl_root_fsolver_free(gsl_solver);
 
@@ -116,7 +117,7 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
       });
 
   // Restore GSL error handler
-  //gsl_set_error_handler(gsl_err);
+  // gsl_set_error_handler(gsl_err);
 }
 
 } // namespace nuX_M1

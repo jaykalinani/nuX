@@ -156,12 +156,14 @@ extern "C" void nuX_M1_SetupTest_kss(CCTK_ARGUMENTS) {
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
 
-          if (CCTK_Equals(nuX_m1_test, "kerrschild") || CCTK_Equals(nuX_m1_test, "shadow") || CCTK_Equals(nuX_m1_test, "sphere")) {
+        if (CCTK_Equals(nuX_m1_test, "kerrschild") ||
+            CCTK_Equals(nuX_m1_test, "shadow") ||
+            CCTK_Equals(nuX_m1_test, "sphere")) {
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
             int const i4D = layout2.linear(p.i, p.j, p.k, ig);
             rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;
           }
-        } 
+        }
       });
 }
 

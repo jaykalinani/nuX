@@ -7,9 +7,9 @@
 #include <string>
 #include <loop_device.hxx>
 
-//#include <gsl/gsl_errno.h>
-//#include <gsl/gsl_math.h>
-//#include <gsl/gsl_roots.h>
+// #include <gsl/gsl_errno.h>
+// #include <gsl/gsl_math.h>
+// #include <gsl/gsl_roots.h>
 
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
@@ -28,15 +28,14 @@ using namespace std;
 typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
 
 struct Parameters {
-  CCTK_HOST CCTK_DEVICE
-  Parameters(closure_t _closure, tensor::metric<4> const &_g_dd,
-             tensor::inv_metric<4> const &_g_uu,
-             tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
-             CCTK_REAL const _w_lorentz,
-             tensor::generic<CCTK_REAL, 4, 1> const &_u_u,
-             tensor::generic<CCTK_REAL, 4, 1> const &_v_d,
-             tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud,
-             CCTK_REAL const _E, tensor::generic<CCTK_REAL, 4, 1> const &_F_d)
+  CCTK_HOST CCTK_DEVICE Parameters(
+      closure_t _closure, tensor::metric<4> const &_g_dd,
+      tensor::inv_metric<4> const &_g_uu,
+      tensor::generic<CCTK_REAL, 4, 1> const &_n_d, CCTK_REAL const _w_lorentz,
+      tensor::generic<CCTK_REAL, 4, 1> const &_u_u,
+      tensor::generic<CCTK_REAL, 4, 1> const &_v_d,
+      tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _E,
+      tensor::generic<CCTK_REAL, 4, 1> const &_F_d)
       : closure(_closure), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d),
         w_lorentz(_w_lorentz), u_u(_u_u), v_d(_v_d), proj_ud(_proj_ud), E(_E),
         F_d(_F_d) {}
@@ -504,8 +503,8 @@ zFunction(double xi, void *params) {
 // Computes the closure in the lab frame with a rootfinding procedure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
-             int const ig, closure_t closure_fun,
-             tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
+             int const ig, closure_t closure_fun, tensor::metric<4> const &g_dd,
+             tensor::inv_metric<4> const &g_uu,
              tensor::generic<CCTK_REAL, 4, 1> const &n_d,
              CCTK_REAL const w_lorentz,
              tensor::generic<CCTK_REAL, 4, 1> const &u_u,
@@ -530,21 +529,21 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
 
   Parameters params(closure_fun, g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud,
                     E, F_d);
-  //gsl_function F;
-  //F.function = &zFunction;
-  //F.params = reinterpret_cast<void *>(&params);
+  // gsl_function F;
+  // F.function = &zFunction;
+  // F.params = reinterpret_cast<void *>(&params);
 
   double x_lo = 0.0;
   double x_hi = 1.0;
 
-  //int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
+  // int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
 
   CCTK_INT clos_flag_code = CLOS_OK; // Default closure flag to success
   bool clos_flag_local = true;
 
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
-  if (zFunction(x_lo, &params)*zFunction(x_hi, &params) >= 0) {
+  if (zFunction(x_lo, &params) * zFunction(x_hi, &params) >= 0) {
     double const z_ed = zFunction(1. / 3., &params);
     double const z_th = zFunction(1., &params);
     if (abs(z_th) < abs(z_ed)) {
@@ -555,8 +554,8 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
     return;
-  } 
-  
+  }
+
   /*
   else if (ierr == GSL_EBADFUNC) {
     clos_flag_code = CLOS_I;
@@ -573,9 +572,7 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   const CCTK_INT minbits = int(abs(log(closure_epsilon)) / log2);
   CCTK_REAL a = x_lo;
   CCTK_REAL b = x_hi;
-  auto fn = [&params](auto x) {
-    return zFunction(x, &params);
-  };
+  auto fn = [&params](auto x) { return zFunction(x, &params); };
 
   auto result = Algo::brent(fn, a, b, minbits, closure_maxiter, iter);
   // Bracket endpoints
@@ -585,33 +582,33 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   // average approach:
   CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
   *chi = closure_fun(xi);
-/*
-  do {
-    ++iter;
-    ierr = gsl_root_fsolver_iterate(fsolver);
-    // Some nans in the evaluation. This should not happen.
-    if (ierr == GSL_EBADFUNC) {
-      clos_flag_code = CLOS_IT;
-      clos_flag_local = false;
-    } else if (ierr != 0) {
-      clos_flag_code = GSL_IT;
+  /*
+    do {
+      ++iter;
+      ierr = gsl_root_fsolver_iterate(fsolver);
+      // Some nans in the evaluation. This should not happen.
+      if (ierr == GSL_EBADFUNC) {
+        clos_flag_code = CLOS_IT;
+        clos_flag_local = false;
+      } else if (ierr != 0) {
+        clos_flag_code = GSL_IT;
+        clos_flag_local = false;
+      }
+      *chi = closure_fun(gsl_root_fsolver_root(fsolver));
+      x_lo = gsl_root_fsolver_x_lower(fsolver);
+      x_hi = gsl_root_fsolver_x_upper(fsolver);
+      ierr = gsl_root_test_interval(x_lo, x_hi, closure_epsilon, 0);
+    } while (ierr == GSL_CONTINUE && iter < closure_maxiter);
+
+
+  #ifdef WARN_FOR_MAXITER
+    if (ierr != GSL_SUCCESS) {
+      clos_flag_code = GSL_MAXIT;
       clos_flag_local = false;
     }
-    *chi = closure_fun(gsl_root_fsolver_root(fsolver));
-    x_lo = gsl_root_fsolver_x_lower(fsolver);
-    x_hi = gsl_root_fsolver_x_upper(fsolver);
-    ierr = gsl_root_test_interval(x_lo, x_hi, closure_epsilon, 0);
-  } while (ierr == GSL_CONTINUE && iter < closure_maxiter);
-  
+  #endif
 
-#ifdef WARN_FOR_MAXITER
-  if (ierr != GSL_SUCCESS) {
-    clos_flag_code = GSL_MAXIT;
-    clos_flag_local = false;
-  }
-#endif
-
-*/
+  */
   switch (clos_flag_code) {
   case CLOS_OK:
     printf("Closure succeeded.\n");

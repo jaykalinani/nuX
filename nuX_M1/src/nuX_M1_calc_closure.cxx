@@ -23,7 +23,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
   }
 
   // Disable GSL error handler
-  //gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
+  // gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
 
   closure_t closure_fun;
   if (CCTK_Equals(closure, "Eddington")) {
@@ -48,8 +48,8 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
                                           fidu_velz);
 
   {
-    //gsl_root_fsolver *gsl_solver =
-    //    gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
+    // gsl_root_fsolver *gsl_solver =
+    //     gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
 
     const GridDescBaseDevice grid(cctkGH);
     const GF3D2layout layout2(cctkGH, {1, 1, 1});
@@ -110,9 +110,9 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             pack_F_d(betax[ijk], betay[ijk], betaz[ijk], rFx[i4D], rFy[i4D],
                      rFz[i4D], &F_d);
 
-            calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun,
-                         g_dd, g_uu, n_d, W, u_u, v_d, proj_ud, rE[i4D], F_d,
-                         &chi[i4D], &P_dd, closure_epsilon, closure_maxiter);
+            calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu,
+                         n_d, W, u_u, v_d, proj_ud, rE[i4D], F_d, &chi[i4D],
+                         &P_dd, closure_epsilon, closure_maxiter);
 
             unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
                         &rPyz[i4D], &rPzz[i4D]);
@@ -144,11 +144,11 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             rnnu[i4D] = rN[i4D] / Gamma;
           }
         });
-    //gsl_root_fsolver_free(gsl_solver);
+    // gsl_root_fsolver_free(gsl_solver);
   }
 
   // Restore GSL error handler
-  //gsl_set_error_handler(gsl_err);
+  // gsl_set_error_handler(gsl_err);
 }
 
 } // namespace nuX_M1
