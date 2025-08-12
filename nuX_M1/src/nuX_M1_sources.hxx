@@ -406,7 +406,8 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL const Eold, tensor::generic<CCTK_REAL, 4, 1> const &Fold_d,
     CCTK_REAL const Estar, tensor::generic<CCTK_REAL, 4, 1> const &Fstar_d,
     CCTK_REAL const eta, CCTK_REAL const kabs, CCTK_REAL const kscat,
-    CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
+    CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
+    CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit, CCTK_INT source_maxiter) {
 
   Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter, cdt, alp, g_dd, g_uu, n_d, n_u,
            gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta,
@@ -477,9 +478,9 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
 #endif
         int ierr = source_update(
             cctkGH, i, j, k, ig,
-            eddington, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d,
+            eddington, closure_epsilon, closure_maxiter, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d,
             v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat,
-            chi, Enew, Fnew_d);
+            chi, Enew, Fnew_d, source_thick_limit, source_scat_limit, source_maxiter);
         if (ierr == NUX_M1_SOURCE_OK) {
           return NUX_M1_SOURCE_EDDINGTON;
         } else {
