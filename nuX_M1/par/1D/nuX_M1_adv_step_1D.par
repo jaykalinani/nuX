@@ -1,0 +1,24 @@
+ActiveThorns = " 
+   CarpetX
+   nuX_M1
+   nuX_Utils 
+   nuX_Seeds
+   HydroBaseX  
+   ADMBaseX 
+   "
+
+
+nuX_M1::add_to_Tmunu       = "no"
+nuX_M1::backreact          = "no"
+nuX_M1::bc_type            = "none"  #? Not sure
+nuX_M1::closure            = "Minerbo"
+nuX_M1::closure_epsilon    = 1e-5
+nuX_M1::include_fluxes     = "yes"
+nuX_M1::include_GR_sources = "yes"
+nuX_M1::verbose            = "yes"
+
+
+nuX_Seeds::verbose         = "yes"
+nuX_Seeds::nuX_test_case   = "diff_step"
+
+

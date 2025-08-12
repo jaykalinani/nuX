@@ -1,0 +1,3 @@
+# Configuration definitions for thorn AsterSeeds
+
+REQUIRES Algo EOSX Loop HDF5

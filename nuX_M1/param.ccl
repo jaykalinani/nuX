@@ -218,65 +218,6 @@ BOOLEAN verbose "Debug output" STEERABLE=always
 {
 } "no"
 
-###############################################################################
-# Tests
-###############################################################################
-KEYWORD nuX_m1_test "Perform simple tests"
-{
-    "beam"       :: "Evolve a single beam propagating through the grid"
-    "diff"       :: "Diffusion test"
-    "equil"      :: "Thermal equilibrium test"
-    "kerrschild" :: "Radiation beam in Kerr geometry"
-    "none"       :: "No test is performed (production mode)"
-    "shadow"     :: "Sphere shadow test"
-    "sphere"     :: "Homogeneous sphere test"
-} "none"
-
-CCTK_REAL beam_test_dir[3] "Direction of propagation for the beam"
-{
-    * :: "The direction vector will be normalized; defaults to x-direction"
-} 0.0
-
-CCTK_REAL beam_position "Offset with respect to the plane with normal beam_test_dir passing through the origin"
-{
-    * :: "Any real number"
-} 0.0
-
-CCTK_REAL beam_width "Width of the beam"
-{
-    (0:* :: "Any positive number"
-} 1.0
-
-CCTK_REAL equil_nudens_0[3] "Comoving neutrino number densities"
-{
-    0:* :: "Any non negative number"
-} 0.0
-
-CCTK_REAL equil_nudens_1[3] "Comoving neutrino energy densities"
-{
-    0:* :: "Any non negative number"
-} 0.0
-
-KEYWORD diff_profile "Diffusion profile"
-{
-    "step"     :: "Step profile"
-    "gaussian" :: "Gaussian profile"
-} "step"
-
-CCTK_REAL kerr_beam_position "Position at which the ray is injected"
-{
-    * :: "Any real number"
-} 3.25
-
-CCTK_REAL kerr_beam_width "Width of the beam used for the kerr test"
-{
-    (0:*) :: "Any positive number"
-} 0.5
-
-CCTK_REAL kerr_mask_radius "Excision radius for the Kerr Schild test"
-{
-    0:* :: "Any non-negative number"
-} 2.0
 
 SHARES: EOSX
 USES CCTK_REAL particle_mass
