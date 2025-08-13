@@ -26,7 +26,6 @@ extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
   }
 
   // particle_mass is in MeV
-  // normfact (?) * cgs2cactusMass * mev_to_erg / (clight*clight)
   CCTK_REAL const mb = AverageBaryonMass(particle_mass);
 
   assert(nspecies == 3);

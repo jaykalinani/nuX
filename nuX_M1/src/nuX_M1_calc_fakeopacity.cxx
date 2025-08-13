@@ -33,6 +33,10 @@ using namespace Loop;
 using namespace nuX_FakeRates;
 using namespace EOSX;
 
+#ifndef MAX_GROUPSPECIES
+#define MAX_GROUPSPECIES 3
+#endif
+
 extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
     DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcFakeOpacity;
     DECLARE_CCTK_PARAMETERS;
@@ -73,7 +77,8 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             assert(nspecies == 3);
             assert(ngroups == 1);
             const int ng = nspecies * ngroups;
-
+            //TODO: currently use MAX_GROUPSPECIES instead of ng for array initialization
+	    
             CCTK_REAL rhoL = rho[ijk];
             CCTK_REAL tempL = temperature[ijk];
             CCTK_REAL yeL = Ye[ijk];
@@ -99,10 +104,10 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             }
 
             // Convert emissivities, opacities from nurates
-            CCTK_REAL kappa_0_loc[ng], kappa_1_loc[ng];
-            CCTK_REAL abs_0_loc[ng], abs_1_loc[ng];
-            CCTK_REAL scat_0_loc[ng], scat_1_loc[ng];
-            CCTK_REAL eta_0_loc[ng], eta_1_loc[ng];
+            CCTK_REAL kappa_0_loc[MAX_GROUPSPECIES], kappa_1_loc[MAX_GROUPSPECIES];
+            CCTK_REAL abs_0_loc[MAX_GROUPSPECIES], abs_1_loc[MAX_GROUPSPECIES];
+            CCTK_REAL scat_0_loc[MAX_GROUPSPECIES], scat_1_loc[MAX_GROUPSPECIES];
+            CCTK_REAL eta_0_loc[MAX_GROUPSPECIES], eta_1_loc[MAX_GROUPSPECIES];
 
             for (int ig = 0; ig < ngroups * nspecies; ++ig) {
               const int i4D = layout2.linear(p.i, p.j, p.k, ig);
@@ -127,7 +132,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
                     sqrt(abs_1_loc[1]*kappa_1_loc[1]))*dt;
 
             // Compute the neutrino black body functions assuming trapped neutrinos
-            CCTK_REAL nudens_0_trap[ng], nudens_1_trap[ng];
+            CCTK_REAL nudens_0_trap[MAX_GROUPSPECIES], nudens_1_trap[MAX_GROUPSPECIES];
             if (opacity_tau_trap >= 0 && tau > opacity_tau_trap) {
 
                 CCTK_REAL epsL = eps[ijk];
@@ -147,7 +152,8 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
 
                 myfakerates->FakeNeutrinoDens(rhoL, nudens_0_trap[0], nudens_0_trap[1],
                   nudens_0_trap[2], nudens_1_trap[0], nudens_1_trap[1], nudens_1_trap[2]);
-
+    
+		//NOTE: the block below will never be run because ng is always assumed to be 3
                 if (ng == 4) {
                   nudens_0_trap[2] *= 0.5;
                   nudens_1_trap[2] *= 0.5;
@@ -233,7 +239,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
                     eta_1[i4D] = abs_1[i4D]*nudens_1;
                 }
             }
-        }); // UTILS_ENDLOOP3(thc_m1_calc_opacity);
+        }); 
 }
 
 } // namespace 

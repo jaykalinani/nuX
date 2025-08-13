@@ -1,4 +1,4 @@
-# Parameter definitions for thorn RatesToy
+# Parameter definitions for thorn nuX_RatesToy
 
 BOOLEAN debug_ratestoy "additional debug output" STEERABLE=ALWAYS
 {

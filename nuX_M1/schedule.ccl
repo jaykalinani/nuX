@@ -237,7 +237,18 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
-if (CCTK_Equals(nuX_m1_test, "none")) {
+if (use_fakerates) {
+  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      READS: TimeIntegratorStage(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_M1_mask(everywhere) volform(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+
+      WRITES: opacs(everywhere) nueave(everywhere)
+  } "Compute fake opacities"
+}
+else {
   SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
   {
       LANG: C
@@ -246,17 +257,6 @@ if (CCTK_Equals(nuX_m1_test, "none")) {
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute the opacities"
-}
-else {
-  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
-  {
-      LANG: C
-      READS: TimeIntegratorStage(everywhere)
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_M1_mask(everywhere) volform(everywhere)
-      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere) 
-
-      WRITES: opacs(everywhere) nueave(everywhere)
-  } "Compute fake opacities"
 }
 
 if (include_fluxes) {
@@ -302,18 +302,40 @@ if (include_GR_sources) {
     {
         LANG: C
         
-        READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+        READS: ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+        READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere)
         READS: rE(everywhere) rF(everywhere) rP(everywhere)
         READS: volform(everywhere) nuX_m1_mask(everywhere)
         WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
-#SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-#    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
-#{
-#    LANG: C
-#} "Semi-implicit update of radiation and matter fields"
+SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
+{
+    LANG: C
+    
+    READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+    READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+    READS: volform(interior) nuX_m1_mask(interior)
+    READS: fidu_vel(interior) fidu_w_lorentz(interior) 
+    READS: rN(interior) rE(interior) rF(interior)  
+    READS: rN_p(interior) rE_p(interior) rF_p(interior)
+    READS: rJ(interior) rHt(interior) rH(interior) 
+    READS: opacs(interior) nueave(interior)
+    READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+    READS: chi(interior)
+    READS: HydroBaseX::Ye(interior) AsterX::dens(interior)
+    READS: TimeIntegratorStage
+ 
+    WRITES: chi(interior)
+    WRITES: fluidsources(interior)  
+    WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
+    WRITES: rN(interior) rE(interior) rF(interior)
+     
+    SYNC: chi fluidsources rN rE rF AsterX::mom AsterX::tau AsterX::DYe
+
+} "Semi-implicit update of radiation and matter fields"
 
 if (backreact) {
     SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
@@ -346,26 +368,35 @@ SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
 {
 } "Apply boundary conditions"
 
-#if (add_to_Tmunu) {
-#    SCHEDULE GROUP nuX_M1_Tmunu IN AddToTmunu
-#    {
-#    } "Adds the contribution of radiation to the global stress-energy tensor"
-#
-#    SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
-#    {
-#        LANG: C
-#        READS: ADMBaseX::metric(everywhere)
-#        READS: AsterX::dens(everywhere)
-#        READS: HydroBaseX::vel(everywhere)  
-#        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
-#        WRITES: fidu_w_lorentz(everywhere)
-#    } "Compute the fiducial velocity"
-#
-#    SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
-#    {
-#        LANG: C
-#    } "Adds the contribution of radiation to the global stress-energy tensor"
-#}
+if (add_to_Tmunu) {
+    SCHEDULE GROUP nuX_M1_Tmunu IN TmunuBaseX_AddToTmunu
+    {
+    } "Adds the contribution of radiation to the global stress-energy tensor"
+
+    SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
+    {
+        LANG: C
+        READS: ADMBaseX::metric(everywhere)
+        READS: AsterX::dens(everywhere)
+        READS: HydroBaseX::vel(everywhere)  
+        READS: nuX_m1_mask(everywhere)
+        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+        WRITES: fidu_w_lorentz(everywhere)
+    } "Compute the fiducial velocity"
+
+    SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
+    {
+        LANG: C
+        READS: nuX_m1_mask(everywhere)
+        READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+        READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
+        READS: volform(everywhere) rE(everywhere) rF(everywhere) 
+        READS: ADMBaseX::shift(everywhere)
+        READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
+        WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
+        SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
+    } "Adds the contribution of radiation to the global stress-energy tensor"
+}
 
 ###############################################################################
 # Stuff outside of the main loop
@@ -435,65 +466,12 @@ SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
     WRITES: radial_fluxes(everywhere)
 } "Compute radial fluxes"
 
-###############################################################################
-# Tests
-###############################################################################
-#if (CCTK_Equals(initial_hydro, "nuX_M1")) {
-#    SCHEDULE nuX_M1_SetupTest_Hydro IN HydroBase_Initial
-#    {
-#        LANG: C
-#    } "Initialize hydro quantities"
-#}
-
-#if (!CCTK_Equals(nuX_m1_test, "none")) {
-#    SCHEDULE nuX_M1_SetupTest IN nuX_M1_InitialData
-#    {
-#        LANG: C
-#    } "Setup initial data for simple tests"
-#}
-
-#if (CCTK_Equals(nuX_m1_test, "equil")) {
-#    STORAGE: nuX_Core::dens[1]
-#    STORAGE: nuX_Core::densxn[1]
-#    STORAGE: nuX_Core::densxp[1]
-#    STORAGE: nuX_Core::scon[1]
-#    STORAGE: nuX_Core::tau[1]
-#    STORAGE: nuX_Core::volform[1]
-#
-#    SCHEDULE nuX_ConsToAll IN HydroBase_Con2Prim
-#    {
-#        LANG: C
-#    } "Computes the primitives from the conservatives"
-#}
-
-#if (CCTK_Equals(nuX_m1_test, "kerrschild")) {
-#    SCHEDULE nuX_M1_KerrBCs IN nuX_M1_BoundaryConditions \
-#        AFTER nuX_M1_ApplyBCs
-#    {
-#        LANG: C
-#    } "Apply custom boundary conditions"
-#
-#    SCHEDULE nuX_M1_KerrSchild_Mask IN nuX_M1_EVOL \
-#        AFTER nuX_M1_SetMask \
-#        BEFORE nuX_M1_TimeStep
-#    {
-#        LANG: C
-#    } "Cheap excision for the Kerr Schild test"
-#}
-
-#if (CCTK_Equals(nuX_m1_test, "shadow")) {
-#    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
-#        AFTER nuX_M1_ApplyBCs
-#    {
-#        LANG: C
-#    } "Apply custom boundary conditions"
-#}
 
 # This would need to change if we want to couple with another hydro solver
-#if (!CCTK_Equals(evolution_method, "nuXode")) {
+# if (!CCTK_Equals(evolution_method, "nuXode")) {
 #    SCHEDULE nuX_M1_MoLRegister IN MoL_Register
 #    {
 #        LANG: C
 #        OPTIONS: GLOBAL
 #    } "Register variables with MoL"
-#}
+#  }
