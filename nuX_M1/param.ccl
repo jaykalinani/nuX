@@ -6,12 +6,8 @@ EXTENDS KEYWORD initial_hydro "Hydro initial data"
     "nuX_M1" :: ""
 }
 
-SHARES: HydroBaseX
 #USES INT hydro_excision
 #USES KEYWORD evolution_method
-
-SHARES:EOSX
-USES CCTK_REAL particle_mass
 
 RESTRICTED:
 
@@ -221,6 +217,9 @@ BOOLEAN verbose "Debug output" STEERABLE=always
 {
 } "no"
 
+BOOLEAN use_fakerates "Whether to use fakerates for testing" STEERABLE=always
+{
+} "no"
 
 SHARES: EOSX
 USES CCTK_REAL particle_mass

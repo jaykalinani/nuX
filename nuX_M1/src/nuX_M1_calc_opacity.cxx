@@ -40,6 +40,10 @@ using namespace Loop;
 using namespace nuX_Rates;
 using namespace EOSX;
 
+#ifndef MAX_GROUPSPECIES
+#define MAX_GROUPSPECIES 3
+#endif
+
 extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
     DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcOpacity;
     DECLARE_CCTK_PARAMETERS;
@@ -112,6 +116,7 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
             assert(nspecies == 3);
             assert(ngroups == 1);
             const int ng = nspecies * ngroups;
+            //TODO: currently use MAX_GROUPSPECIES instead of ng for array initialization
 
             /*---------------- vvv NuRates boilerplate vvv -------------*/
             // Init GreyOpacs struct
@@ -181,10 +186,10 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
                 &my_grey_opacity_params);
 
             // Convert emissivities, opacities from nurates
-            CCTK_REAL kappa_0_loc[ng], kappa_1_loc[ng];
-            CCTK_REAL abs_0_loc[ng], abs_1_loc[ng];
-            CCTK_REAL scat_0_loc[ng], scat_1_loc[ng];
-            CCTK_REAL eta_0_loc[ng], eta_1_loc[ng];
+            CCTK_REAL kappa_0_loc[MAX_GROUPSPECIES], kappa_1_loc[MAX_GROUPSPECIES];
+            CCTK_REAL abs_0_loc[MAX_GROUPSPECIES], abs_1_loc[MAX_GROUPSPECIES];
+            CCTK_REAL scat_0_loc[MAX_GROUPSPECIES], scat_1_loc[MAX_GROUPSPECIES];
+            CCTK_REAL eta_0_loc[MAX_GROUPSPECIES], eta_1_loc[MAX_GROUPSPECIES];
 
             for (int ig = 0; ig < ngroups * nspecies; ++ig) {
               const int i4D = layout2.linear(p.i, p.j, p.k, ig);
@@ -209,8 +214,8 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
                     sqrt(abs_1_loc[0]*kappa_1_loc[0]),
                     sqrt(abs_1_loc[1]*kappa_1_loc[1]))*dt;
 
-            // Compute the neutrino black body functions assuming trapped neutrinos
-            CCTK_REAL nudens_0_trap[ng], nudens_1_trap[ng];
+            // Compute the neutrino black body functions assumiMAX_GROUPSPECIES trapped neutrinos
+            CCTK_REAL nudens_0_trap[MAX_GROUPSPECIES], nudens_1_trap[MAX_GROUPSPECIES];
             if (opacity_tau_trap >= 0 && tau > opacity_tau_trap) {
 
                 CCTK_REAL epsL = eos_3p->eps_from_valid_rho_temp_ye(rhoL, tempL, yeL);
@@ -289,6 +294,7 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
                 NeutrinoDens(mu_n_trap, mu_p_trap, mu_e_trap, temp_trap, nudens_0_trap[0], nudens_0_trap[1],
                   nudens_0_trap[2], nudens_1_trap[0], nudens_1_trap[1], nudens_1_trap[2]);
 
+		//NOTE: the block below will never be run because ng is always assumed to be 3
                 if (ng == 4) {
                   nudens_0_trap[2] *= 0.5;
                   nudens_1_trap[2] *= 0.5;

@@ -1,0 +1,6 @@
+# Configuration definitions for thorn nuX_RatesToy
+REQUIRES Loop EOSX nuX_Rates nuX_FakeRates
+
+PROVIDES nuX_RatesToy
+{
+}

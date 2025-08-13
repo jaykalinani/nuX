@@ -8,7 +8,7 @@
 #include "m1_opacities.hpp"
 #include "nuX_fakerates.hxx"
 
-namespace RatesToy {
+namespace nuX_RatesToy {
 using namespace Loop;
 using namespace EOSX;
 using namespace nuX_Rates;
@@ -16,8 +16,8 @@ using namespace nuX_FakeRates;
 
 enum class rates_t { NuRates, FakeRates};
 
-extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_RatesToy_Calc;
+extern "C" void nuX_RatesToy_Calc(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_RatesToy_Calc;
   DECLARE_CCTK_PARAMETERS
 
   // Set ccc layout
