@@ -1,15 +1,17 @@
 ActiveThorns = " 
+   ADMBaseX
    CarpetX
-   nuX_M1
-   nuX_Utils 
-   nuX_Seeds
-   HydroBaseX  
-   ADMBaseX 
-   TmunuBaseX
+   Con2PrimFactory
+   EOSX
+   HydroBaseX
    IOUtil
+   nuX_FakeRates
+   nuX_M1
+   nuX_Seeds
+   nuX_Utils
    ODESolvers
    TimerReport
-   EOSX
+   TmunuBaseX
    "
 
  
@@ -130,7 +132,7 @@ nuX_M1::verbose            = "yes"
 
 
 nuX_Seeds::verbose         = "yes"
-nuX_Seeds::nuX_test_case   = "adv_velocity_jump"
+nuX_Seeds::nuX_test_case   = "shadow"
 nuX_Seeds::test_nvec       = [1.0,0.0,0.0]
 nuX_Seeds::static_rho      = 1.0
 nuX_Seeds::static_eps      = 1.0e-2

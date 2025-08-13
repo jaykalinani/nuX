@@ -19,8 +19,8 @@ using namespace AsterUtils;
 // -----------------------------------------------------------------------------
 // Main setup routine
 // -----------------------------------------------------------------------------
-extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_adv_velocity_jump;
+extern "C" void nuX_Seeds_SetupTest_atmosphere(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_atmosphere;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
@@ -35,9 +35,6 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
-  const GF3D2layout layout3(cctkGH, {1, 0, 0});
-  const GF3D2layout layout4(cctkGH, {0, 1, 0});
-  const GF3D2layout layout5(cctkGH, {0, 0, 1});
   const smat<GF3D2<const CCTK_REAL8>, 3> gf_g{
     GF3D2<const CCTK_REAL8>(layout2, gxx),
     GF3D2<const CCTK_REAL8>(layout2, gxy),
@@ -82,7 +79,6 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           rho[ijk] = static_rho;
           eps[ijk]  = static_eps;
           Ye[ijk]   = static_ye;
-         
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
 
@@ -108,24 +104,6 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           rFz[i4D] = 4 * W * W * velz[ijk] * Jo3;
         }
       });
-  grid.loop_all_device<1, 0, 0>(
-      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) 
-                            CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                              const int ijk = layout3.linear(p.i, p.j, p.k);
-                               Avec_x[ijk] = 0.; });
-
-
- grid.loop_all_device<0, 1, 0>(
-      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) 
-                            CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                              const int ijk = layout4.linear(p.i, p.j, p.k);
-                               Avec_y[ijk] = 0.; });
-
- grid.loop_all_device<0, 0, 1>(
-      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) 
-                            CCTK_ATTRIBUTE_ALWAYS_INLINE {
-                              const int ijk = layout5.linear(p.i, p.j, p.k);
-                               Avec_z[ijk] = 0.; });
 }
 
 } // namespace nuX_M1

@@ -96,16 +96,33 @@ extern "C" void nuX_Seeds_SetupTest_shadow(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          if (p.BI[0]!= 0.0) {
-           rFx[i4D] = -p.BI[0]; // If on -X boundary, flux in +X
+          if ((p.BI[0]== -1.0) && (test_nvec[0] == 1.0)) {
+           rFx[i4D] = 1.0; // If on -X boundary, flux in +X
+            rE[i4D] = 1.0;
+            rN[i4D] = 1.0;
           }
-          if (p.BI[1]!= 0.0) {
-           rFy[i4D] = -p.BI[1]; // If on -Y boundary, flux in +Y
+          if ((p.BI[0]== 1.0) && (test_nvec[0] == -1.0)) {
+           rFx[i4D] = -1.0; // If on +X boundary, flux in -X
+            rE[i4D] = 1.0;
+            rN[i4D] = 1.0;
           }
-          if (p.BI[2]!= 0.0) {
-           rFz[i4D] = -p.BI[2]; // If on -Z boundary, flux in +Z
+          if ((p.BI[1]== -1.0) && (test_nvec[1] == 1.0)) {
+           rFy[i4D] = 1.0; // If on -Y boundary, flux in +Y
+            rE[i4D] = 1.0;
+            rN[i4D] = 1.0;
           }
-          if ((p.BI[0]!= 0.0) || (p.BI[1]!= 0.0) || (p.BI[2]!= 0.0)) {
+          if ((p.BI[1]== 1.0) && (test_nvec[1] == -1.0)) {
+           rFy[i4D] = -1.0; // If on +Y boundary, flux in -Y
+            rE[i4D] = 1.0;
+            rN[i4D] = 1.0;
+          }
+          if ((p.BI[2]== -1.0) && (test_nvec[2] == 1.0)) {
+           rFz[i4D] = 1.0; // If on -Z boundary, flux in +Z
+            rE[i4D] = 1.0;
+            rN[i4D] = 1.0;
+          }
+          if ((p.BI[2]== 1.0) && (test_nvec[2] == -1.0)) {
+           rFz[i4D] = -1.0; // If on +Z boundary, flux in -Z
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
