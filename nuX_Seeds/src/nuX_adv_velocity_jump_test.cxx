@@ -79,6 +79,7 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           rho[ijk] = static_rho;
           eps[ijk]  = static_eps;
           Ye[ijk]   = static_ye;
+          Avecx[ijk] = Avecy[ijk] = Avecz[ijk] = 0.0;
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
 
