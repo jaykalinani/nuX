@@ -30,6 +30,11 @@ CCTK_REAL static_rho "Initial rest mass density"
     (0:) :: "Any positive number"
 } 1.0
 
+CCTK_REAL static_E "Initial total energy density"
+{
+    (0:) :: "Any positive number"
+} 1.0
+
 CCTK_REAL static_velx "Add a constant velocity in the initial data: x-component"
 {
     (-1:1) :: "Any number that makes sense"

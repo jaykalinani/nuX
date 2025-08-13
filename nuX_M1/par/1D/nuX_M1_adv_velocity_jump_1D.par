@@ -133,6 +133,7 @@ nuX_Seeds::verbose         = "yes"
 nuX_Seeds::nuX_test_case   = "adv_velocity_jump"
 nuX_Seeds::test_nvec       = [0.0,0.0,1.0]
 nuX_Seeds::static_rho      = 1.0
+nuX_Seeds::static_E        = 1.0
 nuX_Seeds::static_eps      = 1.0e-2
 nuX_Seeds::static_ye       = 0.5
 nuX_Seeds::static_velz     = 0.87

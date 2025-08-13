@@ -26,6 +26,7 @@ if (CCTK_Equals(nuX_test_case, "adv_velocity_jump")) {
 if ((CCTK_Equals(nuX_test_case, "diff_limit_square")) || (CCTK_EQUALS(nuX_test_case, "diff_limit_gaussian"))) {
   SCHEDULE nuX_Seeds_SetupTest_diff_limit_test IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
     LANG: C
+    READS: ADMBaseX::metric(everywhere)
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)

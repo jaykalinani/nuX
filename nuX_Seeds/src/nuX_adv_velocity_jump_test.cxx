@@ -69,7 +69,7 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
             velx[ijk] = static_velx;
             vely[ijk] = static_vely;
             velz[ijk] = static_velz;
-            rE[i4D] = 1.0;
+            rE[i4D] = static_E;
           } else if (dotp3d >= 0.0) {
             velx[ijk] = -static_velx;
             vely[ijk] = -static_vely;
