@@ -2,3 +2,6 @@
 
 IMPLEMENTS: nuX_FakeRates
 INCLUDES HEADER: nuX_fakerates.hxx IN nuX_fakerates.hxx
+
+USES INCLUDE HEADER: m1_opacities.hpp
+

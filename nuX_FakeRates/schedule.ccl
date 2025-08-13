@@ -1,8 +1,8 @@
 # Schedule definitions for thorn nuX_FakeRates
 
-# SCHEDULE nuX_Rates_Setup AT CCTK_WRAGH
-# {
-#   LANG: C
-#   OPTIONS: GLOBAL
-# } "set up neutrino reaction parameters"
+SCHEDULE nuX_FakeRates_Setup AT CCTK_WRAGH
+{
+  LANG: C
+  OPTIONS: GLOBAL
+} "set up fake reaction parameters"
 

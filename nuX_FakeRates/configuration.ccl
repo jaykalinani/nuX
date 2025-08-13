@@ -1,4 +1,5 @@
 # Configuration definitions for thorn nuX_FakeRates
+REQUIRES Loop
 
 PROVIDES nuX_FakeRates
 {

@@ -1,47 +1,114 @@
 #include <cctk.h>
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
+#include <loop_device.hxx>
+#include <float.h>
+
+#include "m1_opacities.hpp"
 
 namespace nuX_FakeRates {
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
-M1Opacities ComputeFakeOpacities(const MyQuadrature* quad_1d,
-                               const MyQuadrature* quad_2d,
-                               GreyOpacityParams* my_grey_opacity_params)
-{
+class FakeRatesDef {
+public:
+  CCTK_REAL kabs_nue;
+  CCTK_REAL kabs_nua;
+  CCTK_REAL kabs_nux;
+  CCTK_REAL kabs_anux;
+
+  CCTK_REAL kscat_nue;
+  CCTK_REAL kscat_nua;
+  CCTK_REAL kscat_nux;
+  CCTK_REAL kscat_anux;
+
+  CCTK_REAL et_nue;
+  CCTK_REAL et_nua;
+  CCTK_REAL et_nux;
+  CCTK_REAL et_anux;
+
+  CCTK_HOST void init() {
     DECLARE_CCTK_PARAMETERS;
+
+    kabs_nue = kappa_abs_nue;
+    kabs_nua = kappa_abs_nua;
+    kabs_nux = kappa_abs_nux;
+    kabs_anux = kappa_abs_anux;
+
+    kscat_nue = kappa_scat_nue;
+    kscat_nua = kappa_scat_nua;
+    kscat_nux = kappa_scat_nux;
+    kscat_anux = kappa_scat_anux;
+
+    et_nue = eta_nue;
+    et_nua = eta_nua;
+    et_nux = eta_nux;
+    et_anux = eta_anux;
+    return;
+  }
+
+  CCTK_DEVICE inline M1Opacities ComputeFakeOpacities(const CCTK_REAL rho) {
+
     M1Opacities m1_opacities = {0};
+    m1_opacities.eta_0[0] = rho * et_nue;
+    m1_opacities.eta_0[1] = rho * et_nua;
+    m1_opacities.eta_0[2] = rho * et_nux;
+    m1_opacities.eta_0[3] = rho * et_anux;
 
-    const BS_REAL rhoL = my_grey_opacity_params->eos_pars.nb; // this should just be plain fluid mass density in CU
-    // Electron neutrinos
-    m1_opacities.kappa_0_a[0] = rhoL * kappa_abs_nue;
-    m1_opacities.kappa_a[0]   = rhoL * kappa_abs_nue;
-    m1_opacities.kappa_s[0]   = rhoL * kappa_scat_nue;
-    m1_opacities.eta_0[0]     = rhoL * eta_nue;
-    m1_opacities.eta[0]       = rhoL * eta_nue;
+    m1_opacities.kappa_0_a[0] = rho * kabs_nue;
+    m1_opacities.kappa_0_a[1] = rho * kabs_nua;
+    m1_opacities.kappa_0_a[2] = rho * kabs_nux;
+    m1_opacities.kappa_0_a[3] = rho * kabs_anux;
 
-    // Anti-electron neutrinos
-    m1_opacities.kappa_0_a[1] = rhoL * kappa_abs_nua;
-    m1_opacities.kappa_a[1]   = rhoL * kappa_abs_nua;
-    m1_opacities.kappa_s[1]   = rhoL * kappa_scat_nua;
-    m1_opacities.eta_0[1]     = rhoL * eta_nua;
-    m1_opacities.eta[1]       = rhoL * eta_nua;
+    m1_opacities.eta[0] = rho * et_nue;
+    m1_opacities.eta[1] = rho * et_nua;
+    m1_opacities.eta[2] = rho * et_nux;
+    m1_opacities.eta[3] = rho * et_anux;
 
-    // Heavy neutrinos
-    m1_opacities.kappa_0_a[2] = rhoL * kappa_abs_nux;
-    m1_opacities.kappa_a[2]   = rhoL * kappa_abs_nux;
-    m1_opacities.kappa_s[2]   = rhoL * kappa_scat_nux;
-    m1_opacities.eta_0[2]     = rhoL * eta_nux;
-    m1_opacities.eta[2]       = rhoL * eta_nux;
+    m1_opacities.kappa_a[0] = rho * kabs_nue;
+    m1_opacities.kappa_a[1] = rho * kabs_nua;
+    m1_opacities.kappa_a[2] = rho * kabs_nux;
+    m1_opacities.kappa_a[3] = rho * kabs_anux;
 
-    // Heavy neutrinos
-    m1_opacities.kappa_0_a[3] = rhoL * kappa_abs_anux;
-    m1_opacities.kappa_a[3]   = rhoL * kappa_abs_anux;
-    m1_opacities.kappa_s[3]   = rhoL * kappa_scat_anux;
-    m1_opacities.eta_0[3]     = rhoL * eta_anux;
-    m1_opacities.eta[3]       = rhoL * eta_anux;
-
+    m1_opacities.kappa_s[0] = rho * kscat_nue;
+    m1_opacities.kappa_s[1] = rho * kscat_nua;
+    m1_opacities.kappa_s[2] = rho * kscat_nux;
+    m1_opacities.kappa_s[3] = rho * kscat_anux;
     return m1_opacities;
-}
+  }
+
+  // template<typename EOSType>
+  // CCTK_DEVICE inline int FakeBetaEquilibriumTrapped(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yl, CCTK_REAL &T_eq, CCTK_REAL &Y_eq, CCTK_REAL T_guess, CCTK_REAL Y_guess, const EOSType* tabeos) {
+  //   T_eq = T_guess;
+  //   Y_eq = Y_guess;
+  //   return 0;
+  // }
+
+  CCTK_DEVICE CCTK_HOST inline 
+  void FakeNeutrinoDens(CCTK_REAL rho, CCTK_REAL &num_nue, CCTK_REAL &num_nua,
+                  CCTK_REAL &num_nux, CCTK_REAL &ene_nue, CCTK_REAL &ene_nua, CCTK_REAL &ene_nux) {
+
+    if(rho*kabs_nue > FLT_EPSILON*et_nue) {
+        num_nue = et_nue/(rho*kabs_nue);
+        ene_nue = et_nue/(rho*kabs_nue);
+    }
+    else {
+        num_nue = 1.0;
+        ene_nue = 1.0;
+    }
+
+    if(rho*kabs_nua > FLT_EPSILON*et_nua) {
+        num_nua = et_nua/(rho*kabs_nua);
+        ene_nua = et_nua/(rho*kabs_nua);
+    }
+    else {
+        num_nua = 1.0;
+        ene_nua = 1.0;
+    }
+
+    num_nux = 1.0;
+    ene_nux = 1.0;
+  }
+};
+
+extern FakeRatesDef global_fakerates;
 
 } // namespace

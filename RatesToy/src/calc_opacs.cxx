@@ -34,45 +34,20 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
     CCTK_ERROR("Unknown value for parameter \"rates_type\"");
   }
 
+  FakeRatesDef myfakerates = global_fakerates;
+
   const auto calcrates =
       [=] CCTK_DEVICE(const MyQuadrature* quad_1d,
                      const MyQuadrature* quad_2d,
-                     GreyOpacityParams* my_grey_opacity_params) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                     GreyOpacityParams* my_grey_opacity_params,
+                     FakeRatesDef fake) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         M1Opacities ratesout;
         switch (ratestype) {
 
         case rates_t::FakeRates: {
           // this should just be plain fluid mass density in CU
-          const BS_REAL rhoL = my_grey_opacity_params->eos_pars.nb / nuX_dens_conv / (particle_mass * kBS_MeVtog);
-
-          // Electron neutrinos
-          ratesout.kappa_0_a[0] = rhoL * kappa_abs_nue;
-          ratesout.kappa_a[0]   = rhoL * kappa_abs_nue;
-          ratesout.kappa_s[0]   = rhoL * kappa_scat_nue;
-          ratesout.eta_0[0]     = rhoL * eta_nue;
-          ratesout.eta[0]       = rhoL * eta_nue;
-
-          // Anti-electron neutrinos
-          ratesout.kappa_0_a[1] = rhoL * kappa_abs_nua;
-          ratesout.kappa_a[1]   = rhoL * kappa_abs_nua;
-          ratesout.kappa_s[1]   = rhoL * kappa_scat_nua;
-          ratesout.eta_0[1]     = rhoL * eta_nua;
-          ratesout.eta[1]       = rhoL * eta_nua;
-
-          // Heavy neutrinos
-          ratesout.kappa_0_a[2] = rhoL * kappa_abs_nux;
-          ratesout.kappa_a[2]   = rhoL * kappa_abs_nux;
-          ratesout.kappa_s[2]   = rhoL * kappa_scat_nux;
-          ratesout.eta_0[2]     = rhoL * eta_nux;
-          ratesout.eta[2]       = rhoL * eta_nux;
-
-          // Heavy neutrinos
-          ratesout.kappa_0_a[3] = rhoL * kappa_abs_anux;
-          ratesout.kappa_a[3]   = rhoL * kappa_abs_anux;
-          ratesout.kappa_s[3]   = rhoL * kappa_scat_anux;
-          ratesout.eta_0[3]     = rhoL * eta_anux;
-          ratesout.eta[3]       = rhoL * eta_anux;
-
+          const BS_REAL rhoL = my_grey_opacity_params->eos_pars.nb * particle_mass * kBS_MeVtog / nuX_dens_conv;
+          ratesout = fake.ComputeFakeOpacities(rhoL);
           break;
         }
 
@@ -194,22 +169,31 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
       }
 
       M1Opacities coeffs = calcrates(&gpu_quad, &gpu_quad,
-                                              &my_grey_opacity_params);
+                           &my_grey_opacity_params, myfakerates);
             
       // Convert emissivities, opacities from nurates
-			for (int ig = 0; ig < ngroups * nspecies; ++ig) {
+      for (int ig = 0; ig < ngroups * nspecies; ++ig) {
         const int i4D = layout2.linear(p.i, p.j, p.k, ig);
 
-        CCTK_REAL out_fac = 1.0;
-        if (ig == 2)
-          CCTK_REAL out_fac = 4.0; // Heavy neutrinos account for 4 species
+        if (ratestype == rates_t::NuRates) {
+          CCTK_REAL out_fac = 1.0;
+          if (ig == 2)
+            CCTK_REAL out_fac = 4.0; // Heavy neutrinos account for 4 species
 
-        abs_0t[i4D] = coeffs.kappa_0_a[ig] * nuX_length_conv;
-        abs_1t[i4D] = coeffs.kappa_a[ig] * nuX_length_conv;
-        scat_1t[i4D] = coeffs.kappa_s[ig] * nuX_length_conv;
-        eta_0t[i4D] = coeffs.eta_0[ig] / nuX_ndens_conv * nuX_time_conv * out_fac;
-        eta_1t[i4D] = coeffs.eta[ig] / nuX_edens_conv * nuX_time_conv * out_fac;
-			}
+          abs_0t[i4D] = coeffs.kappa_0_a[ig] * nuX_length_conv;
+          abs_1t[i4D] = coeffs.kappa_a[ig] * nuX_length_conv;
+          scat_1t[i4D] = coeffs.kappa_s[ig] * nuX_length_conv;
+          eta_0t[i4D] = coeffs.eta_0[ig] / nuX_ndens_conv * nuX_time_conv * out_fac;
+          eta_1t[i4D] = coeffs.eta[ig] / nuX_edens_conv * nuX_time_conv * out_fac;
+        }
+        else {
+          abs_0t[i4D] = coeffs.kappa_0_a[ig];
+          abs_1t[i4D] = coeffs.kappa_a[ig];
+          scat_1t[i4D] = coeffs.kappa_s[ig];
+          eta_0t[i4D] = coeffs.eta_0[ig];
+          eta_1t[i4D] = coeffs.eta[ig];
+        }
+      }
 		});
 }
 
