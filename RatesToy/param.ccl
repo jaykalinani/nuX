@@ -1,0 +1,71 @@
+# Parameter definitions for thorn RatesToy
+
+BOOLEAN debug_ratestoy "additional debug output" STEERABLE=ALWAYS
+{
+} "no"
+
+INT ngroups "Number of radiation energy groups" STEERABLE=ALWAYS
+{
+    1 :: "Only 1 is supported at the moment"
+} 1
+
+INT nspecies "Number of radiation species" STEERABLE=ALWAYS
+{
+    3 :: "Only 3 is supported at the moment"
+} 3
+
+KEYWORD rates_type "Microphysics method" STEERABLE=always
+{
+  "NuRates" :: ""
+  "FakeRates" :: ""
+} "NuRates"
+
+CCTK_REAL set_n "Constant number density" STEERABLE=ALWAYS
+{
+    (0:* :: "Any positive number"
+} 1e-5
+
+CCTK_REAL set_J "Constant energy density" STEERABLE=ALWAYS
+{
+    (0:* :: "Any positive number"
+} 1e-5
+
+CCTK_REAL set_Ht "Constant energy flux" STEERABLE=ALWAYS
+{
+    0:* :: "Any positive number"
+} 1e-5
+
+CCTK_REAL set_Hx "Constant x flux" STEERABLE=ALWAYS
+{
+    *:* :: "Any number"
+} 1e-5
+CCTK_REAL set_Hy "Constant x flux" STEERABLE=ALWAYS
+{
+    *:* :: "Any number"
+} 1e-5
+CCTK_REAL set_Hz "Constant x flux" STEERABLE=ALWAYS
+{
+    *:* :: "Any number"
+} 1e-5
+
+CCTK_REAL set_chi "Constant Eddington factor" STEERABLE=ALWAYS
+{
+    [0.33:1.0] :: "Valid"
+} 0.333
+
+SHARES: EOSX
+USES CCTK_REAL particle_mass
+
+SHARES: nuX_FakeRates
+USES CCTK_REAL kappa_abs_nue
+USES CCTK_REAL kappa_scat_nue
+USES CCTK_REAL eta_nue
+USES CCTK_REAL kappa_abs_nua
+USES CCTK_REAL kappa_scat_nua
+USES CCTK_REAL eta_nua
+USES CCTK_REAL kappa_abs_nux
+USES CCTK_REAL kappa_scat_nux
+USES CCTK_REAL eta_nux
+USES CCTK_REAL kappa_abs_anux
+USES CCTK_REAL kappa_scat_anux
+USES CCTK_REAL eta_anux

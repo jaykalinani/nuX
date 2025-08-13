@@ -1,0 +1,59 @@
+# Parameter definitions for thorn nuX_FakeRates
+
+restricted:
+
+CCTK_REAL eta_nue "Specific emissivity coefficient for electron neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+CCTK_REAL eta_nua "Specific emissivity coefficient for anti-electron neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+CCTK_REAL eta_nux "Specific emissivity coefficient for heavy neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+CCTK_REAL eta_anux "Specific emissivity coefficient for anti-heavy neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+
+CCTK_REAL kappa_scat_nue "Specific total opacity for electron neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 0.0
+CCTK_REAL kappa_scat_nua "Specific total opacity for anti-electron neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 0.0
+CCTK_REAL kappa_scat_nux "Specific total opacity for heavy neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 0.0
+CCTK_REAL kappa_scat_anux "Specific total opacity for anti-heavy neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 0.0
+
+CCTK_REAL kappa_abs_nue "Specific total absorption opacity for electron neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+CCTK_REAL kappa_abs_nua "Specific total absorption opacity for anti-electron neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+CCTK_REAL kappa_abs_nux "Specific total absorption opacity for heavy neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+CCTK_REAL kappa_abs_anux "Specific total absorption opacity for anti-heavy neutrinos" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
+
+CCTK_REAL avg_atomic_mass "Average atomic mass" STEERABLE=ALWAYS
+{
+    0:* :: "Any non-negative number"
+} 1.0
