@@ -10,6 +10,7 @@
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
 #include "nuX_M1_sources.hxx"
+#include "avg_baryon_mass.hpp"
 
 namespace nuX_M1 {
 
