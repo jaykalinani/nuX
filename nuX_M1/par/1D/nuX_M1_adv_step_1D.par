@@ -47,9 +47,9 @@ CarpetX::boundary_upper_x = "linear extrapolation"
 CarpetX::boundary_upper_y = "linear extrapolation"
 CarpetX::boundary_upper_z = "linear extrapolation"
 
-CarpetX::ncells_x = $ncells
+CarpetX::ncells_x = 2
 CarpetX::ncells_y = 2
-CarpetX::ncells_z = 2
+CarpetX::ncells_z = $ncells
 
 CarpetX::max_num_levels = $nlevels
 CarpetX::regrid_every = 100000
@@ -92,6 +92,10 @@ CarpetX::out_silo_vars = "
     HydroBaseX::press
     HydroBaseX::Bvec
     CarpetX::regrid_error
+    nuX_M1::rN
+    nuX_M1::rE
+    nux_M1::rf
+    nuX_M1::rP
 "
 
 CarpetX::out_tsv_vars = "
@@ -101,6 +105,10 @@ CarpetX::out_tsv_vars = "
     HydroBaseX::press
     HydroBaseX::Bvec
     CarpetX::regrid_error
+    nuX_M1::rN
+    nuX_M1::rE
+    nux_M1::rf
+    nuX_M1::rP
 "
 
 TimerReport::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
