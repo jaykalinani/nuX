@@ -34,20 +34,20 @@ extern "C" void RatesToy_Calc(CCTK_ARGUMENTS) {
     CCTK_ERROR("Unknown value for parameter \"rates_type\"");
   }
 
-  FakeRatesDef myfakerates = global_fakerates;
+  FakeRatesDef* myfakerates = global_fakerates;
 
   const auto calcrates =
       [=] CCTK_DEVICE(const MyQuadrature* quad_1d,
                      const MyQuadrature* quad_2d,
                      GreyOpacityParams* my_grey_opacity_params,
-                     FakeRatesDef fake) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+                     FakeRatesDef* fake) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         M1Opacities ratesout;
         switch (ratestype) {
 
         case rates_t::FakeRates: {
           // this should just be plain fluid mass density in CU
           const BS_REAL rhoL = my_grey_opacity_params->eos_pars.nb * particle_mass * kBS_MeVtog / nuX_dens_conv;
-          ratesout = fake.ComputeFakeOpacities(rhoL);
+          ratesout = fake->ComputeFakeOpacities(rhoL);
           break;
         }
 

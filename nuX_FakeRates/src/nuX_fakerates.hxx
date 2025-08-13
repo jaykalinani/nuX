@@ -25,25 +25,7 @@ public:
   CCTK_REAL et_nux;
   CCTK_REAL et_anux;
 
-  CCTK_HOST void init() {
-    DECLARE_CCTK_PARAMETERS;
-
-    kabs_nue = kappa_abs_nue;
-    kabs_nua = kappa_abs_nua;
-    kabs_nux = kappa_abs_nux;
-    kabs_anux = kappa_abs_anux;
-
-    kscat_nue = kappa_scat_nue;
-    kscat_nua = kappa_scat_nua;
-    kscat_nux = kappa_scat_nux;
-    kscat_anux = kappa_scat_anux;
-
-    et_nue = eta_nue;
-    et_nua = eta_nua;
-    et_nux = eta_nux;
-    et_anux = eta_anux;
-    return;
-  }
+  CCTK_HOST void init();
 
   CCTK_DEVICE inline M1Opacities ComputeFakeOpacities(const CCTK_REAL rho) {
 
@@ -75,13 +57,6 @@ public:
     return m1_opacities;
   }
 
-  // template<typename EOSType>
-  // CCTK_DEVICE inline int FakeBetaEquilibriumTrapped(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yl, CCTK_REAL &T_eq, CCTK_REAL &Y_eq, CCTK_REAL T_guess, CCTK_REAL Y_guess, const EOSType* tabeos) {
-  //   T_eq = T_guess;
-  //   Y_eq = Y_guess;
-  //   return 0;
-  // }
-
   CCTK_DEVICE CCTK_HOST inline 
   void FakeNeutrinoDens(CCTK_REAL rho, CCTK_REAL &num_nue, CCTK_REAL &num_nua,
                   CCTK_REAL &num_nux, CCTK_REAL &ene_nue, CCTK_REAL &ene_nua, CCTK_REAL &ene_nux) {
@@ -109,6 +84,6 @@ public:
   }
 };
 
-extern FakeRatesDef global_fakerates;
+extern FakeRatesDef* global_fakerates;
 
 } // namespace

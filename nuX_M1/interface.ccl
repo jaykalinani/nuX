@@ -9,6 +9,7 @@ USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
 USES INCLUDE HEADER: nuX_metric.hxx nuX_pow.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx
 USES INCLUDE HEADER: roots.hxx
 USES INCLUDE HEADER: m1_opacities.hpp
+USES INCLUDE HEADER: nuX_fakerates.hxx
 
 # === External functions ===
 
