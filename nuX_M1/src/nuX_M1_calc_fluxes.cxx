@@ -73,7 +73,8 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
                                           fidu_w_lorentz, fidu_velx, fidu_vely,
                                           fidu_velz);
 
-  const int GFNSIZE = cctk_lsh[0] * cctk_lsh[1] * cctk_lsh[2];
+  // TODO: make this valid for interior loop
+  const int GFNSIZE = (cctk_lsh[0]-1) * (cctk_lsh[1]-1) * (cctk_lsh[2]-1);
 
   auto &nu_flux_dir = (dir == 0 ? nu_flux_x : dir == 1 ? nu_flux_y : nu_flux_z);
 

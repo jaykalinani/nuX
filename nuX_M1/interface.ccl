@@ -28,11 +28,11 @@ PUBLIC:
 
 ##TODO: add correct dependents and tags for checkpointing
 
-CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs" checkpoint="yes"' "Neutrino density in the lab frame"
+CCTK_REAL rN[nspecies*ngroups] TYPE=GF TIMELEVELS=2 CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame"
 
-CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame"
+CCTK_REAL rE[nspecies*ngroups] TYPE=GF TIMELEVELS=2 CENTERING={ccc} TAGS='checkpoint="yes"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"' 
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF TIMELEVELS=2 CENTERING={ccc} TAGS='checkpoint="yes"' 
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
@@ -44,14 +44,14 @@ CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"'
 
 ## TODO: add timelevels infrastructure, for now defining previous time_levels explicitly
 
-CCTK_REAL rN_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame for previous timelevel"
-
-CCTK_REAL rE_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame for previous time level"
-
-CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"'
-{
-    rFx_p, rFy_p, rFz_p
-} "Radiation energy flux in the lab frame for previous time level"
+#CCTK_REAL rN_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame for previous timelevel"
+#
+#CCTK_REAL rE_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame for previous time level"
+#
+#CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"'
+#{
+#    rFx_p, rFy_p, rFz_p
+#} "Radiation energy flux in the lab frame for previous time level"
 
 ## Fluid frame quantities
 CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"

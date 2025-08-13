@@ -3,9 +3,9 @@
 ###############################################################################
 # Storage
 ###############################################################################
-STORAGE: rN
-STORAGE: rE
-STORAGE: rF
+STORAGE: rN[2]
+STORAGE: rE[2]
+STORAGE: rF[2]
 STORAGE: rP
 
 STORAGE: rnnu
@@ -61,8 +61,6 @@ SCHEDULE nuX_M1_FiducialVelocity AT CCTK_INITIAL AFTER HydroBase_Prim2ConInitial
     READS: ADMBaseX::metric(everywhere)
     READS: AsterX::dens(everywhere)
     READS: HydroBaseX::vel(everywhere)
-
-
     WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
     WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
@@ -92,19 +90,18 @@ SCHEDULE nuX_M1_CalcClosure AT CCTK_INITIAL \
     READS: ADMBaseX::curv(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
     READS: fidu_w_lorentz(everywhere)
-    READS: rP(everywhere) rF(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    READS: rF(everywhere) 
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
 if (copy_levels) {
     SCHEDULE nuX_M1_CopyLevels AT CCTK_INITIAL \
-        AFTER (nuX_M1_InitialData nuX_M1_SetToEquilibrium)
+        AFTER (nuX_M1_InitialData)
     {
         LANG: C
-        READS: rN(interior) rE(interior) rF(interior)
-        WRITES: rN_p(interior) rE_p(interior) rF_p(interior)
-        SYNC: rN_p rE_p rF_p
+        READS: rN(everywhere) rE(everywhere) rF(everywhere)
+        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
     } "Copy data to past timelevels"
 }
 
@@ -163,9 +160,8 @@ SCHEDULE nuX_M1_InitialCopy AT CCTK_EVOL \
     BEFORE (MoL_Evolution nuX_M1_WRAP)
 {
     LANG: C
-    READS: rN_p(interior) rE_p(interior) rF_p(interior)
-    WRITES: rN(interior) rE(interior) rF(interior)
-    SYNC: rN rE rF
+    READS: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
+    WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
 } "Copy the data from the previous time-level to the current one"
 
 SCHEDULE GROUP nuX_M1_WRAP AT CCTK_EVOL \
@@ -217,11 +213,11 @@ SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
 } "A single substep in the evolution"
 #------------------------------------------------------------------------------
 
-SCHEDULE nuX_M1_InitRHS IN nuX_M1_TimeStep
+SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
 {
     LANG: C
-    WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior) 
-    SYNC: rN_rhs rE_rhs rF_rhs
+    WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere) 
+    WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
@@ -274,7 +270,7 @@ else {
 
 if (include_fluxes) {
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
+        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
     {
         LANG: C
         READS: ADMBaseX::metric(interior)

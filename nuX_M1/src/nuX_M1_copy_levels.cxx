@@ -20,15 +20,15 @@ extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
-  grid.loop_int_device<1, 1, 1>(
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         int const ijk = layout2.linear(p.i, p.j, p.k);
 
         // Loop over groups/species.
-        int groupspec = ngroups * nspecies;
+        // int groupspec = ngroups * nspecies;
 
-        for (int ig = 0; ig < groupspec; ++ig) {
+        for (int ig = 0; ig < 3; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
           rN_p[i4D] = rN[i4D];
@@ -36,6 +36,7 @@ extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
           rFx_p[i4D] = rFx[i4D];
           rFy_p[i4D] = rFy[i4D];
           rFz_p[i4D] = rFz[i4D];
+          printf("Setting prev timelevel to %e, from initial %e\n", rN_p[i4D], rN[i4D]);
         }
       });
 }

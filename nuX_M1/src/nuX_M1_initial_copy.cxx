@@ -22,7 +22,7 @@ extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
 
-  grid.loop_int_device<1, 1, 1>(
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int groupspec = ngroups * nspecies;
@@ -35,6 +35,7 @@ extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
           rFx[i4D] = rFx_p[i4D];
           rFy[i4D] = rFy_p[i4D];
           rFz[i4D] = rFz_p[i4D];
+          printf("Setting timelevel to %e, from previous %e\n", rN[i4D], rN_p[i4D]);
         }
       });
 }

@@ -30,6 +30,36 @@ if (CCTK_Equals(nuX_test_case, "shadow")) {
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
   } "Setup shadow initial conditions."
 }
+if (CCTK_Equals(nuX_test_case, "adv_velocity_jump")) {
+  SCHEDULE nuX_Seeds_SetupTest_adv_velocity_jump IN nuX_M1_InitialData {
+    LANG: C
+    READS: ADMBaseX::metric(everywhere)
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
+    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+  } "Setup advective step initial conditions."
+}
+
+if ((CCTK_Equals(nuX_test_case, "diff_limit_square")) || (CCTK_EQUALS(nuX_test_case, "diff_limit_gaussian"))) {
+  SCHEDULE nuX_Seeds_SetupTest_diff_limit_test IN nuX_M1_InitialData {
+    LANG: C
+    READS: ADMBaseX::metric(everywhere)
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+  } "Setup diffusion limit test."
+}
+
+
+if (CCTK_Equals(nuX_test_case, "shadow")) {
+  SCHEDULE nuX_Seeds_SetupTest_shadow IN nuX_M1_InitialData {
+    LANG: C
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+  } "Setup shadow initial conditions."
+}
 
 #if (CCTK_Equals(nuX_test_case, "homog_sphere")) {
 #  SCHEDULE nuX_Seeds_SetupTest_homog_sphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {

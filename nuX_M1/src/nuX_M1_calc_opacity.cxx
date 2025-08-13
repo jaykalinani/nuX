@@ -119,6 +119,7 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
             my_grey_opacity_params.eos_pars.yp   = yeL;
             my_grey_opacity_params.eos_pars.yn   = 1.0 - yeL;
 
+            printf("Getting mu's for grey_opac_params\n");
             CCTK_REAL mu_pL, mu_nL, mu_eL;
             eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL, mu_eL);
             my_grey_opacity_params.eos_pars.mu_p = mu_pL;
@@ -268,6 +269,7 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
                     }
                 }
 
+                printf("Getting mu's for trapped neutrinos\n");
                 CCTK_REAL mu_p_trap, mu_n_trap, mu_e_trap;
                 eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, temp_trap, ye_trap, mu_p_trap, mu_n_trap, mu_e_trap);
 

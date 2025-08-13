@@ -611,7 +611,7 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   */
   switch (clos_flag_code) {
   case CLOS_OK:
-    printf("Closure succeeded.\n");
+    // printf("Closure succeeded.\n");
     break;
   case CLOS_I:
     printf("Initial value closure NaN or inf.\n");
