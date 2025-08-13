@@ -43,7 +43,6 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
     GF3D2<const CCTK_REAL8>(layout2, gyz),
     GF3D2<const CCTK_REAL8>(layout2, gzz)};
 
-  CCTK_REAL const vmag_bkg = 0.87; // Hardcoded
   CCTK_REAL nx = test_nvec[0];
   CCTK_REAL ny = test_nvec[1];
   CCTK_REAL nz = test_nvec[2];
@@ -67,19 +66,19 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
           CCTK_REAL const dotp3d = nx*p.x + ny*p.y + nz*p.z;
           if (dotp3d < 0.0) {
-            velx[ijk] = nx * vmag_bkg;
-            vely[ijk] = ny * vmag_bkg;
-            velz[ijk] = nz * vmag_bkg;
+            velx[ijk] = static_velx;
+            vely[ijk] = static_vely;
+            velz[ijk] = static_velz;
             rE[i4D] = 1.0;
           } else if (dotp3d >= 0.0) {
-            velx[ijk] = -nx * vmag_bkg;
-            vely[ijk] = -ny * vmag_bkg;
-            velz[ijk] = -nz * vmag_bkg;
+            velx[ijk] = -static_velx;
+            vely[ijk] = -static_vely;
+            velz[ijk] = -static_velz;
             rE[i4D] = 0.0;
           }
-          rho[ijk] = 1.0;
-          eps[ijk]  = 1.0e-2;
-          Ye[ijk]   = 0.5;
+          rho[ijk] = static_rho;
+          eps[ijk]  = static_eps;
+          Ye[ijk]   = static_ye;
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
 
