@@ -1,0 +1,27 @@
+# Interface definition for thorn RatesToy
+IMPLEMENTS: RatesToy
+INHERITS: HydrobaseX
+
+USES INCLUDE: loop_device.hxx
+USES INCLUDE: m1_opacities.hpp
+USES INCLUDE: nuX_fakerates.hxx
+
+## Fluid frame quantities
+CCTK_REAL rnt[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"
+
+CCTK_REAL rJt[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Radiation energy density in the fluid frame"
+
+CCTK_REAL rHt_t[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Radiation energy flux in the fluid frame"
+
+CCTK_REAL rHt[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rHxt, rHyt, rHzt
+} "Radiation energy flux in the fluid frame"
+
+CCTK_REAL chit[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Eddington factor"
+
+# Radiation-matter interaction
+CCTK_REAL opacstest[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    abs_0t, abs_1t, eta_0t, eta_1t, scat_1t
+} "Opacity variables"
