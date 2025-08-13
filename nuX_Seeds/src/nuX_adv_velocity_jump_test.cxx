@@ -79,7 +79,7 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           rho[ijk] = static_rho;
           eps[ijk]  = static_eps;
           Ye[ijk]   = static_ye;
-          Avecx[ijk] = Avecy[ijk] = Avecz[ijk] = 0.0;
+         
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
 
@@ -105,6 +105,17 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           rFz[i4D] = 4 * W * W * velz[ijk] * Jo3;
         }
       });
+  grid.loop_all_device<1, 0, 0>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p)
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avec_x(p.I) = 0.; });
+
+  grid.loop_all_device<0, 1, 0>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p)
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avec_y(p.I) = 0.; });
+
+  grid.loop_all_device<0, 0, 1>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p)
+                            CCTK_ATTRIBUTE_ALWAYS_INLINE { Avec_z(p.I) = 0.; });
 }
 
 } // namespace nuX_M1

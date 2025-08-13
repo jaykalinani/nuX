@@ -1,17 +1,4 @@
-#Schedule definitions for thorn AsterSeeds
-
-#Initial conditions for setting atmosphere test
-
-#if (CCTK_Equals(test_type, "Atmosphere")) {
-#
-#  SCHEDULE Atmosphere_Initialize IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
-#  LANG: C
-#  WRITES: HydroBaseX::rho(everywhere) HydroBaseX::vel(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
-#  WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
-#  }
-#  "Set up initial conditions for atmosphere"
-#}
-
+#Schedule definitions for thorn nuX_Seeds
 
 if (CCTK_Equals(nuX_test_case, "adv_velocity_jump")) {
   SCHEDULE nuX_Seeds_SetupTest_adv_velocity_jump IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
@@ -19,6 +6,7 @@ if (CCTK_Equals(nuX_test_case, "adv_velocity_jump")) {
     READS: ADMBaseX::metric(everywhere)
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
   } "Setup advective step initial conditions."
 }
@@ -43,6 +31,23 @@ if (CCTK_Equals(nuX_test_case, "shadow")) {
   } "Setup shadow initial conditions."
 }
 
+#if (CCTK_Equals(nuX_test_case, "homog_sphere")) {
+#  SCHEDULE nuX_Seeds_SetupTest_homog_sphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+#    LANG: C
+#    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+#    WRITES: HydroBaseX::Ye(everywhere)
+#    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+#  } "Setup homogeneous sphere initial conditions."
+#}
+
+#if (CCTK_Equals(nuX_test_case, "atmosphere")) {
+#  SCHEDULE nuX_Seeds_SetupTest_atmosphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+#    LANG: C
+#    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+#    WRITES: HydroBaseX::Ye(everywhere)
+#    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+#  } "Setup atmosphere initial conditions."
+#}
 
 
 ###############################################################################
@@ -58,14 +63,6 @@ if (CCTK_Equals(nuX_test_case, "shadow")) {
 #    } "Setup initial data for beam test"
 #}
 #
-#if (CCTK_Equals(nuX_m1_test, "diff")) {
-#    SCHEDULE nuX_M1_SetupTest_diff IN nuX_M1_InitialData
-#    {
-#        LANG: C
-#        READS: rE(everywhere) fidu_w_lorentz(everywhere) fidu_vel(everywhere)
-#        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
-#    } "Setup initial data for diff test"
-#}
 #
 #if (CCTK_Equals(nuX_m1_test, "equil")) {
 #    SCHEDULE nuX_M1_SetupTest_equil IN nuX_M1_InitialData
@@ -106,10 +103,3 @@ if (CCTK_Equals(nuX_test_case, "shadow")) {
 #     } "Cheap excision for the Kerr Schild test"
 # }
 #
-#if (CCTK_Equals(nuX_m1_test, "shadow")) {
-#    SCHEDULE nuX_M1_ShadowBCs IN nuX_M1_BoundaryConditions \
-#        AFTER nuX_M1_ApplyBCs
-#    {
-#        LANG: C
-#    } "Apply custom boundary conditions"
-#}
