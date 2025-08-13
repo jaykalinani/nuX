@@ -15,9 +15,9 @@ KEYWORD test_type "Type of test to set up" STEERABLE=never
 KEYWORD nuX_test_case "Perform simple tests"
 {
     "beam"       :: "Evolve a single beam propagating through the grid"
-    "adv_step"   :: "Advective step"
-    "diff_gauss" :: "Gaussian packet diffusion test"
+    "adv_velocity_jump"   :: "Advective step"
     "diff_square":: "Square pulse diffusion test"
+    "diff_gauss" :: "Gaussian packet diffusion test"
     "equil"      :: "Thermal equilibrium test"
     "kerrschild" :: "Radiation beam in Kerr geometry"
     "none"       :: "No test is performed (production mode)"
