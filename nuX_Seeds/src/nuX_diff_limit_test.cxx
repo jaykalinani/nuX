@@ -19,12 +19,12 @@ using namespace AsterUtils;
 // -----------------------------------------------------------------------------
 // Main setup routine
 // -----------------------------------------------------------------------------
-extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_adv_velocity_jump;
+extern "C" void nuX_Seeds_SetupTest_diff_limit_test(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_diff_limit_test;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupTest_adv_velocity_jump");
+    CCTK_INFO("nuX_Seeds_SetupTest_diff_limit_test");
 
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
@@ -43,46 +43,22 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
     GF3D2<const CCTK_REAL8>(layout2, gyz),
     GF3D2<const CCTK_REAL8>(layout2, gzz)};
 
-  CCTK_REAL const vmag_bkg = 0.87; // Hardcoded
-  CCTK_REAL nx = test_nvec[0];
-  CCTK_REAL ny = test_nvec[1];
-  CCTK_REAL nz = test_nvec[2];
-  CCTK_REAL n2 = nx * nx + ny * ny + nz * nz;
-
-  if (n2 > 0) {
-     CCTK_REAL nn = sqrt(n2);
-     nx /= nn;
-     ny /= nn;
-     nz /= nn;
-  } else {
-     nx = 0.0;
-     ny = 0.0;
-     nz = 1.0;
-  }
-
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          CCTK_REAL const dotp3d = nx*p.x + ny*p.y + nz*p.z;
-          if (dotp3d < 0.0) {
-            velx[ijk] = nx * vmag_bkg;
-            vely[ijk] = ny * vmag_bkg;
-            velz[ijk] = nz * vmag_bkg;
-            rE[i4D] = 1.0;
-          } else if (dotp3d >= 0.0) {
-            velx[ijk] = -nx * vmag_bkg;
-            vely[ijk] = -ny * vmag_bkg;
-            velz[ijk] = -nz * vmag_bkg;
-            rE[i4D] = 0.0;
-          }
-          rho[ijk] = 1.0;
-          eps[ijk]  = 1.0e-2;
-          Ye[ijk]   = 0.5;
+          
+          // set the velocity to zero in param file
+          velx[ijk] = static_velx;
+          vely[ijk] = static_vely;
+          velz[ijk] = static_velz;
+          // 
+          rho[ijk] = static_rho;
+          eps[ijk] = static_eps; 
+          Ye[ijk]  = static_ye;
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
-
 
           const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
             return calc_avg_v2c(gf_g(i, j), p);
@@ -94,10 +70,15 @@ extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           v_up(0) = velx[ijk];
           v_up(1) = vely[ijk];
           v_up(2) = velz[ijk];
-
           v_low = calc_contraction(g_avg, v_up);
 
+          if (use_gaussian_packet){
+            rE[i4D] = exp(-9.0*p.z*p.z);
+          } else {
+            rE[i4D] = (p.z < 0.5)*(p.z > -0.5)*static_E;
+          }
           rN[i4D] = rE[i4D];
+
           CCTK_REAL const W = calc_wlorentz(v_low, v_up);
           CCTK_REAL const Jo3 = rE[i4D] / (4 * W * W - 1);
           rFx[i4D] = 4 * W * W * velx[ijk] * Jo3;

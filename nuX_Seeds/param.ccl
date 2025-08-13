@@ -55,6 +55,10 @@ CCTK_REAL static_ye "Initial electron fraction"
     [0:1] :: "Any number between 0 and 1"
 } 0.5
 
+BOOLEAN use_gaussian_packet "Use gaussian or square packet"
+{
+} "no"
+
 CCTK_REAL test_nvec[3] "Direction of propagation for the initial packet"
 {
     * :: "The direction vector will be normalized; defaults to x-direction"
