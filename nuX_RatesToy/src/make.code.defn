@@ -1,4 +1,4 @@
-#Main make.code.defn file for thorn AsterSeeds
+#Main make.code.defn file for thorn nuX_RatesToy
 
 # Source files in this directory
 SRCS =	\

@@ -4,11 +4,11 @@
 #include <cctk_Arguments.h>
 #include <cctk_Parameters.h>
 
-namespace RatesToy {
+namespace nuX_RatesToy {
 using namespace Loop;
 
-extern "C" void RatesToy_Init(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_RatesToy_Init;
+extern "C" void nuX_RatesToy_Init(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_RatesToy_Init;
   DECLARE_CCTK_PARAMETERS
 
   const GridDescBaseDevice grid(cctkGH);

@@ -1,5 +1,5 @@
-# Interface definition for thorn RatesToy
-IMPLEMENTS: RatesToy
+# Interface definition for thorn nuX_RatesToy
+IMPLEMENTS: nuX_RatesToy
 INHERITS: HydrobaseX
 
 USES INCLUDE: loop_device.hxx

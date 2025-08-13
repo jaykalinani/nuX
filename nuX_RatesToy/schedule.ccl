@@ -1,12 +1,12 @@
-# Schedule definitions for thorn RatesToy
+# Schedule definitions for thorn nuX_RatesToy
 
-SCHEDULE RatesToy_Init AT CCTK_INITIAL AFTER AsterX_InitialGroup 
+SCHEDULE nuX_RatesToy_Init AT CCTK_INITIAL AFTER AsterX_InitialGroup 
 {
     LANG: C
     WRITES: rnt(everywhere) rJt(everywhere) rHt_t(everywhere) rHt(everywhere) chit(everywhere)
 } "Initialize everything to constant"
 
-SCHEDULE RatesToy_Calc AT CCTK_ANALYSIS 
+SCHEDULE nuX_RatesToy_Calc AT CCTK_ANALYSIS 
 {
     LANG: C
     READS: HydrobaseX::rho(everywhere) HydrobaseX::temperature(everywhere) HydrobaseX::Ye(everywhere)
