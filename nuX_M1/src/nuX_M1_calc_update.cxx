@@ -10,6 +10,7 @@
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
 #include "nuX_M1_sources.hxx"
+#include "avg_baryon_mass.hpp"
 
 namespace nuX_M1 {
 
@@ -50,11 +51,10 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   closure_t const closure_fun = pick_closure_fun(closure);
 
   // Stage dt
-  // TODO: correctly compute dt
-  //  CCTK_REAL const dt = CCTK_DELTA_TIME /
-  //  static_cast<CCTK_REAL>(*TimeIntegratorStage);
-  //  --(*TimeIntegratorStage);
-  CCTK_REAL const dt = CCTK_DELTA_TIME;
+  CCTK_REAL const dt = CCTK_DELTA_TIME /
+    static_cast<CCTK_REAL>(*TimeIntegratorStage);
+  --(*TimeIntegratorStage);
+  // CCTK_REAL const dt = CCTK_DELTA_TIME;
 
   // Geometry & velocity field accessors
   tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,

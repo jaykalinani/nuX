@@ -177,11 +177,30 @@ SCHEDULE GROUP nuX_M1_EVOL IN nuX_M1_WRAP
 {
 } "Radiation updates go here"
 
-#SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL
-#{
-#    LANG: C
-#    OPTIONS: LEVEL
-#} "Set the time integrator index"
+SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL
+{
+    LANG: C
+    OPTIONS: LEVEL
+    WRITES: TimeIntegratorStage(everywhere)
+    WRITES: M1_OriginalTime(everywhere)
+} "Set the time integrator index"
+
+
+SCHEDULE nuX_M1_UpdateTime IN nuX_M1_TimeStep AFTER nuX_M1_CalcUpdate #BEFORE BCs
+{
+    LANG: C
+    OPTIONS: LEVEL
+    READS: TimeIntegratorStage(everywhere)
+    READS: M1_OriginalTime(everywhere)
+} "Set the time integrator index"
+
+SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
+    AFTER nuX_M1_TimeStep
+{
+    LANG: C
+    OPTIONS: LEVEL
+    READS: TimeIntegratorStage(everywhere)   
+} "Clean ups after the time integration"
 
 SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
 {
@@ -189,18 +208,12 @@ SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
     WRITES: nuX_m1_mask(everywhere)
 } "Excise regions of the domain"
 
-#SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
-#    AFTER nuX_M1_TimeStep
-#{
-#    LANG: C
-#    OPTIONS: LEVEL
-#} "Clenups after the time integration"
-
 #------------------------------------------------------------------------------
 SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
     WHILE nuX_M1::TimeIntegratorStage \
     AFTER (nuX_M1_InitTimeIntegrator nuX_M1_SetMask)
 {
+
 } "A single substep in the evolution"
 #------------------------------------------------------------------------------
 
@@ -332,8 +345,9 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: fluidsources(interior)  
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
+    WRITES: TimeIntegratorStage
      
-    SYNC: chi fluidsources rN rE rF AsterX::mom AsterX::tau AsterX::DYe
+    SYNC: chi fluidsources rN rE rF AsterX::mom AsterX::tau AsterX::DYe TimeIntegratorStage
 
 } "Semi-implicit update of radiation and matter fields"
 

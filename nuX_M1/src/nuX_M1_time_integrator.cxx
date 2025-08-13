@@ -41,11 +41,18 @@ extern "C" void nuX_M1_FinalizeTimeIntegrator(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_FinalizeTimeIntegrator;
   DECLARE_CCTK_PARAMETERS
 
-  if (!QueryProlongating() || *TimeIntegratorStage != 0) {
-    CCTK_VERROR("Unexpected prolongation state %d or time integrator stage %d. "
+  if (*TimeIntegratorStage != 0) {
+    CCTK_VERROR("Unexpected time integrator stage %d. "
                 "Expected 'true' and 0.",
-                (int)QueryProlongating(), (int)*TimeIntegratorStage);
-  }
+                (int)*TimeIntegratorStage);
+  }              
+
+//  if (!QueryProlongating() || *TimeIntegratorStage != 0) {
+//    CCTK_VERROR("Unexpected prolongation state %d or time integrator stage %d. "
+//                "Expected 'true' and 0.",
+//                (int)QueryProlongating(), (int)*TimeIntegratorStage);
+// 
+//  }
 
   if (verbose) {
     CCTK_INFO("nuX_M1_FinalizeTimeIntegrator");
