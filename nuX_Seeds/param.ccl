@@ -50,11 +50,11 @@ CCTK_REAL equil_nudens_1[3] "Comoving neutrino energy densities"
     0:* :: "Any non negative number"
 } 0.0
 
-KEYWORD diff_profile "Diffusion profile"
-{
-    "step"     :: "Step profile"
-    "gaussian" :: "Gaussian profile"
-} "step"
+#KEYWORD diff_profile "Diffusion profile"
+#{
+#    "step"     :: "Step profile"
+#    "gaussian" :: "Gaussian profile"
+#} "step"
 
 CCTK_REAL kerr_beam_position "Position at which the ray is injected"
 {
