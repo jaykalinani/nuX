@@ -79,7 +79,7 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
   auto &nu_flux_dir = (dir == 0 ? nu_flux_x : dir == 1 ? nu_flux_y : nu_flux_z);
 
   // Reconstruct flux quantities at interfaces
-  grid.loop_int_device<1, 1, 1>(
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         int const ijk = layout2.linear(p.i, p.j, p.k);
@@ -207,7 +207,7 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   CCTK_REAL *r_rhs[5] = {rN_rhs, rFx_rhs, rFy_rhs, rFz_rhs, rE_rhs};
 
   // Loop over cell centers.
-  grid.loop_int_device<1, 1, 1>(
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         int const ijk = layout2.linear(p.i, p.j, p.k);
