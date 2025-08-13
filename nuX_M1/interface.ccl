@@ -32,7 +32,7 @@ CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs" checkp
 
 CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rF_rhs" checkpoint="yes"' 
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"' 
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
@@ -48,7 +48,7 @@ CCTK_REAL rN_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"'
 
 CCTK_REAL rE_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame for previous time level"
 
-CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='parities={-1 +1 +1   +1 -1 +1   +1 +1 -1} rhs="rF_rhs" checkpoint="yes"'
+CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"'
 {
     rFx_p, rFy_p, rFz_p
 } "Radiation energy flux in the lab frame for previous time level"
@@ -123,7 +123,7 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
     rFx_rhs, rFy_rhs, rFz_rhs
 } "RHS for the radiation energy fluxes"
 
-CCTK_INT nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
+CCTK_REAL nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
 
 CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"
 
