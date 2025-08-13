@@ -79,8 +79,8 @@ extern "C" void nuX_Seeds_SetupTest_shadow(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          rho[ijk] = static_rho*volume(1.0, p.x, p.y, p.z, dx, dy, dz);
-          eps[ijk] = static_eps*volume(1.0, p.x, p.y, p.z, dx, dy, dz);
+          rho[ijk] = static_rho*volume(1.0, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          eps[ijk] = static_eps*volume(1.0, p.x, p.y, p.z, p.dx, p.dy, p.dz);
           velx[ijk] = static_velx;
           vely[ijk] = static_vely;
           velz[ijk] = static_velz;
@@ -89,11 +89,24 @@ extern "C" void nuX_Seeds_SetupTest_shadow(CCTK_ARGUMENTS) {
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
           rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;       
-          if (p.BI[0]< 0.0) {
+        }
+      });
+      grid.loop_int_device<1, 1, 1>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+        const int ijk = layout2.linear(p.i, p.j, p.k);
+        for (int ig = 0; ig < ngroups * nspecies; ++ig) {
+          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          if (p.BI[0]!= 0.0) {
+           rFx[i4D] = -p.BI[0]; // If on -X boundary, flux in +X
+          }
+          if (p.BI[1]!= 0.0) {
+           rFy[i4D] = -p.BI[1]; // If on -Y boundary, flux in +Y
+          }
+          if (p.BI[2]!= 0.0) {
+           rFz[i4D] = -p.BI[2]; // If on -Z boundary, flux in +Z
+          }
+          if ((p.BI[0]!= 0.0) || (p.BI[1]!= 0.0) || (p.BI[2]!= 0.0)) {
             rE[i4D] = 1.0;
-            rFx[i4D] = 1.0;
-            rFy[i4D] = 0.0;
-            rFz[i4D] = 0.0;
             rN[i4D] = 1.0;
           }
         }

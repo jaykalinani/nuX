@@ -72,9 +72,9 @@ extern "C" void nuX_Seeds_SetupTest_diff_limit_test(CCTK_ARGUMENTS) {
           v_up(2) = velz[ijk];
           v_low = calc_contraction(g_avg, v_up);
 
-          if (use_gaussian_packet){
+          if (CCTK_EQUALS(nuX_test_case,"diff_limit_gaussian")){
             rE[i4D] = exp(-9.0*p.z*p.z);
-          } else {
+          } else if (CCTK_EQUALS(nuX_test_case,"diff_limit_square")) {
             rE[i4D] = (p.z < 0.5)*(p.z > -0.5)*static_E;
           }
           rN[i4D] = rE[i4D];
