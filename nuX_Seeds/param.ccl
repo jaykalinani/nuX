@@ -76,6 +76,11 @@ CCTK_REAL beam_width "Width of the beam"
     (0:* :: "Any positive number"
 } 1.0
 
+CCTK_REAL shadow_radius "Radius of the region"
+{
+    (0:* :: "Any positive number"
+} 1.0
+
 CCTK_REAL equil_nudens_0[3] "Comoving neutrino number densities"
 {
     0:* :: "Any non negative number"

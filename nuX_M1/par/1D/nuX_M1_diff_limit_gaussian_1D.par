@@ -1,15 +1,17 @@
 ActiveThorns = " 
+   ADMBaseX
    CarpetX
-   nuX_M1
-   nuX_Utils 
-   nuX_Seeds
-   HydroBaseX  
-   ADMBaseX 
-   TmunuBaseX
+   Con2PrimFactory
+   EOSX
+   HydroBaseX
    IOUtil
+   nuX_FakeRates
+   nuX_M1
+   nuX_Seeds
+   nuX_Utils
    ODESolvers
    TimerReport
-   EOSX
+   TmunuBaseX
    "
 
 $nlevels = 1

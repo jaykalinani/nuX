@@ -79,8 +79,8 @@ extern "C" void nuX_Seeds_SetupTest_shadow(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          rho[ijk] = static_rho*volume(1.0, p.x, p.y, p.z, p.dx, p.dy, p.dz);
-          eps[ijk] = static_eps*volume(1.0, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          rho[ijk] = static_rho*volume(shadow_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          eps[ijk] = static_eps*volume(shadow_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
           velx[ijk] = static_velx;
           vely[ijk] = static_vely;
           velz[ijk] = static_velz;
@@ -96,33 +96,23 @@ extern "C" void nuX_Seeds_SetupTest_shadow(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          if ((p.BI[0]== -1.0) && (test_nvec[0] == 1.0)) {
+          if ((p.BI[0]== -1.0) && (test_nvec[0] == 1.0) && (abs(p.y) < shadow_radius/2)) {
            rFx[i4D] = 1.0; // If on -X boundary, flux in +X
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
-          if ((p.BI[0]== 1.0) && (test_nvec[0] == -1.0)) {
+          if ((p.BI[0]== 1.0) && (test_nvec[0] == -1.0) && (abs(p.y) < shadow_radius/2)) {
            rFx[i4D] = -1.0; // If on +X boundary, flux in -X
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
-          if ((p.BI[1]== -1.0) && (test_nvec[1] == 1.0)) {
+          if ((p.BI[1]== -1.0) && (test_nvec[1] == 1.0)&& (abs(p.x) < shadow_radius/2)) {
            rFy[i4D] = 1.0; // If on -Y boundary, flux in +Y
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
-          if ((p.BI[1]== 1.0) && (test_nvec[1] == -1.0)) {
+          if ((p.BI[1]== 1.0) && (test_nvec[1] == -1.0)&& (abs(p.x) < shadow_radius/2)) {
            rFy[i4D] = -1.0; // If on +Y boundary, flux in -Y
-            rE[i4D] = 1.0;
-            rN[i4D] = 1.0;
-          }
-          if ((p.BI[2]== -1.0) && (test_nvec[2] == 1.0)) {
-           rFz[i4D] = 1.0; // If on -Z boundary, flux in +Z
-            rE[i4D] = 1.0;
-            rN[i4D] = 1.0;
-          }
-          if ((p.BI[2]== 1.0) && (test_nvec[2] == -1.0)) {
-           rFz[i4D] = -1.0; // If on +Z boundary, flux in -Z
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
