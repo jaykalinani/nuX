@@ -14,17 +14,6 @@ USES INCLUDE HEADER: nuX_fakerates.hxx
 
 # === External functions ===
 
-# Boundary conditions
-CCTK_INT FUNCTION Boundary_SelectVarForBC(                                     \
-        CCTK_POINTER_TO_CONST IN cctkGH,                                       \
-        CCTK_INT IN faces,                                                     \
-        CCTK_INT IN boundary_width,                                            \
-        CCTK_INT IN table_handle,                                              \
-        CCTK_STRING IN var_name,                                               \
-        CCTK_STRING IN bc_name                                                 \
-    )
-USES FUNCTION Boundary_SelectVarForBC
-
 # Carpet
 CCTK_INT FUNCTION EnableProlongating(CCTK_INT IN status)
 USES FUNCTION EnableProlongating
@@ -137,5 +126,7 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
 CCTK_INT nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
 
 CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"
+
+CCTK_REAL M1_OriginalTime CENTERING={ccc} TAGS='checkpoint="no"' "Time at end of fluid integration"
 
 CCTK_REAL volform TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Sqrt of the determinant of the spatial metric"
