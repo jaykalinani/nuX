@@ -19,12 +19,12 @@ using namespace AsterUtils;
 // -----------------------------------------------------------------------------
 // Main setup routine
 // -----------------------------------------------------------------------------
-extern "C" void nuX_Seeds_SetupTest_adv_step(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_adv_step;
+extern "C" void nuX_Seeds_SetupTest_adv_velocity_jump(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_adv_velocity_jump;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupTest_adv_step");
+    CCTK_INFO("nuX_Seeds_SetupTest_adv_velocity_jump");
 
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {

@@ -14,7 +14,7 @@
 
 
 if (CCTK_Equals(nuX_test_case, "adv_step")) {
-  SCHEDULE nuX_Seeds_SetupTest_adv_step IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+  SCHEDULE nuX_Seeds_SetupTest_adv_velocity_jump IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
     LANG: C
     READS: ADMBaseX::metric(everywhere)
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)

@@ -130,7 +130,7 @@ nuX_M1::verbose            = "yes"
 
 
 nuX_Seeds::verbose         = "yes"
-nuX_Seeds::nuX_test_case   = "diff_step"
+nuX_Seeds::nuX_test_case   = "adv_step"
 nuX_Seeds::test_nvec       = [0.0,0.0,1.0]
 
 EOSX::evolution_eos = "IdealGas"
