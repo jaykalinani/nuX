@@ -9,6 +9,7 @@ USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
 USES INCLUDE HEADER: nuX_metric.hxx nuX_pow.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx
 USES INCLUDE HEADER: roots.hxx
 USES INCLUDE HEADER: m1_opacities.hpp
+USES INCLUDE HEADER: avg_baryon_mass.hpp
 USES INCLUDE HEADER: nuX_fakerates.hxx
 
 # === External functions ===
@@ -23,85 +24,6 @@ CCTK_INT FUNCTION Boundary_SelectVarForBC(                                     \
         CCTK_STRING IN bc_name                                                 \
     )
 USES FUNCTION Boundary_SelectVarForBC
-
-# WeakRates
-CCTK_INT FUNCTION NeutrinoAbsorptionRate( \
-        CCTK_REAL IN rho,\
-        CCTK_REAL IN temp,\
-        CCTK_REAL IN ye,\
-        CCTK_REAL OUT abs_0_nue,\
-        CCTK_REAL OUT abs_0_nua,\
-        CCTK_REAL OUT abs_0_nux,\
-        CCTK_REAL OUT abs_1_nue,\
-        CCTK_REAL OUT abs_1_nua,\
-        CCTK_REAL OUT abs_1_nux)
-USES FUNCTION NeutrinoAbsorptionRate
-
-# MoL (only used if hydro is not evolved)
-CCTK_INT FUNCTION MoLRegisterConstrained(                                      \
-        CCTK_INT IN SandRIndex                                                 \
-    )
-USES FUNCTION MoLRegisterConstrained
-
-CCTK_INT FUNCTION NeutrinoDensity( \
-        CCTK_REAL IN rho, \
-        CCTK_REAL IN temp, \
-        CCTK_REAL IN ye, \
-        CCTK_REAL OUT num_nue, \
-        CCTK_REAL OUT num_nua, \
-        CCTK_REAL OUT num_nux, \
-        CCTK_REAL OUT ene_nue, \
-        CCTK_REAL OUT ene_nua, \
-        CCTK_REAL OUT ene_nux)
-USES FUNCTION NeutrinoDensity
-
-CCTK_INT FUNCTION NeutrinoEmission( \
-        CCTK_REAL IN rho,\
-        CCTK_REAL IN temp,\
-        CCTK_REAL IN ye,\
-        CCTK_REAL OUT r_nue,\
-        CCTK_REAL OUT r_nua,\
-        CCTK_REAL OUT r_nux,\
-        CCTK_REAL OUT q_nue,\
-        CCTK_REAL OUT q_nua,\
-        CCTK_REAL OUT q_nux)
-USES FUNCTION NeutrinoEmission
-
-CCTK_INT FUNCTION NeutrinoOpacity( \
-        CCTK_REAL IN rho,\
-        CCTK_REAL IN temp,\
-        CCTK_REAL IN ye,\
-        CCTK_REAL OUT kappa_0_nue,\
-        CCTK_REAL OUT kappa_0_nua,\
-        CCTK_REAL OUT kappa_0_nux,\
-        CCTK_REAL OUT kappa_1_nue,\
-        CCTK_REAL OUT kappa_1_nua,\
-        CCTK_REAL OUT kappa_1_nux)
-USES FUNCTION NeutrinoOpacity
-
-# Weak equilibrium in optically thick conditions
-CCTK_INT FUNCTION WeakEquilibrium( \
-        CCTK_REAL IN rho, \
-        CCTK_REAL IN temp, \
-        CCTK_REAL IN ye, \
-        CCTK_REAL IN num_nue, \
-        CCTK_REAL IN num_nua, \
-        CCTK_REAL IN num_nux, \
-        CCTK_REAL IN ene_nue, \
-        CCTK_REAL IN ene_nua, \
-        CCTK_REAL IN ene_nux, \
-        CCTK_REAL OUT temp_eq, \
-        CCTK_REAL OUT ye_eq, \
-        CCTK_REAL OUT num_nue_eq, \
-        CCTK_REAL OUT num_nua_eq, \
-        CCTK_REAL OUT num_nux_eq, \
-        CCTK_REAL OUT ene_nue_eq, \
-        CCTK_REAL OUT ene_nua_eq, \
-        CCTK_REAL OUT ene_nux_eq)
-USES FUNCTION WeakEquilibrium
-
-CCTK_REAL FUNCTION AverageBaryonMass()
-USES FUNCTION AverageBaryonMass
 
 # Carpet
 CCTK_INT FUNCTION EnableProlongating(CCTK_INT IN status)

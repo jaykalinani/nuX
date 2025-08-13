@@ -9,7 +9,7 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_macro.hxx"
-#include "m1_opacities.hpp"
+#include "avg_baryon_mass.hpp"
 
 namespace nuX_M1 {
 
