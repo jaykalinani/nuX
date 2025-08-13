@@ -2,7 +2,8 @@
 
 # Source files in this directory
 SRCS = nuX_adv_velocity_jump_test.cxx \
-
+#nuX_diff_limit_test.cxx \
+#nuX_shadow_test.cxx \
 
 
 #Subdirectories containing source files
