@@ -131,8 +131,6 @@ nuX_M1::verbose            = "yes"
 nuX_Seeds::verbose         = "yes"
 nuX_Seeds::nuX_test_case   = "diff_limit_gaussian"
 
-EOSX::evolution_eos = "IdealGas"
-
 nuX_FakeRates::eta_nue			= 0.0
 nuX_FakeRates::eta_nua			= 0.0
 nuX_FakeRates::eta_nux			= 0.0

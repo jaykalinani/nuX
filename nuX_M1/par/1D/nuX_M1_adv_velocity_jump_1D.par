@@ -139,5 +139,3 @@ nuX_Seeds::static_E        = 1.0
 nuX_Seeds::static_eps      = 1.0e-2
 nuX_Seeds::static_ye       = 0.5
 nuX_Seeds::static_velz     = 0.87
-
-EOSX::evolution_eos = "IdealGas"
