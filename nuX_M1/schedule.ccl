@@ -237,7 +237,18 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
-if (CCTK_Equals(nuX_m1_test, "none")) {
+if (use_fakerates) {
+  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      READS: TimeIntegratorStage(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_M1_mask(everywhere) volform(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+
+      WRITES: opacs(everywhere) nueave(everywhere)
+  } "Compute fake opacities"
+}
+else {
   SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
   {
       LANG: C
@@ -246,17 +257,6 @@ if (CCTK_Equals(nuX_m1_test, "none")) {
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute the opacities"
-}
-else {
-  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
-  {
-      LANG: C
-      READS: TimeIntegratorStage(everywhere)
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_M1_mask(everywhere) volform(everywhere)
-      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere) 
-
-      WRITES: opacs(everywhere) nueave(everywhere)
-  } "Compute fake opacities"
 }
 
 if (include_fluxes) {
