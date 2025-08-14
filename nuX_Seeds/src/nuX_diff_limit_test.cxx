@@ -16,15 +16,17 @@ using namespace Loop;
 using namespace EOSX;
 using namespace AsterUtils;
 
+enum class test_case { diff_limit_gaussian, diff_limit_square};
+
 // -----------------------------------------------------------------------------
 // Main setup routine
 // -----------------------------------------------------------------------------
-extern "C" void nuX_Seeds_SetupTest_diff_limit_test(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_diff_limit_test;
+extern "C" void nuX_Seeds_SetupHydroTest_diff_limit_test(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_diff_limit_test;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupTest_diff_limit_test");
+    CCTK_INFO("nuX_Seeds_SetupHydroTest_diff_limit_test");
 
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
@@ -32,6 +34,55 @@ extern "C" void nuX_Seeds_SetupTest_diff_limit_test(CCTK_ARGUMENTS) {
                 "EOSX::evolution_eos = \"IdealGas\" in your parameter file.",
                 evolution_eos);
   }
+
+  test_case tc;
+  if CCTK_EQUALS(nuX_test_case,"diff_limit_gaussian") {
+    tc = test_case::diff_limit_gaussian;
+  } else if (CCTK_EQUALS(nuX_test_case, "diff_limit_square")) {
+    tc = test_case::diff_limit_square;
+  } else {
+    CCTK_ERROR("Unknown value for parameter \"nuX_test_case\"");
+  }
+
+
+  const GridDescBaseDevice grid(cctkGH);
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+        const int ijk = layout2.linear(p.i, p.j, p.k);
+        for (int ig = 0; ig < ngroups * nspecies; ++ig) {
+          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          // set the velocity to zero in param file
+          velx[ijk] = static_velx;
+          vely[ijk] = static_vely;
+          velz[ijk] = static_velz;
+          // 
+          rho[ijk] = static_rho;
+          eps[ijk] = static_eps; 
+          Ye[ijk]  = static_ye;
+          press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
+              rho[ijk], eps[ijk], Ye[ijk]);
+        }
+      });
+}
+
+extern "C" void nuX_Seeds_SetupNeutTest_diff_limit_test(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_diff_limit_test;
+  DECLARE_CCTK_PARAMETERS;
+
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupNeutTest_diff_limit_test");
+
+
+  test_case tc;
+  if CCTK_EQUALS(nuX_test_case,"diff_limit_gaussian") {
+    tc = test_case::diff_limit_gaussian;
+  } else if (CCTK_EQUALS(nuX_test_case, "diff_limit_square")) {
+    tc = test_case::diff_limit_square;
+  } else {
+    CCTK_ERROR("Unknown value for parameter \"nuX_test_case\"");
+  }
+
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
@@ -48,18 +99,7 @@ extern "C" void nuX_Seeds_SetupTest_diff_limit_test(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          
-          // set the velocity to zero in param file
-          velx[ijk] = static_velx;
-          vely[ijk] = static_vely;
-          velz[ijk] = static_velz;
-          // 
-          rho[ijk] = static_rho;
-          eps[ijk] = static_eps; 
-          Ye[ijk]  = static_ye;
-          press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
-              rho[ijk], eps[ijk], Ye[ijk]);
-
+      
           const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
             return calc_avg_v2c(gf_g(i, j), p);
           });
@@ -72,9 +112,9 @@ extern "C" void nuX_Seeds_SetupTest_diff_limit_test(CCTK_ARGUMENTS) {
           v_up(2) = velz[ijk];
           v_low = calc_contraction(g_avg, v_up);
 
-          if (CCTK_EQUALS(nuX_test_case,"diff_limit_gaussian")){
+          if (tc == test_case::diff_limit_gaussian){
             rE[i4D] = exp(-9.0*p.z*p.z);
-          } else if (CCTK_EQUALS(nuX_test_case,"diff_limit_square")) {
+          } else if (tc == test_case::diff_limit_square) {
             rE[i4D] = (p.z < 0.5)*(p.z > -0.5)*static_E;
           }
           rN[i4D] = rE[i4D];
