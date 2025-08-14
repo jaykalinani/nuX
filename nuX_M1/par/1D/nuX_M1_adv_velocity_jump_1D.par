@@ -33,7 +33,11 @@ ADMBaseX::initial_shift           = "zero"
 ADMBaseX::initial_dtlapse         = "none"
 ADMBaseX::initial_dtshift         = "none"
 
-CarpetX::verbose = no
+AsterX::debug_mode = "yes"
+AsterX::flux_type = "LxF"
+AsterX::update_tmunu = "no"
+
+CarpetX::verbose = yes
 
 CarpetX::xmin = -0.5
 CarpetX::ymin = -0.5
@@ -63,17 +67,17 @@ CarpetX::blocking_factor_z = 1
 CarpetX::regrid_error_threshold = 0.01
 
 CarpetX::prolongation_type = "ddf"
-CarpetX::ghost_size = 3
+CarpetX::ghost_size = 2
 CarpetX::dtfac = 0.50
  
 
-ReconX::reconstruction_method = "wenoz"
+ReconX::reconstruction_method = "minmod"
 
 Con2PrimFactory::c2p_prime = "Noble"
 Con2PrimFactory::c2p_second = "Palenzuela"
 Con2PrimFactory::c2p_tol = 1e-8
 Con2PrimFactory::max_iter = 100
-Con2PrimFactory::rho_abs_min = 1e-8
+Con2PrimFactory::rho_abs_min = 1e-3
 Con2PrimFactory::unit_test = "yes"
 Con2PrimFactory::B_lim = 1e8
 Con2PrimFactory::vw_lim = 1e8

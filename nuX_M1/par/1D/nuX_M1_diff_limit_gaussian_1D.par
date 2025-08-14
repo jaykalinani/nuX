@@ -32,7 +32,11 @@ ADMBaseX::initial_shift           = "zero"
 ADMBaseX::initial_dtlapse         = "none"
 ADMBaseX::initial_dtshift         = "none"
 
-CarpetX::verbose = no
+AsterX::debug_mode = "yes"
+AsterX::flux_type = "LxF"
+AsterX::update_tmunu = "no"
+
+CarpetX::verbose = yes
 
 CarpetX::xmin = -0.1
 CarpetX::ymin = -0.1
