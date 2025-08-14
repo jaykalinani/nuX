@@ -137,6 +137,8 @@ nuX_Seeds::test_nvec       = [1.0,0.0,0.0]
 nuX_Seeds::static_rho      = 1.0
 nuX_Seeds::static_eps      = 1.0e-2
 nuX_Seeds::static_ye       = 0.5
+nuX_Seeds::roi_radius      = 1.0
+nuX_Seeds::beam_width      = 1.5
 
 FakeRates::eta_nue			= 0.0
 FakeRates::eta_nua			= 0.0
@@ -146,5 +148,3 @@ FakeRates::kappa_scat_nua		= 0.0
 FakeRates::kappa_scat_nux		= 0.0
 FakeRates::kappa_abs_nue		= 1.0
 FakeRates::kappa_abs_nua		= 1.0
-
-EOSX::evolution_eos = "IdealGas"

@@ -10,7 +10,7 @@
 #include "setup_eos.hxx"
 #include "aster_utils.hxx"
 
-namespace nuX_M1 {
+namespace nuX_Seeds {
 
 using namespace Loop;
 using namespace EOSX;
@@ -166,4 +166,4 @@ extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
       });
 }
 
-} // namespace nuX_M1
+} // namespace nuX_Seeds

@@ -9,22 +9,26 @@
 
 #include "setup_eos.hxx"
 #include "aster_utils.hxx"
+#include "nuX_volume.hxx"
 
-namespace nuX_M1 {
+namespace nuX_Seeds {
 
 using namespace Loop;
 using namespace EOSX;
 using namespace AsterUtils;
+using namespace nuX_Seeds_volume;
+
 
 // -----------------------------------------------------------------------------
 // Main setup routine
 // -----------------------------------------------------------------------------
-extern "C" void nuX_Seeds_SetupTest_homog_sphere(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupTest_homog_sphere;
+
+extern "C" void nuX_Seeds_SetupHydroTest_homog_sphere(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_homog_sphere;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupTest_homog_sphere");
+    CCTK_INFO("nuX_Seeds_SetupHydroTest_homog_sphere");
 
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
@@ -35,75 +39,41 @@ extern "C" void nuX_Seeds_SetupTest_homog_sphere(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
-  const smat<GF3D2<const CCTK_REAL8>, 3> gf_g{
-    GF3D2<const CCTK_REAL8>(layout2, gxx),
-    GF3D2<const CCTK_REAL8>(layout2, gxy),
-    GF3D2<const CCTK_REAL8>(layout2, gxz),
-    GF3D2<const CCTK_REAL8>(layout2, gyy),
-    GF3D2<const CCTK_REAL8>(layout2, gyz),
-    GF3D2<const CCTK_REAL8>(layout2, gzz)};
-
-  CCTK_REAL nx = test_nvec[0];
-  CCTK_REAL ny = test_nvec[1];
-  CCTK_REAL nz = test_nvec[2];
-  CCTK_REAL n2 = nx * nx + ny * ny + nz * nz;
-
-  if (n2 > 0) {
-     CCTK_REAL nn = sqrt(n2);
-     nx /= nn;
-     ny /= nn;
-     nz /= nn;
-  } else {
-     nx = 0.0;
-     ny = 0.0;
-     nz = 1.0;
-  }
-
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          CCTK_REAL const dotp3d = nx*p.x + ny*p.y + nz*p.z;
-          if (dotp3d < 0.0) {
-            velx[ijk] = static_velx;
-            vely[ijk] = static_vely;
-            velz[ijk] = static_velz;
-            rE[i4D] = static_E;
-          } else if (dotp3d >= 0.0) {
-            velx[ijk] = -static_velx;
-            vely[ijk] = -static_vely;
-            velz[ijk] = -static_velz;
-            rE[i4D] = 0.0;
-          }
-          rho[ijk] = static_rho;
-          eps[ijk]  = static_eps;
+          rho[ijk] = static_rho*volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          eps[ijk] = static_eps*volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          velx[ijk] = static_velx;
+          vely[ijk] = static_vely;
+          velz[ijk] = static_velz;
           Ye[ijk]   = static_ye;
+
           press[ijk] = eos_3p_ig->press_from_valid_rho_eps_ye(
               rho[ijk], eps[ijk], Ye[ijk]);
-
-
-          const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
-            return calc_avg_v2c(gf_g(i, j), p);
-          });
-
-          vec<CCTK_REAL, 3> v_up;
-          vec<CCTK_REAL, 3> v_low;
-
-          v_up(0) = velx[ijk];
-          v_up(1) = vely[ijk];
-          v_up(2) = velz[ijk];
-
-          v_low = calc_contraction(g_avg, v_up);
-
-          rN[i4D] = rE[i4D];
-          CCTK_REAL const W = calc_wlorentz(v_low, v_up);
-          CCTK_REAL const Jo3 = rE[i4D] / (4 * W * W - 1);
-          rFx[i4D] = 4 * W * W * velx[ijk] * Jo3;
-          rFy[i4D] = 4 * W * W * vely[ijk] * Jo3;
-          rFz[i4D] = 4 * W * W * velz[ijk] * Jo3;
         }
       });
 }
 
-} // namespace nuX_M1
+extern "C" void nuX_Seeds_SetupNeutTest_homog_sphere(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_homog_sphere;
+  DECLARE_CCTK_PARAMETERS;
+
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupNeutTest_homog_sphere");
+
+  const GridDescBaseDevice grid(cctkGH);
+  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+        const int ijk = layout2.linear(p.i, p.j, p.k);
+        for (int ig = 0; ig < ngroups * nspecies; ++ig) {
+          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;       
+        }
+      });
+}
+
+} // namespace nuX_Seeds

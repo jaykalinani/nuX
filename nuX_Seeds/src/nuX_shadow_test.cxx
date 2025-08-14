@@ -9,37 +9,18 @@
 
 #include "setup_eos.hxx"
 #include "aster_utils.hxx"
+#include "nuX_volume.hxx"
 
-namespace nuX_M1 {
+namespace nuX_Seeds {
 
 using namespace Loop;
 using namespace EOSX;
 using namespace AsterUtils;
+using namespace nuX_Seeds_volume;
 
 // -----------------------------------------------------------------------------
 // Main setup routine
 // -----------------------------------------------------------------------------
-
-CCTK_DEVICE CCTK_REAL volume(CCTK_REAL R, CCTK_REAL xp, CCTK_REAL yp,
-                             CCTK_REAL zp, CCTK_REAL dx, CCTK_REAL dy,
-                             CCTK_REAL dz) {
-  const int NPOINTS = 10;
-  int inside = 0, count = 0;
-  for (int ii = 0; ii < NPOINTS; ++ii) {
-    CCTK_REAL const myx = (xp - dx / 2.) + (ii + 0.5) * (dx / NPOINTS);
-    for (int jj = 0; jj < NPOINTS; ++jj) {
-      CCTK_REAL const myy = (yp - dy / 2.) + (jj + 0.5) * (dy / NPOINTS);
-      for (int kk = 0; kk < NPOINTS; ++kk) {
-        CCTK_REAL const myz = (zp - dz / 2.) + (kk + 0.5) * (dz / NPOINTS);
-        ++count;
-        if (myx * myx + myy * myy + myz * myz < R * R)
-          ++inside;
-      }
-    }
-  }
-  return static_cast<CCTK_REAL>(inside) / static_cast<CCTK_REAL>(count);
-}
-
 
 extern "C" void nuX_Seeds_SetupHydroTest_shadow(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_shadow;
@@ -79,8 +60,8 @@ extern "C" void nuX_Seeds_SetupHydroTest_shadow(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          rho[ijk] = static_rho*volume(shadow_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
-          eps[ijk] = static_eps*volume(shadow_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          rho[ijk] = static_rho*volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+          eps[ijk] = static_eps*volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
           velx[ijk] = static_velx;
           vely[ijk] = static_vely;
           velz[ijk] = static_velz;
@@ -131,22 +112,22 @@ extern "C" void nuX_Seeds_SetupNeutTest_shadow(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          if ((p.BI[0]== -1.0) && (nx == 1.0) && (abs(p.y) < shadow_radius/2)) {
+          if ((p.BI[0]== -1.0) && (nx == 1.0) && (abs(p.y) < beam_radius)) {
            rFx[i4D] = 1.0; // If on -X boundary, flux in +X
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
-          if ((p.BI[0]== 1.0) && (nx == -1.0) && (abs(p.y) < shadow_radius/2)) {
+          if ((p.BI[0]== 1.0) && (nx == -1.0) && (abs(p.y) < beam_radius)) {
            rFx[i4D] = -1.0; // If on +X boundary, flux in -X
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
-          if ((p.BI[1]== -1.0) && (ny == 1.0)&& (abs(p.x) < shadow_radius/2)) {
+          if ((p.BI[1]== -1.0) && (ny == 1.0)&& (abs(p.x) < beam_radius)) {
            rFy[i4D] = 1.0; // If on -Y boundary, flux in +Y
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
           }
-          if ((p.BI[1]== 1.0) && (ny == -1.0)&& (abs(p.x) < shadow_radius/2)) {
+          if ((p.BI[1]== 1.0) && (ny == -1.0)&& (abs(p.x) < beam_radius)) {
            rFy[i4D] = -1.0; // If on +Y boundary, flux in -Y
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
@@ -155,4 +136,4 @@ extern "C" void nuX_Seeds_SetupNeutTest_shadow(CCTK_ARGUMENTS) {
       });
 }
 
-} // namespace nuX_M1
+} // namespace nuX_Seeds

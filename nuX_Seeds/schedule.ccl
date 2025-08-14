@@ -6,13 +6,13 @@ if (CCTK_Equals(nuX_test_case, "adv_velocity_jump")) {
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
     WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
-  } "Setup advective step initial conditions."
+  } "Setup advective step Hydro initial conditions."
   SCHEDULE nuX_Seeds_SetupNeutTest_adv_velocity_jump IN nuX_M1_InitialData {
     LANG: C
     READS: ADMBaseX::metric(everywhere)
     READS: HydroBaseX::vel(everywhere)
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
-  } "Setup advective step initial conditions."
+  } "Setup advective step test Neutrino initial conditions."
 }
 
 if ((CCTK_Equals(nuX_test_case, "diff_limit_square")) || (CCTK_EQUALS(nuX_test_case, "diff_limit_gaussian"))) {
@@ -20,13 +20,13 @@ if ((CCTK_Equals(nuX_test_case, "diff_limit_square")) || (CCTK_EQUALS(nuX_test_c
     LANG: C
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
-  } "Setup diffusion limit test."
+  } "Setup diffusion limit test Hydro initial conditions."
    SCHEDULE nuX_Seeds_SetupNeutTest_diff_limit_test IN nuX_M1_InitialData{
     LANG: C
     READS: ADMBaseX::metric(everywhere)
     READS: HydroBaseX::vel(everywhere)
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
-  } "Setup diffusion limit test."
+  } "Setup diffusion limit test Neutrino initial conditions."
 }
 
 
@@ -35,30 +35,37 @@ if (CCTK_Equals(nuX_test_case, "shadow")) {
     LANG: C
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
-  } "Setup shadow initial conditions."
+  } "Setup shadow test Hydro initial conditions."
   SCHEDULE nuX_Seeds_SetupNeutTest_shadow IN nuX_M1_InitialData {
     LANG: C
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
-  } "Setup shadow initial conditions."
+  } "Setup shadow test Neutrino initial conditions."
 }
 
-#if (CCTK_Equals(nuX_test_case, "homog_sphere")) {
-#  SCHEDULE nuX_Seeds_SetupTest_homog_sphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
-#    LANG: C
-#    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
-#    WRITES: HydroBaseX::Ye(everywhere)
-#    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
-#  } "Setup homogeneous sphere initial conditions."
-#}
+if (CCTK_Equals(nuX_test_case, "atmosphere")) {
+  SCHEDULE nuX_Seeds_SetupHydroTest_atmosphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+    LANG: C
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+  } "Setup atmosphere test Hydro initial conditions."
+  SCHEDULE nuX_Seeds_SetupNeutTest_atmosphere IN nuX_M1_InitialData {
+    LANG: C
+    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+  } "Setup atmosphere test Neutrino initial conditions."
+}
 
-#if (CCTK_Equals(nuX_test_case, "atmosphere")) {
-#  SCHEDULE nuX_Seeds_SetupTest_atmosphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
-#    LANG: C
-#    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
-#    WRITES: HydroBaseX::Ye(everywhere)
-#    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
-#  } "Setup atmosphere initial conditions."
-#}
+if (CCTK_Equals(nuX_test_case, "homog_sphere")) {
+  SCHEDULE nuX_Seeds_SetupHydroTest_homog_sphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+    LANG: C
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+  } "Setup homogeneous sphere test Hydro initial conditions."
+  SCHEDULE nuX_Seeds_SetupNeutTest_homog_sphere IN nuX_M1_InitialData {
+    LANG: C
+    WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
+  } "Setup homogeneous sphere test Neutrino initial conditions."
+}
+
 
 
 ###############################################################################

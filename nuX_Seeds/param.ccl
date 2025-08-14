@@ -71,12 +71,12 @@ CCTK_REAL beam_position "Offset with respect to the plane with normal beam_test_
     * :: "Any real number"
 } 0.0
 
-CCTK_REAL beam_width "Width of the beam"
+CCTK_REAL beam_radius "Width of the beam"
 {
     (0:* :: "Any positive number"
 } 1.0
 
-CCTK_REAL shadow_radius "Radius of the region"
+CCTK_REAL roi_radius "Radius of the region of interest, either the shadow or homog sphere"
 {
     (0:* :: "Any positive number"
 } 1.0
