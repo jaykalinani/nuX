@@ -34,8 +34,8 @@ extern "C" void nuX_Seeds_SetupHydroTest_atmosphere(CCTK_ARGUMENTS) {
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
           rho[ijk] = 0.0;
-          eps[ijk]  = 0.0;
-          Ye[ijk]   = 0.0;
+          eps[ijk] = 0.0;
+          Ye[ijk] = 0.0;
           press[ijk] = 0.0;
         }
       });
@@ -55,7 +55,7 @@ extern "C" void nuX_Seeds_SetupNeutTest_atmosphere(CCTK_ARGUMENTS) {
         const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
-          rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;   
+          rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;
         }
       });
 }

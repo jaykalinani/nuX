@@ -11,9 +11,9 @@ namespace nuX_Seeds {
 namespace nuX_Seeds_volume {
 
 //! Get normal to space hypersurface: n^μ = (1/α, -β^i/α)
-static inline CCTK_HOST CCTK_DEVICE CCTK_REAL volume_f(CCTK_REAL R, CCTK_REAL xp, CCTK_REAL yp,
-                             CCTK_REAL zp, CCTK_REAL dx, CCTK_REAL dy,
-                             CCTK_REAL dz) {
+static inline CCTK_HOST CCTK_DEVICE CCTK_REAL
+volume_f(CCTK_REAL R, CCTK_REAL xp, CCTK_REAL yp, CCTK_REAL zp, CCTK_REAL dx,
+         CCTK_REAL dy, CCTK_REAL dz) {
   const int NPOINTS = 10;
   int inside = 0, count = 0;
   for (int ii = 0; ii < NPOINTS; ++ii) {
