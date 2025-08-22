@@ -25,6 +25,10 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+      
+        const int ijk = layout2.linear(p.i, p.j, p.k);
+        nuX_m1_mask[ijk] = 0.0;
+
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
           rE[i4D] = rad_E_floor;
@@ -32,7 +36,6 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
           rFx[i4D] = 0.0;
           rFy[i4D] = 0.0;
           rFz[i4D] = 0.0;
-          nuX_m1_mask[i4D] = 0.0;
         }
       });
 }

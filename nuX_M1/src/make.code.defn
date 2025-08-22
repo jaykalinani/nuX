@@ -13,7 +13,7 @@ nuX_M1_copy_levels.cxx \
 nuX_M1_fiducial_velocity.cxx \
 nuX_M1_init.cxx \
 nuX_M1_initial_copy.cxx \
-nuX_M1_init_rhs.cxx \
+nuX_M1_init_fluxes_rhs.cxx \
 nuX_M1_param_check.cxx \
 nuX_M1_reset.cxx \
 nuX_M1_setmask.cxx \
@@ -21,6 +21,7 @@ nuX_M1_volform.cxx \
 nuX_M1_time_integrator.cxx \
 nuX_M1_tmunu.cxx \
 nuX_M1_calc_update.cxx \
+
 # Subdirectories containing source files
 SUBDIRS =
 

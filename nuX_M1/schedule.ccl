@@ -47,15 +47,35 @@ SCHEDULE nuX_M1_ParamCheck AT CCTK_PARAMCHECK
     OPTIONS: GLOBAL
 } "Check parameters"
 
-SCHEDULE nuX_M1_Reset AT CCTK_INITIAL \
-    BEFORE (nuX_M1_InitialData ReadInterpolate_ReadData)
+SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL IN ODESolvers_Initial \
+    AFTER (ADMBase_InitialData ADMBase_InitialGauge HydroBase_Initial AsterX_InitialGroup) \
+    BEFORE (ADMBase_PostInitial TmunuBaseX_SetTmunuVars)
+{
+} "M1 initial data group"
+
+SCHEDULE GROUP nuX_M1_InitialGroup AT CCTK_INITIAL IN ODESolvers_Initial \
+    AFTER (ADMBase_InitialData ADMBase_InitialGauge HydroBase_Initial nuX_M1_InitialData) \
+    BEFORE (ADMBase_PostInitial TmunuBaseX_SetTmunuVars)
+{
+} "M1 initial group"
+
+SCHEDULE nuX_M1_InitVolform IN nuX_M1_InitialGroup 
+{
+    LANG: C
+    READS: ADMBaseX::metric(everywhere)
+    WRITES: volform(everywhere)
+} "Compute the volume form"
+
+SCHEDULE nuX_M1_Reset IN nuX_M1_InitialGroup 
+    AFTER (nuX_M1_InitVolform)
 {
     LANG: C
 
-    WRITES: rN(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
+    WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
 } "Initialize everything to zero"
 
-SCHEDULE nuX_M1_FiducialVelocity AT CCTK_INITIAL AFTER HydroBase_Prim2ConInitial
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup 
+    AFTER (nuX_M1_Reset)
 {
     LANG: C
     READS: ADMBaseX::metric(everywhere)
@@ -65,39 +85,27 @@ SCHEDULE nuX_M1_FiducialVelocity AT CCTK_INITIAL AFTER HydroBase_Prim2ConInitial
     WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
 
-SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL \
-    AFTER (ADMBase_InitialData ADMBase_InitialGauge HydroBase_Initial nuX_M1_FiducialVelocity) \
-    BEFORE (ADMBase_PostInitial SetTmunu)
-{
-} "M1 initial data group"
 
-SCHEDULE nuX_M1_InitVolform AT CCTK_INITIAL AFTER (nuX_M1_InitialData) \
-    BEFORE (nuX_M1_CalcClosure)
-{
-    LANG: C
-    READS: ADMBaseX::metric(everywhere)
-    WRITES: volform(everywhere)
-} "Compute the volume form"
-
-SCHEDULE nuX_M1_CalcClosure AT CCTK_INITIAL \
-    AFTER (nuX_M1_InitialData nuX_M1_FiducialVelocity nuX_M1_SetToEquilibrium)
+SCHEDULE nuX_M1_CalcClosure IN nuX_M1_InitialGroup \
+    AFTER (nuX_M1_FiducialVelocity)
 {
     LANG: C
 
-    READS: ADMBaseX::metric(everywhere)
-    READS: ADMBaseX::lapse(everywhere)
-    READS: ADMBaseX::shift(everywhere)
-    READS: ADMBaseX::curv(everywhere)
-    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
-    READS: fidu_w_lorentz(everywhere)
-    READS: rF(everywhere) 
-    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
-    WRITES: chi(everywhere)
+#    READS: ADMBaseX::metric(everywhere)
+#    READS: ADMBaseX::lapse(everywhere)
+#    READS: ADMBaseX::shift(everywhere)
+#    READS: ADMBaseX::curv(everywhere)
+#    READS: volform(everywhere)
+#    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
+#    READS: fidu_w_lorentz(everywhere)
+#    READS: rN(everywhere) rE(everywhere) rF(everywhere)
+#    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+#    WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
 if (copy_levels) {
-    SCHEDULE nuX_M1_CopyLevels AT CCTK_INITIAL \
-        AFTER (nuX_M1_InitialData)
+    SCHEDULE nuX_M1_CopyLevels IN (nuX_M1_InitialGroup)
+    AFTER (nuX_M1_CalcClosure)
     {
         LANG: C
         READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -239,9 +247,10 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
     READS: ADMBaseX::lapse(everywhere)
     READS: ADMBaseX::shift(everywhere)
     READS: ADMBaseX::curv(everywhere)
+    READS: volform(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
     READS: fidu_w_lorentz(everywhere)
-    READS: rP(everywhere) rF(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    READS: rN(everywhere) rE(everywhere) rF(everywhere)
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
@@ -446,8 +455,8 @@ SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
     READS: ADMBaseX::curv(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
     READS: fidu_w_lorentz(everywhere)
-    READS: rE(everywhere) rN(everywhere) volform(everywhere)
-    READS: rP(everywhere) rF(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    READS: volform(everywhere)
+    READS: rN(everywhere) rE(everywhere) rF(everywhere) 
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"

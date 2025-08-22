@@ -18,7 +18,7 @@ ActiveThorns = "
 
  
 $nlevels = 1
-$ncells = 400
+$ncells = 100
 
 Cactus::cctk_show_schedule = yes
 
@@ -68,9 +68,8 @@ CarpetX::regrid_error_threshold = 0.01
 
 CarpetX::prolongation_type = "ddf"
 CarpetX::ghost_size = 2
-CarpetX::dtfac = 0.50
+CarpetX::dtfac = 0.25
  
-
 ReconX::reconstruction_method = "minmod"
 
 Con2PrimFactory::c2p_prime = "Noble"
@@ -90,6 +89,34 @@ EOSX::rho_max = 1e8
 EOSX::eps_max = 1e8
 
 ODESolvers::method = "RK4"
+
+nuX_M1::add_to_Tmunu       = "no"
+nuX_M1::backreact          = "no"
+nuX_M1::bc_type            = "none"  #? Not sure
+nuX_M1::closure            = "Minerbo"
+nuX_M1::closure_epsilon    = 1e-5
+nuX_M1::include_fluxes     = "yes"
+nuX_M1::include_GR_sources = "yes"
+nuX_M1::verbose            = "yes"
+nuX_M1::use_fakerates      = "yes"
+
+nuX_Seeds::verbose         = "yes"
+nuX_Seeds::nuX_test_case   = "adv_velocity_jump"
+nuX_Seeds::test_nvec       = [0.0,0.0,1.0]
+nuX_Seeds::static_rho      = 1.0
+nuX_Seeds::static_E        = 1.0
+nuX_Seeds::static_eps      = 1.0e-2
+nuX_Seeds::static_ye       = 0.5
+nuX_Seeds::static_velz     = 0.87
+
+nuX_FakeRates::eta_nue                  = 0.0
+nuX_FakeRates::eta_nua                  = 0.0
+nuX_FakeRates::eta_nux                  = 0.0
+nuX_FakeRates::kappa_scat_nue           = 0.0
+nuX_FakeRates::kappa_scat_nua           = 0.0
+nuX_FakeRates::kappa_scat_nux           = 0.0
+nuX_FakeRates::kappa_abs_nue            = 0.0
+nuX_FakeRates::kappa_abs_nua            = 0.0
 
 IO::out_dir = $parfile
 IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
@@ -124,33 +151,3 @@ TimerReport::out_filename = "TimerReport"
 TimerReport::output_all_timers_together = yes
 TimerReport::output_all_timers_readable = yes
 TimerReport::n_top_timers = 50
-
-
-
-nuX_M1::add_to_Tmunu       = "no"
-nuX_M1::backreact          = "no"
-nuX_M1::bc_type            = "none"  #? Not sure
-nuX_M1::closure            = "Minerbo"
-nuX_M1::closure_epsilon    = 1e-5
-nuX_M1::include_fluxes     = "yes"
-nuX_M1::include_GR_sources = "yes"
-nuX_M1::verbose            = "yes"
-
-
-nuX_Seeds::verbose         = "yes"
-nuX_Seeds::nuX_test_case   = "adv_velocity_jump"
-nuX_Seeds::test_nvec       = [0.0,0.0,1.0]
-nuX_Seeds::static_rho      = 1.0
-nuX_Seeds::static_E        = 1.0
-nuX_Seeds::static_eps      = 1.0e-2
-nuX_Seeds::static_ye       = 0.5
-nuX_Seeds::static_velz     = 0.87
-
-nuX_FakeRates::eta_nue			= 0.0
-nuX_FakeRates::eta_nua			= 0.0
-nuX_FakeRates::eta_nux			= 0.0
-nuX_FakeRates::kappa_scat_nue		= 0.0
-nuX_FakeRates::kappa_scat_nua		= 0.0
-nuX_FakeRates::kappa_scat_nux		= 0.0
-nuX_FakeRates::kappa_abs_nue		= 0.0
-nuX_FakeRates::kappa_abs_nua		= 0.0
