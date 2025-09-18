@@ -12,6 +12,7 @@
 ## Overview
 
 - Two-moment (**M1**) neutrino transport with analytic closures (e.g., Minerbo/Levermore)  
+- Port of the `THC_M1` code of Radice et al. 2022
 - Multi-species support (typically $ν_e$, $\barν_e$, $ν_x$)  
 - Source terms for neutrino–matter coupling and stress–energy feedback ($T^{μν}_{\rm rad}$) coupled with **AsterX** 
 - Robust floors, masking, and diagnostics for production-quality BNS/CCSN simulations
