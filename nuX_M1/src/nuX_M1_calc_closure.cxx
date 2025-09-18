@@ -146,7 +146,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
 
   // Restore GSL error handler
   // gsl_set_error_handler(gsl_err);
-
 }
 
 } // namespace nuX_M1

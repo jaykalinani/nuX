@@ -70,13 +70,13 @@ CCTK_REAL rH[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 PRIVATE:
 
 ## neutrino fluxes in x–direction
-CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the x–direction: 5 fields per (species,group)"
+CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={vcc} TAGS='checkpoint="no"' "Neutrino flux components in the x–direction: 5 fields per (species,group)"
 
 # neutrino fluxes in y–direction
-CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the y–direction: 5 fields per (species,group)"
+CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={cvc} TAGS='checkpoint="no"' "Neutrino flux components in the y–direction: 5 fields per (species,group)"
 
 # neutrino fluxes in z–direction
-CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
+CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccv} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
 
 ## Diagnostics
 CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 

@@ -25,7 +25,6 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-      
         const int ijk = layout2.linear(p.i, p.j, p.k);
         nuX_m1_mask[ijk] = 0.0;
 

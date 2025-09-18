@@ -27,8 +27,8 @@
 // to replace gsl_vector
 // and a 4x4 CCTK_REAL Arith::mat matrix
 // to replace gsl_matrix
-typedef Arith::vec<CCTK_REAL, 4> arith_vector; 
-typedef Arith::mat<CCTK_REAL, 4> arith_matrix; 
+typedef Arith::vec<CCTK_REAL, 4> arith_vector;
+typedef Arith::mat<CCTK_REAL, 4> arith_matrix;
 
 namespace nuX_M1 {
 
@@ -38,10 +38,8 @@ using namespace std;
 
 struct Params {
   Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
-         int const _ig, closure_t _closure,
-         CCTK_REAL _closure_epsilon,
-         CCTK_INT _closure_maxiter,
-         CCTK_REAL const _cdt, CCTK_REAL const _alp,
+         int const _ig, closure_t _closure, CCTK_REAL _closure_epsilon,
+         CCTK_INT _closure_maxiter, CCTK_REAL const _cdt, CCTK_REAL const _alp,
          tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_u,
@@ -54,8 +52,8 @@ struct Params {
          CCTK_REAL const _Estar,
          tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d, CCTK_REAL const _chi,
          CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
-      : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig), 
-        closure(_closure), closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
+      : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig), closure(_closure),
+        closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
         cdt(_cdt), alp(_alp), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u),
         gamma_ud(_gamma_ud), u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u),
         proj_ud(_proj_ud), W(_W), Estar(_Estar), Fstar_d(_Fstar_d), chi(_chi),
@@ -121,8 +119,7 @@ CCTK_HOST CCTK_DEVICE void
 __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
                             double kapa, double kaps, double vup[4],
                             double vdown[4], double v2, double W, double alpha,
-                            double cdt, double *qstar, arith_matrix & J)
-{
+                            double cdt, double *qstar, arith_matrix &J) {
   const double kapas = kapa + kaps;
   const double alpW = alpha * W;
 
@@ -241,14 +238,13 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
   if (p->E < 0) {
     return GSL_EBADFUNC;
   }
-  pack_F_d(-p->alp * p->n_u(1), -p->alp * p->n_u(2), -p->alp * p->n_u(3),
-           q(1), q(2), q(3),
-           &p->F_d);
+  pack_F_d(-p->alp * p->n_u(1), -p->alp * p->n_u(2), -p->alp * p->n_u(3), q(1),
+           q(2), q(3), &p->F_d);
   tensor::contract(p->g_uu, p->F_d, &p->F_u);
 
-  calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure,
-               p->g_dd, p->g_uu, p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E,
-               p->F_d, &p->chi, &p->P_dd, p->closure_epsilon, p->closure_maxiter);
+  calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure, p->g_dd, p->g_uu,
+               p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E, p->F_d, &p->chi,
+               &p->P_dd, p->closure_epsilon, p->closure_maxiter);
 
   return GSL_SUCCESS;
 }
@@ -290,9 +286,11 @@ CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector &q, Params *p,
     return ierr;
   }
 
-#define EVALUATE_ZFUNC \
-  f(0)=q(0) - p->Estar - p->cdt * p->Edot; f(1)=q(1) - p->Fstar_d(1) - p->cdt * p->tS_d(1);\
-  f(2)=q(2) - p->Fstar_d(2) - p->cdt * p->tS_d(2);f(3)=q(3) - p->Fstar_d(3) - p->cdt * p->tS_d(3);                                                          \
+#define EVALUATE_ZFUNC                                                         \
+  f(0) = q(0) - p->Estar - p->cdt * p->Edot;                                   \
+  f(1) = q(1) - p->Fstar_d(1) - p->cdt * p->tS_d(1);                           \
+  f(2) = q(2) - p->Fstar_d(2) - p->cdt * p->tS_d(2);                           \
+  f(3) = q(3) - p->Fstar_d(3) - p->cdt * p->tS_d(3);
 
   EVALUATE_ZFUNC
 
@@ -407,11 +405,12 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL const Estar, tensor::generic<CCTK_REAL, 4, 1> const &Fstar_d,
     CCTK_REAL const eta, CCTK_REAL const kabs, CCTK_REAL const kscat,
     CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
-    CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit, CCTK_INT source_maxiter) {
+    CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit,
+    CCTK_INT source_maxiter) {
 
-  Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter, cdt, alp, g_dd, g_uu, n_d, n_u,
-           gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta,
-           kabs, kscat);
+  Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter,
+           cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u,
+           proj_ud, W, Estar, Fstar_d, *chi, eta, kabs, kscat);
 
   // Old solution
   arith_vector qold{Eold, Fold_d(1), Fold_d(2), Fold_d(3)};
@@ -441,58 +440,59 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   }
 
   // Initial guess for the solution
-  arith_vector q_initial_guess{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
+  arith_vector q_initial_guess{*Enew, Fnew_d->at(1), Fnew_d->at(2),
+                               Fnew_d->at(3)};
 
-  // Now we are going to do the ND Newton-Raphson solve  
+  // Now we are going to do the ND Newton-Raphson solve
   // First define the function that we will input to Algo::newton_raphson_nd
-  // it needs to only take a arith_vector as an input and return 
+  // it needs to only take a arith_vector as an input and return
   // std::pair< arith_vector f, arith_matrix jac >
-  auto fn_nd = [&p](arith_vector q)
-      -> std::pair<arith_vector, arith_matrix > {
-       arith_vector f;
-       arith_matrix J;
-       // compute the function output and the jacobian
-       impl_func_val_jac(q, &p, f, J);
-       return {f, J};
+  auto fn_nd = [&p](arith_vector q) -> std::pair<arith_vector, arith_matrix> {
+    arith_vector f;
+    arith_matrix J;
+    // compute the function output and the jacobian
+    impl_func_val_jac(q, &p, f, J);
+    return {f, J};
   };
-  
+
   // then do the ND newton-raphson
   int iters;
   bool failed;
-  const int minbits = static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
+  const int minbits =
+      static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
   auto q_out = Algo::newton_raphson_nd(fn_nd, q_initial_guess,
-                                 arith_vector{0.0,0.0,0.0,0.0},
-                                 arith_vector{10.0,10.0,10.0,10.0}, minbits,
-                                 source_maxiter, iters, failed);
-  if (failed){
-      // If we are here, then we are in trouble
+                                       arith_vector{0.0, 0.0, 0.0, 0.0},
+                                       arith_vector{10.0, 10.0, 10.0, 10.0},
+                                       minbits, source_maxiter, iters, failed);
+  if (failed) {
+    // If we are here, then we are in trouble
 #ifdef WARN_FOR_SRC_FIX
-     printf("newton_raphson_nd failed in the implicit solve!\n");
+    printf("newton_raphson_nd failed in the implicit solve!\n");
 #endif
 
-      // We are optically thick, suggest to retry with Eddington closure
-      if (closure_fun != eddington) {
+    // We are optically thick, suggest to retry with Eddington closure
+    if (closure_fun != eddington) {
 #ifdef WARN_FOR_SRC_FIX
-        printf("Eddington closure\n");
-        // print_stuff(cctkGH, i, j, k, ig, &p, ss);
+      printf("Eddington closure\n");
+      // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
-        int ierr = source_update(
-            cctkGH, i, j, k, ig,
-            eddington, closure_epsilon, closure_maxiter, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d,
-            v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat,
-            chi, Enew, Fnew_d, source_thick_limit, source_scat_limit, source_maxiter);
-        if (ierr == NUX_M1_SOURCE_OK) {
-          return NUX_M1_SOURCE_EDDINGTON;
-        } else {
-          return ierr;
-        }
+      int ierr = source_update(
+          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter, cdt,
+          alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W,
+          Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
+          source_thick_limit, source_scat_limit, source_maxiter);
+      if (ierr == NUX_M1_SOURCE_OK) {
+        return NUX_M1_SOURCE_EDDINGTON;
       } else {
-#ifdef WARN_FOR_SRC_FIX
-        printf("using initial guess\n");
-        // TODO: print_stuff(cctkGH, i, j, k, ig, &p, ss);
-#endif
-        return NUX_M1_SOURCE_FAIL;
+        return ierr;
       }
+    } else {
+#ifdef WARN_FOR_SRC_FIX
+      printf("using initial guess\n");
+      // TODO: print_stuff(cctkGH, i, j, k, ig, &p, ss);
+#endif
+      return NUX_M1_SOURCE_FAIL;
+    }
   }
 
   // assign the output of the ND Newton-Raphson solver to the "new" variables

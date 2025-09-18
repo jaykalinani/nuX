@@ -8,7 +8,6 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_ParamCheck;
   DECLARE_CCTK_PARAMETERS
 
-
   if (optimize_prolongation) {
     if (cctk_nghostzones[0] < 4 || cctk_nghostzones[1] < 4 ||
         cctk_nghostzones[2] < 4) {

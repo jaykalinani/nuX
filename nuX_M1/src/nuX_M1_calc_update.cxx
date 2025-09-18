@@ -23,7 +23,6 @@ using namespace nuX_Utils;
 #define MAX_GROUPSPECIES 3
 #endif
 
-
 // Map closure string → function pointer
 static inline closure_t pick_closure_fun(const char *name) {
   if (CCTK_Equals(name, "Eddington"))
@@ -51,8 +50,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   closure_t const closure_fun = pick_closure_fun(closure);
 
   // Stage dt
-  CCTK_REAL const dt = CCTK_DELTA_TIME /
-    static_cast<CCTK_REAL>(*TimeIntegratorStage);
+  CCTK_REAL const dt =
+      CCTK_DELTA_TIME / static_cast<CCTK_REAL>(*TimeIntegratorStage);
   --(*TimeIntegratorStage);
   // CCTK_REAL const dt = CCTK_DELTA_TIME;
 
@@ -116,7 +115,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         int const groupspec = ngroups * nspecies;
 
         // Source RHS are stored here
-	// TODO: to use ngroups * nspecies instead of MAX_GROUPSPECIES
+        // TODO: to use ngroups * nspecies instead of MAX_GROUPSPECIES
         CCTK_REAL DrE[MAX_GROUPSPECIES];
         CCTK_REAL DrFx[MAX_GROUPSPECIES];
         CCTK_REAL DrFy[MAX_GROUPSPECIES];
@@ -175,7 +174,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           CCTK_REAL Nstar = std::max(rN_p[i4D] + dt * rN_rhs[i4D], rad_N_floor);
           CCTK_REAL Enew = Estar;
 
-          // Closure (GPU-safe; gsl pointer ignored) 
+          // Closure (GPU-safe; gsl pointer ignored)
           // Compute quantities in the fluid frame
           tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
@@ -208,14 +207,16 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           // Update T^{μν} pieces
           CCTK_REAL const H2 = tensor::dot(g_uu, Hnew_d, Hnew_d);
 
-// TODO: Boost library is not GPU compatible, so the first condition is never true. Hence we have the 
-// second "(NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)" condition
-#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST) || (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
+// TODO: Boost library is not GPU compatible, so the first condition is never
+// true. Hence we have the second "(NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)"
+// condition
+#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST) ||                                 \
+    (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
           // BOOST (and IMPlicit fallback here): compute xi and use chosen
           // closure
           CCTK_REAL const xi = (Jnew > rad_E_floor ? sqrt(H2) / Jnew : 0.0);
           chi[i4D] = closure_fun(xi);
-          //chi[i4D] = closure_fun ? closure_fun(xi) : (CCTK_REAL)(1.0 / 3.0);
+      // chi[i4D] = closure_fun ? closure_fun(xi) : (CCTK_REAL)(1.0 / 3.0);
 #else
           // Thick-limit default
           chi[i4D] = (CCTK_REAL)(1.0 / 3.0);
@@ -240,18 +241,18 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
           // Compute interaction with matter
-          (void)source_update(cctkGH, p.i, p.j, p.k, ig,
-                  closure_fun, closure_epsilon, closure_maxiter, dt,
-                  alp[ijk], g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u,
-                  v_d, v_u, proj_ud, fidu_w_lorentz[ijk], Estar, Fstar_d,
-                  Estar, Fstar_d, volform[ijk]*eta_1[i4D],
-                  abs_1[i4D], scat_1[i4D], &chi[i4D], &Enew, &Fnew_d,
-		  source_thick_limit, source_scat_limit, source_maxiter);
+          (void)source_update(
+              cctkGH, p.i, p.j, p.k, ig, closure_fun, closure_epsilon,
+              closure_maxiter, dt, alp[ijk], g_dd, g_uu, n_d, n_u, gamma_ud,
+              u_d, u_u, v_d, v_u, proj_ud, fidu_w_lorentz[ijk], Estar, Fstar_d,
+              Estar, Fstar_d, volform[ijk] * eta_1[i4D], abs_1[i4D],
+              scat_1[i4D], &chi[i4D], &Enew, &Fnew_d, source_thick_limit,
+              source_scat_limit, source_maxiter);
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
           // Update closure
-          apply_closure(g_dd, g_uu, n_d, fidu_w_lorentz[ijk],
-                  u_u, v_d, proj_ud, Enew, Fnew_d, chi[i4D], &P_dd);
+          apply_closure(g_dd, g_uu, n_d, fidu_w_lorentz[ijk], u_u, v_d, proj_ud,
+                        Enew, Fnew_d, chi[i4D], &P_dd);
 
           // Compute new radiation energy density in the fluid frame
           tensor::symmetric2<CCTK_REAL, 4, 2> T_dd;
@@ -278,8 +279,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                              (fidu_w_lorentz[ijk] > 0 ? fidu_w_lorentz[ijk]
                                                       : 1.0)) -
                 Nstar;
-          // The neutrino number density is updated assuming the neutrino
-          // average energies are those of the equilibrium
+            // The neutrino number density is updated assuming the neutrino
+            // average energies are those of the equilibrium
           } else {
             DrN[ig] = (nueave[i4D] > 0
                            ? (fidu_w_lorentz[ijk] * Jnew) / nueave[i4D] - Nstar
@@ -353,7 +354,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
             momz[ijk] -= theta * DrFz[ig];
             tau[ijk] -= theta * DrE[ig];
             DYe[ijk] += theta * DDxp[ig];
-            //densxn[ijk] -= theta * DDxp[ig];
+            // densxn[ijk] -= theta * DDxp[ig];
             netabs[ijk] += theta * DDxp[ig];
             netheat[ijk] -= theta * DrE[ig];
           }

@@ -64,6 +64,14 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
           r_d(2) = p.y; // y[ijk];
           r_d(3) = p.z; // z[ijk];
           CCTK_REAL const rr = sqrt(tensor::dot(g_uu, r_d, r_d));
+          if (rr <= 0) {
+            for (int ig = 0; ig < nspecies * ngroups; ++ig) {
+              int i4D = layout2.linear(p.i, p.j, p.k, ig);
+              radial_flux_0[i4D] = 0.0;
+              radial_flux_1[i4D] = 0.0;
+            }
+            return; // skip rest of kernel
+          }
           CCTK_REAL const irr = 1.0 / rr;
 
           tensor::generic<CCTK_REAL, 4, 1> u_u;

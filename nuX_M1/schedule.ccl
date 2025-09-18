@@ -91,16 +91,16 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_InitialGroup \
 {
     LANG: C
 
-#    READS: ADMBaseX::metric(everywhere)
-#    READS: ADMBaseX::lapse(everywhere)
-#    READS: ADMBaseX::shift(everywhere)
-#    READS: ADMBaseX::curv(everywhere)
-#    READS: volform(everywhere)
-#    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
-#    READS: fidu_w_lorentz(everywhere)
-#    READS: rN(everywhere) rE(everywhere) rF(everywhere)
-#    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
-#    WRITES: chi(everywhere)
+    READS: ADMBaseX::metric(everywhere)
+    READS: ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere)
+    READS: ADMBaseX::curv(everywhere)
+    READS: volform(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
+    READS: fidu_w_lorentz(everywhere)
+    READS: rN(everywhere) rE(everywhere) rF(everywhere)
+    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
 if (copy_levels) {
@@ -279,43 +279,39 @@ else {
 
 if (include_fluxes) {
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
+        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
         LANG: C
-        READS: ADMBaseX::metric(everywhere)
-        READS: ADMBaseX::lapse(everywhere)
-        READS: ADMBaseX::shift(everywhere)
-        READS: ADMBaseX::curv(everywhere)
-        READS: rN(everywhere) rE(everywhere) rF(everywhere)
-        READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
-        READS: rHt(everywhere) rH(everywhere)
-        READS: rP(everywhere) rJ(everywhere)
-        READS: volform(everywhere)
-        READS: fidu_w_lorentz(everywhere)
-        READS: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
-        READS: opacs(everywhere)
-        WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
-        # SYNC: nu_flux_x nu_flux_y nu_flux_z rHt rH rP rJ fidu_w_lorentz
+        READS: ADMBaseX::metric(interior)
+        READS: ADMBaseX::lapse(interior)
+        READS: ADMBaseX::shift(interior)
+        READS: ADMBaseX::curv(interior)
+        READS: rN(interior) rE(interior) rF(interior)
+        READS: fidu_vel(interior) nuX_m1_mask(interior)
+        READS: rHt(interior) rH(interior)
+        READS: rP(interior) rJ(interior)
+        READS: volform(interior)
+        READS: fidu_w_lorentz(interior)
+        READS: opacs(interior)
+        WRITES: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
+        SYNC: nu_flux_x nu_flux_y nu_flux_z
     } "Compute the radiation fluxes and add them the RHS"
 
    SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcFluxes nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitRHS)
+        AFTER (nuX_M1_CalcFluxes nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
         LANG: C
-        READS: rN(interior) rE(interior) rF(interior)
         READS: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
-        READS: opacs(interior)
         READS: nuX_m1_mask(interior)
         WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
         SYNC: rN_rhs rE_rhs rF_rhs 
     } "Compute the radiation fluxes and add them the RHS"
 
-
 }
 
 if (include_GR_sources) {
     SCHEDULE nuX_M1_CalcGRSources IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcClosure nuX_M1_InitRHS)
+        AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
         BEFORE nuX_M1_CalcUpdate
     {
         LANG: C
