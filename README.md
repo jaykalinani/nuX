@@ -33,7 +33,10 @@
 ## Getting Started
 
 * Instructions for downloading and building nuX with the Einstein Toolkit are available [here](https://github.com/EinsteinToolkit/CarpetX/wiki/Getting-Started).  
+* Thornlist is available [here](https://github.com/jaykalinani/nuX/blob/development/Docs/thornlist/nuX.th)
 * Simfactory files for various clusters and setup instructions can be found [here](https://github.com/lwJi/ETK-Compile-Guides).    
+
+---
 
 ## Useful Repositories
 
@@ -41,3 +44,12 @@
 * [CarpetX](https://github.com/EinsteinToolkit/CarpetX) – Next-generation driver for the Einstein Toolkit  
 * [SpacetimeX](https://github.com/EinsteinToolkit/SpacetimeX) – Modules for spacetime evolution 
 * [BNSTools](https://github.com/jaykalinani/BNSTools) – Utilities supporting BNS merger simulations  
+
+---
+
+## Additional Resources
+
+* Radice et al 2022: [MNRAS](https://academic.oup.com/mnras/article/512/1/1499/6542449) [arXiv](https://arxiv.org/abs/2111.14858)
+* Shibata et al 2021: [JPS](https://academic.oup.com/ptp/article/125/6/1255/1861577) [arXiv](https://arxiv.org/abs/1104.3937)
+* Introductory notebooks on nuX_M1, truncated moments formalism [here](https://github.com/jaykalinani/nuX_Docs) 
+
