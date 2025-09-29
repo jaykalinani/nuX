@@ -198,7 +198,7 @@ SCHEDULE nuX_M1_UpdateTime IN nuX_M1_TimeStep AFTER nuX_M1_CalcUpdate #BEFORE BC
     READS: M1_OriginalTime(everywhere)
 } "Set the time integrator index"
 
-SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL \
+SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL AFTER nuX_M1_TimeStep \
     AFTER nuX_M1_TimeStep
 {
     LANG: C

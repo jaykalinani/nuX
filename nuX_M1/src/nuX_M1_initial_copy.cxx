@@ -35,8 +35,8 @@ extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
           rFx[i4D] = rFx_p[i4D];
           rFy[i4D] = rFy_p[i4D];
           rFz[i4D] = rFz_p[i4D];
-          printf("Setting timelevel to %e, from previous %e\n", rN[i4D],
-                 rN_p[i4D]);
+//          printf("Setting timelevel to %e, from previous %e\n", rN[i4D],
+//                 rN_p[i4D]);
         }
       });
 }

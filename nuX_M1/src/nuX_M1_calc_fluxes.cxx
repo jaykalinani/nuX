@@ -33,11 +33,7 @@ using namespace std;
 
 CCTK_HOST CCTK_DEVICE inline CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp,
                                                CCTK_REAL th) {
-  CCTK_REAL val = 0.0;
-  if (rl * rp > 0.0) {
-    val = copysign(min(th * fabs(rl), th * fabs(rp)), rl);
-  }
-  return min(1.0, val);
+  return fmin(1.0, fmin(th * rl, th * rp));
 }
 
 CCTK_DEVICE CCTK_HOST inline int face_stride(int dir, const int *lsh) {
@@ -279,13 +275,14 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
             CCTK_REAL ph = 0.0;
             bool saw = false;
 
-            if (dup * duc > 0 && dum * duc > 0) {
-              const CCTK_REAL rl = (duc != 0.0) ? (dum / duc) : 0.0;
-              const CCTK_REAL rp = (duc != 0.0) ? (dup / duc) : 0.0;
+            if (dup * duc > 0.0 && dum * duc > 0.0 && duc != 0.0) {
+              const CCTK_REAL rl = dum / duc;
+              const CCTK_REAL rp = dup / duc;
               ph = minmod2(rl, rp, minmod_theta);
-            } else if (dup * duc < 0 && dum * duc < 0) {
+            } else if (dup * duc < 0.0 && dum * duc < 0.0) {
               saw = true;
             }
+
             phi[iv] = ph;
             sawtooth_mask[iv] = saw ? 1.0 : 0.0;
           }
@@ -308,19 +305,23 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
                                   : iv == 3 ? flux_R[3]
                                             : flux_R[4]);
 
+            // low–order LF flux
             const CCTK_REAL flow = 0.5 * (fL + fR) - 0.5 * c_face * (U_R - U_L);
+
+            // high–order central flux
             const CCTK_REAL fhigh = 0.5 * (fL + fR);
 
-            const CCTK_REAL limiter = 1.0 - phi[iv];
+            // same as THC: if sawtooth -> force A=1, else use computed A
             const CCTK_REAL Aeff = (sawtooth_mask[iv] > 0.5) ? 1.0 : A;
-            const CCTK_REAL fnum = fhigh - Aeff * limiter * (fhigh - flow);
+
+            // blend with limiter φ (always 0 ≤ φ ≤ 1 now)
+            const CCTK_REAL fnum =
+                fhigh - Aeff * (1.0 - phi[iv]) * (fhigh - flow);
 
             const int comp = PINDEX1D(ig, iv);
             nu_flux_dir[comp * STRIDE + ijk_fc] = fnum;
 
-#ifndef NDEBUG
             assert(isfinite(nu_flux_dir[comp * STRIDE + ijk_fc]));
-#endif
           }
         } // ig
       } // lambda
@@ -378,9 +379,7 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
             if (!nuX_m1_mask[ijk_cc]) {
               r_rhs[iv][i4D] += idelta[dir] * (flux_L - flux_R);
-#ifndef NDEBUG
               assert(isfinite(r_rhs[iv][i4D]));
-#endif
             }
           } // iv
         } // ig

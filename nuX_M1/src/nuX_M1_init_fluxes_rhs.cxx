@@ -15,6 +15,12 @@ CCTK_DEVICE CCTK_HOST inline vect<int, 3> face_centering(int dir) {
   return {dir == 0 ? 0 : 1, dir == 1 ? 0 : 1, dir == 2 ? 0 : 1};
 }
 
+CCTK_DEVICE CCTK_HOST inline int face_stride(int dir, const int *lsh) {
+  return (dir == 0)   ? (lsh[0] + 1) * lsh[1] * lsh[2]
+         : (dir == 1) ? lsh[0] * (lsh[1] + 1) * lsh[2]
+                      : lsh[0] * lsh[1] * (lsh[2] + 1);
+}
+
 template <int dir> inline void ZeroFaceFlux(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_InitFluxesRHS;
   DECLARE_CCTK_PARAMETERS;
@@ -26,7 +32,7 @@ template <int dir> inline void ZeroFaceFlux(CCTK_ARGUMENTS) {
                                          : dir == 1 ? nu_flux_y
                                                     : nu_flux_z);
 
-  const ptrdiff_t STRIDE = static_cast<ptrdiff_t>(layout_fc.size());
+  const ptrdiff_t STRIDE = static_cast<ptrdiff_t>(face_stride(dir, cctk_lsh));
   const int groupspec = ngroups * nspecies;
 
   grid.loop_all_device<(dir == 0 ? 0 : 1), (dir == 1 ? 0 : 1),
@@ -38,7 +44,7 @@ template <int dir> inline void ZeroFaceFlux(CCTK_ARGUMENTS) {
         for (int ig = 0; ig < groupspec; ++ig) {
           for (int iv = 0; iv < 5; ++iv) {
             const ptrdiff_t comp = PINDEX1D(ig, iv);
-            nu_flux_dir[comp * STRIDE + ijk_fc] = CCTK_REAL(0);
+            nu_flux_dir[comp * STRIDE + ijk_fc] = 0.0;
           }
         }
       });
@@ -57,11 +63,11 @@ inline void ZeroCellRHS(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         for (int ig = 0; ig < groupspec; ++ig) {
           const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
-          rN_rhs[i4D] = CCTK_REAL(0);
-          rFx_rhs[i4D] = CCTK_REAL(0);
-          rFy_rhs[i4D] = CCTK_REAL(0);
-          rFz_rhs[i4D] = CCTK_REAL(0);
-          rE_rhs[i4D] = CCTK_REAL(0);
+          rN_rhs[i4D] = 0.0;
+          rFx_rhs[i4D] = 0.0;
+          rFy_rhs[i4D] = 0.0;
+          rFz_rhs[i4D] = 0.0;
+          rE_rhs[i4D] = 0.0;
         }
       });
 }
@@ -71,7 +77,7 @@ extern "C" void nuX_M1_InitFluxesRHS(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_M1_InitFluxesRHS (ghost-aware zeroing)");
+    CCTK_INFO("nuX_M1_InitFluxesRHS");
 
   ZeroFaceFlux<0>(cctkGH); // x-faces (Nx+1, Ny,   Nz) + ghosts
   ZeroFaceFlux<1>(cctkGH); // y-faces (Nx,   Ny+1, Nz) + ghosts
