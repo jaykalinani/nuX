@@ -146,8 +146,9 @@ Numerical/AEILocalInterp
 # CarpetX thorns
 !TARGET   = $ARR
 !TYPE     = git
-!URL      = https://github.com/EinsteinToolkit/CarpetX.git
+!URL      = https://github.com/jaykalinani/CarpetX.git
 !REPO_PATH= $2
+!REPO_BRANCH = nuX
 !CHECKOUT =
 CarpetX/ADMBaseX
 CarpetX/Algo
@@ -190,7 +191,7 @@ SpacetimeX/Z4c
 # AsterX thorns
 !TARGET   = $ARR
 !TYPE     = git
-!URL      = https://github.com/jaykalinani/AsterX.git
+!URL      = https://github.com/EinsteinToolkit/AsterX.git
 !REPO_PATH= $2
 !CHECKOUT =
 AsterX/AsterMasks
