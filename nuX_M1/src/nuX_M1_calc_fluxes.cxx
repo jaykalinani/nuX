@@ -319,9 +319,10 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
                 fhigh - Aeff * (1.0 - phi[iv]) * (fhigh - flow);
 
             const int comp = PINDEX1D(ig, iv);
-            nu_flux_dir[comp * STRIDE + ijk_fc] = fnum;
+	    const ptrdiff_t idx = layout_fc.linear(p.i, p.j, p.k, comp);
+            nu_flux_dir[idx] = fnum;
 
-            assert(isfinite(nu_flux_dir[comp * STRIDE + ijk_fc]));
+            assert(isfinite(nu_flux_dir[idx]));
           }
         } // ig
       } // lambda
@@ -337,10 +338,9 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
 
-  // layouts and stride
+  // layouts
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_fc(cctkGH, face_centering(dir));
-  const int STRIDE = face_stride(dir, cctk_lsh);
 
   // read-only view of packed face buffer for this direction
   const CCTK_REAL *nu_flux_dir = (dir == 0   ? nu_flux_x
@@ -351,40 +351,48 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   CCTK_REAL *r_rhs[5] = {rN_rhs, rFx_rhs, rFy_rhs, rFz_rhs, rE_rhs};
 
   // grid spacings
-  const CCTK_REAL delta[3] = {CCTK_DELTA_SPACE(0), CCTK_DELTA_SPACE(1),
-                              CCTK_DELTA_SPACE(2)};
+  const CCTK_REAL delta[3]  = {CCTK_DELTA_SPACE(0), CCTK_DELTA_SPACE(1), CCTK_DELTA_SPACE(2)};
   const CCTK_REAL idelta[3] = {1.0 / delta[0], 1.0 / delta[1], 1.0 / delta[2]};
 
+  const int groupspec = ngroups * nspecies;
+
   // Loop over cell centres
-  grid.loop_int_device<1, 1, 1>(
+  grid.loop_int_device<1,1,1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        // cell-centred linear index (no component)
         const int ijk_cc = layout_cc.linear(p.i, p.j, p.k);
 
         // indices of faces bounding this cell in 'dir'
         const int fL = layout_fc.linear(p.i, p.j, p.k);
-        const int fR = (dir == 0)   ? layout_fc.linear(p.i + 1, p.j, p.k)
-                       : (dir == 1) ? layout_fc.linear(p.i, p.j + 1, p.k)
-                                    : layout_fc.linear(p.i, p.j, p.k + 1);
+        const int fR = (dir == 0)   ? layout_fc.linear(p.i+1, p.j,   p.k)
+                       : (dir == 1) ? layout_fc.linear(p.i,   p.j+1, p.k)
+                                    : layout_fc.linear(p.i,   p.j,   p.k+1);
 
-        const int groupspec = ngroups * nspecies;
+        if (!nuX_m1_mask[ijk_cc]) {
+          for (int ig = 0; ig < groupspec; ++ig) {
+            for (int iv = 0; iv < 5; ++iv) {
+              const int comp = PINDEX1D(ig, iv);
 
-        for (int ig = 0; ig < groupspec; ++ig) {
-          const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
+              // correct 4D indexing into face-centred array
+              const ptrdiff_t idxL = layout_fc.linear(p.i, p.j, p.k,     comp);
+              const ptrdiff_t idxR = (dir == 0)   ? layout_fc.linear(p.i+1, p.j,   p.k, comp)
+                                   : (dir == 1) ? layout_fc.linear(p.i,   p.j+1, p.k, comp)
+                                                : layout_fc.linear(p.i,   p.j,   p.k+1, comp);
 
-          for (int iv = 0; iv < 5; ++iv) {
-            const int comp = PINDEX1D(ig, iv);
-            const CCTK_REAL flux_L = nu_flux_dir[comp * STRIDE + fL];
-            const CCTK_REAL flux_R = nu_flux_dir[comp * STRIDE + fR];
+              const CCTK_REAL flux_L = nu_flux_dir[idxL];
+              const CCTK_REAL flux_R = nu_flux_dir[idxR];
 
-            if (!nuX_m1_mask[ijk_cc]) {
-              r_rhs[iv][i4D] += idelta[dir] * (flux_L - flux_R);
-              assert(isfinite(r_rhs[iv][i4D]));
-            }
-          } // iv
-        } // ig
-      } // lambda
-  ); // loop_int_device (cells)
+              // correct 4D indexing into cell-centred RHS
+              const ptrdiff_t idxC = layout_cc.linear(p.i, p.j, p.k, ig);
+
+              r_rhs[iv][idxC] += idelta[dir] * (flux_L - flux_R);
+
+              assert(isfinite(r_rhs[iv][idxC]));
+            } // iv
+          } // ig
+        }
+      });
 }
 
 //---------------------------------------------------------------------
@@ -395,7 +403,7 @@ extern "C" void nuX_M1_CalcFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
   if (verbose) {
     CCTK_INFO(
-        "nuX_M1_CalcFluxes (face-centered, LF+HO blend with limiter and A)");
+        "nuX_M1_CalcFluxes");
   }
   M1_CalcFlux<0>(cctkGH);
   M1_CalcFlux<1>(cctkGH);
@@ -407,7 +415,7 @@ extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
   if (verbose) {
     CCTK_INFO(
-        "nuX_M1_UpdateRHSFromFluxes (divergence from face-centered fluxes)");
+        "nuX_M1_UpdateRHSFromFluxes");
   }
   M1_UpdateRHSFromFluxes<0>(cctkGH);
   M1_UpdateRHSFromFluxes<1>(cctkGH);

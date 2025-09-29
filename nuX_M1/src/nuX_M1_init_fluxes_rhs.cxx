@@ -32,19 +32,17 @@ template <int dir> inline void ZeroFaceFlux(CCTK_ARGUMENTS) {
                                          : dir == 1 ? nu_flux_y
                                                     : nu_flux_z);
 
-  const ptrdiff_t STRIDE = static_cast<ptrdiff_t>(face_stride(dir, cctk_lsh));
   const int groupspec = ngroups * nspecies;
 
   grid.loop_all_device<(dir == 0 ? 0 : 1), (dir == 1 ? 0 : 1),
                        (dir == 2 ? 0 : 1)>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const ptrdiff_t ijk_fc =
-            static_cast<ptrdiff_t>(layout_fc.linear(p.i, p.j, p.k));
         for (int ig = 0; ig < groupspec; ++ig) {
           for (int iv = 0; iv < 5; ++iv) {
-            const ptrdiff_t comp = PINDEX1D(ig, iv);
-            nu_flux_dir[comp * STRIDE + ijk_fc] = 0.0;
+            const int comp = PINDEX1D(ig, iv);
+            const ptrdiff_t idx = layout_fc.linear(p.i, p.j, p.k, comp);
+            nu_flux_dir[idx] = 0.0;
           }
         }
       });
