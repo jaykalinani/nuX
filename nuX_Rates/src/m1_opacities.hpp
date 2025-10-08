@@ -1606,7 +1606,7 @@ ComputeSpectralOpacitiesStimulatedAbs(const BS_REAL nu, MyQuadrature* quad_1d,
 
 /* Computes neutrino number and energy densities. This is the one function that both takes and returns
  * values in code units! */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 void NeutrinoDens(BS_REAL mu_n, BS_REAL mu_p, BS_REAL mu_e, BS_REAL temp, BS_REAL &n_nue, BS_REAL &n_anue,
                   BS_REAL &n_nux, BS_REAL &en_nue, BS_REAL &en_anue, BS_REAL &en_nux) {
 
