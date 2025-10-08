@@ -36,7 +36,7 @@ constexpr BS_REAL THRESHOLD_J = 1e-25;
  */
 
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void Scattering1DIntegrand(const MyQuadrature* quad,
                            GreyOpacityParams* grey_pars, const BS_REAL* t,
                            BS_REAL out[][BS_N_MAX])
@@ -90,7 +90,7 @@ void Scattering1DIntegrand(const MyQuadrature* quad,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void Beta1DIntegrand(const MyQuadrature* quad, GreyOpacityParams* grey_pars,
                      const BS_REAL* t, BS_REAL out_em[][BS_N_MAX],
                      BS_REAL out_ab[][BS_N_MAX], const int stim_abs)
@@ -236,7 +236,7 @@ void Beta1DIntegrand(const MyQuadrature* quad, GreyOpacityParams* grey_pars,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void AddBetaReactionToIntegrand(int n, BS_REAL* nu_array,
                                 GreyOpacityParams* grey_pars,
                                 M1MatrixKokkos2D* out, const int stim_abs)
@@ -286,7 +286,7 @@ void AddBetaReactionToIntegrand(int n, BS_REAL* nu_array,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void AddPairKernelsToIntegrand(int n, BS_REAL* nu_array,
                                GreyOpacityParams* grey_pars,
                                M1MatrixKokkos2D* out)
@@ -340,7 +340,7 @@ void AddPairKernelsToIntegrand(int n, BS_REAL* nu_array,
 }
 
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void AddBremKernelsToIntegrand(int n, BS_REAL* nu_array,
                                GreyOpacityParams* grey_pars,
                                M1MatrixKokkos2D* out)
@@ -433,7 +433,7 @@ void AddBremKernelsToIntegrand(int n, BS_REAL* nu_array,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void AddInelKernelsToIntegrand(int n, BS_REAL* nu_array,
                                GreyOpacityParams* grey_pars,
                                M1MatrixKokkos2D* out)
@@ -530,7 +530,7 @@ void AddInelKernelsToIntegrand(int n, BS_REAL* nu_array,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void WeightNuNuBarReactionsWithDistr(int n, BS_REAL* nu_array,
                                      GreyOpacityParams* grey_pars,
                                      M1MatrixKokkos2D* out)
@@ -615,7 +615,7 @@ void WeightNuNuBarReactionsWithDistr(int n, BS_REAL* nu_array,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void AddCommonWeightsToIntegrand(int n, BS_REAL* nu_array,
                                  GreyOpacityParams* grey_pars,
                                  M1MatrixKokkos2D* out, int stim_abs)
@@ -727,13 +727,12 @@ void AddCommonWeightsToIntegrand(int n, BS_REAL* nu_array,
  * Note that there are no BS_REAL integrals for the computation of the
  * scattering coefficient.
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 M1MatrixKokkos2D ComputeDoubleIntegrand(const MyQuadrature* quad, BS_REAL t,
                                         GreyOpacityParams* grey_pars,
                                         const int stim_abs)
 {
     const int n = quad->nx;
-    BS_REAL nu, nu_bar;
     BS_REAL nu_array[BS_N_MAX];
     M1MatrixKokkos2D out = {0};
 
@@ -742,11 +741,6 @@ M1MatrixKokkos2D ComputeDoubleIntegrand(const MyQuadrature* quad, BS_REAL t,
         nu_array[i]     = t * quad->points[i];
         nu_array[n + i] = t / quad->points[i];
     }
-
-    // compute the neutrino & anti-neutrino distribution function
-    BS_REAL g_nu[total_num_species], g_nu_bar[total_num_species];
-    BS_REAL block_factor_nu[total_num_species],
-        block_factor_nu_bar[total_num_species];
 
     if (grey_pars->opacity_flags.use_pair == 1)
     {
@@ -781,6 +775,11 @@ M1MatrixKokkos2D ComputeDoubleIntegrand(const MyQuadrature* quad, BS_REAL t,
     // //////////////////////////////////////////////
     // ////// ONLY FOR COMPARISON WITH NULIB ////////
     // //////////////////////////////////////////////
+    // compute the neutrino & anti-neutrino distribution function
+    //BS_REAL g_nu[total_num_species], g_nu_bar[total_num_species];
+    //BS_REAL block_factor_nu[total_num_species],
+    //    block_factor_nu_bar[total_num_species];
+    //
     // if (kirchoff_flag)
     // {
     //     ann_term_ij[id_nue] +=
@@ -818,7 +817,7 @@ M1MatrixKokkos2D ComputeDoubleIntegrand(const MyQuadrature* quad, BS_REAL t,
     return out;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 M1MatrixKokkos2D ComputeNEPSIntegrand(const MyQuadrature* quad, BS_REAL t,
                                       GreyOpacityParams* grey_pars,
                                       const int stim_abs)
@@ -1016,7 +1015,7 @@ M1MatrixKokkos2D ComputeNEPSIntegrand(const MyQuadrature* quad, BS_REAL t,
 /* Computes the opacities for the M1 code
  *
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 M1Opacities ComputeM1OpacitiesGenericFormalism(
     const MyQuadrature* quad_1d, const MyQuadrature* quad_2d,
     GreyOpacityParams* my_grey_opacity_params, const int stim_abs)
@@ -1251,7 +1250,7 @@ M1Opacities ComputeM1OpacitiesGenericFormalism(
     return m1_opacities;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 M1Opacities
 ComputeM1OpacitiesNotStimulated(MyQuadrature* quad_1d, MyQuadrature* quad_2d,
                                 GreyOpacityParams* my_grey_opacity_params)
@@ -1260,7 +1259,7 @@ ComputeM1OpacitiesNotStimulated(MyQuadrature* quad_1d, MyQuadrature* quad_2d,
                                               my_grey_opacity_params, 0);
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 M1Opacities ComputeM1Opacities(const MyQuadrature* quad_1d,
                                const MyQuadrature* quad_2d,
                                GreyOpacityParams* my_grey_opacity_params)
@@ -1271,7 +1270,7 @@ M1Opacities ComputeM1Opacities(const MyQuadrature* quad_1d,
 
 /* Compute the integrands for the computation of the spectral emissivity and
  * inverse mean free path */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 MyQuadratureIntegrand SpectralIntegrand(BS_REAL* var, void* p)
 {
     constexpr BS_REAL zero = 0;
@@ -1449,14 +1448,13 @@ MyQuadratureIntegrand SpectralIntegrand(BS_REAL* var, void* p)
 /* Computes the spectral emissivity and inverse mean free path */
 
 // Version without stimulated absorption
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 SpectralOpacities ComputeSpectralOpacitiesNotStimulatedAbs(
     const BS_REAL nu, MyQuadrature* quad_1d,
     GreyOpacityParams* my_grey_opacity_params)
 {
     constexpr BS_REAL zero    = 0;
     constexpr BS_REAL one     = 1;
-    constexpr BS_REAL four    = 4;
     constexpr BS_REAL four_pi = 4 * kBS_Pi;
     constexpr BS_REAL c_light = kBS_Clight;
 
@@ -1483,8 +1481,8 @@ SpectralOpacities ComputeSpectralOpacitiesNotStimulatedAbs(
         g_nu[idx] = TotalNuF(nu, &my_grey_opacity_params->distr_pars, idx);
     }
 
-    const BS_REAL eta_e = my_grey_opacity_params->eos_pars.mu_e /
-                          my_grey_opacity_params->eos_pars.temp;
+    //const BS_REAL eta_e = my_grey_opacity_params->eos_pars.mu_e /
+    //                      my_grey_opacity_params->eos_pars.temp;
 
     constexpr BS_REAL temp_multiple = 0.5 * 4.364;
 
@@ -1585,7 +1583,7 @@ SpectralOpacities ComputeSpectralOpacitiesNotStimulatedAbs(
 
 
 // Version with stimulated absorption
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 SpectralOpacities
 ComputeSpectralOpacitiesStimulatedAbs(const BS_REAL nu, MyQuadrature* quad_1d,
                                       GreyOpacityParams* my_grey_opacity_params)

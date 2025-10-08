@@ -13,7 +13,7 @@
 #include "functions.hpp"
 
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void PairPsi(const int l, const BS_REAL y, const BS_REAL z, const BS_REAL eta,
              BS_REAL* psi_out)
 {
@@ -132,7 +132,7 @@ void PairPsi(const int l, const BS_REAL y, const BS_REAL z, const BS_REAL eta,
  *      Phi_l(y,z) = (G^2 temp^2)/(pi (1 - e^{y+z})) [alpha1 Psi_l(y,z) + alpha2
  * Psi_l(z,y)]
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void PairPhi(const BS_REAL omega, const BS_REAL omega_prime, const int l,
              const BS_REAL eta, const BS_REAL T, BS_REAL* phi_out)
 {
@@ -162,7 +162,7 @@ void PairPhi(const BS_REAL omega, const BS_REAL omega_prime, const int l,
                  aux;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 MyKernelOutput PairKernels(const MyEOSParams* eos_pars,
                            const PairKernelParams* kernel_pars)
 {
@@ -197,7 +197,7 @@ MyKernelOutput PairKernels(const MyEOSParams* eos_pars,
     return pair_kernel;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void PairKernels(const MyEOSParams* eos_pars,
                  const PairKernelParams* kernel_pars, MyKernelOutput* out_for,
                  MyKernelOutput* out_inv)
@@ -215,7 +215,7 @@ void PairKernels(const MyEOSParams* eos_pars,
     out_inv->abs[id_anux] = out_for->abs[id_nux];
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void PairKernelsTable(const int n, const BS_REAL* nu_array,
                       GreyOpacityParams* grey_pars, M1MatrixKokkos2D* out)
 {
