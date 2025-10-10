@@ -340,6 +340,7 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     READS: chi(interior)
     READS: HydroBaseX::Ye(interior) AsterX::dens(interior)
+    READS: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     READS: TimeIntegratorStage
  
     WRITES: chi(interior)

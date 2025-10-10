@@ -382,12 +382,17 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
               const CCTK_REAL flux_L = nu_flux_dir[idxL];
               const CCTK_REAL flux_R = nu_flux_dir[idxR];
-
+              
               // correct 4D indexing into cell-centred RHS
               const ptrdiff_t idxC = layout_cc.linear(p.i, p.j, p.k, ig);
+              const CCTK_REAL testvar = idelta[dir] * (flux_L - flux_R);
 
+	      if (!isfinite(r_rhs[iv][idxC])) r_rhs[iv][idxC] = 0.0;
               r_rhs[iv][idxC] += idelta[dir] * (flux_L - flux_R);
 
+              assert(isfinite(flux_L));
+              assert(isfinite(flux_R));
+	      assert(isfinite(testvar));
               assert(isfinite(r_rhs[iv][idxC]));
             } // iv
           } // ig

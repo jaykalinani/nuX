@@ -18,7 +18,7 @@ ActiveThorns = "
 
  
 $nlevels = 1
-$ncells = 100
+$ncells = 400
 
 Cactus::cctk_show_schedule = yes
 
@@ -35,10 +35,10 @@ ADMBaseX::initial_dtshift         = "none"
 
 AsterX::debug_mode = "yes"
 AsterX::flux_type = "LxF"
-AsterX::update_tmunu = "no"
+##AsterX::update_tmunu = "no"
 
 CarpetX::verbose = yes
-
+CarpetX::poison_undefined_values = yes
 CarpetX::xmin = -0.5
 CarpetX::ymin = -0.5
 CarpetX::zmin = -0.5
@@ -68,8 +68,9 @@ CarpetX::regrid_error_threshold = 0.01
 
 CarpetX::prolongation_type = "ddf"
 CarpetX::ghost_size = 2
-CarpetX::dtfac = 0.25
+CarpetX::dtfac = 0.50
  
+
 ReconX::reconstruction_method = "minmod"
 
 Con2PrimFactory::c2p_prime = "Noble"
@@ -90,13 +91,49 @@ EOSX::eps_max = 1e8
 
 ODESolvers::method = "RK4"
 
+IO::out_dir = $parfile
+IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
+
+#CarpetX::out_silo_vars = "
+#    HydroBaseX::rho
+#    HydroBaseX::vel
+#    HydroBaseX::eps
+#    HydroBaseX::press
+#    HydroBaseX::Bvec
+#    CarpetX::regrid_error
+#    nuX_M1::rN
+#    nuX_M1::rE
+#    nux_M1::rf
+#    nuX_M1::rP
+#"
+
+CarpetX::out_tsv_vars = "
+    HydroBaseX::rho
+    HydroBaseX::vel
+    HydroBaseX::eps
+    HydroBaseX::press
+    HydroBaseX::Bvec
+    nuX_M1::rN
+    nuX_M1::rE
+    nux_M1::rf
+    nuX_M1::rP
+"
+
+TimerReport::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers_together = yes
+TimerReport::output_all_timers_readable = yes
+TimerReport::n_top_timers = 50
+
+
+
 nuX_M1::add_to_Tmunu       = "no"
-nuX_M1::backreact          = "no"
+nuX_M1::backreact          = "yes"
 nuX_M1::bc_type            = "none"  #? Not sure
 nuX_M1::closure            = "Minerbo"
 nuX_M1::closure_epsilon    = 1e-5
 nuX_M1::include_fluxes     = "yes"
-nuX_M1::include_GR_sources = "yes"
+nuX_M1::include_GR_sources = "no"
 nuX_M1::verbose            = "yes"
 nuX_M1::use_fakerates      = "yes"
 
@@ -109,45 +146,11 @@ nuX_Seeds::static_eps      = 1.0e-2
 nuX_Seeds::static_ye       = 0.5
 nuX_Seeds::static_velz     = 0.87
 
-nuX_FakeRates::eta_nue                  = 0.0
-nuX_FakeRates::eta_nua                  = 0.0
-nuX_FakeRates::eta_nux                  = 0.0
-nuX_FakeRates::kappa_scat_nue           = 0.0
-nuX_FakeRates::kappa_scat_nua           = 0.0
-nuX_FakeRates::kappa_scat_nux           = 0.0
-nuX_FakeRates::kappa_abs_nue            = 0.0
-nuX_FakeRates::kappa_abs_nua            = 0.0
-
-IO::out_dir = $parfile
-IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
-CarpetX::out_silo_vars = "
-    HydroBaseX::rho
-    HydroBaseX::vel
-    HydroBaseX::eps
-    HydroBaseX::press
-    HydroBaseX::Bvec
-    CarpetX::regrid_error
-    nuX_M1::rN
-    nuX_M1::rE
-    nux_M1::rf
-    nuX_M1::rP
-"
-
-CarpetX::out_tsv_vars = "
-    HydroBaseX::rho
-    HydroBaseX::vel
-    HydroBaseX::eps
-    HydroBaseX::press
-    HydroBaseX::Bvec
-    CarpetX::regrid_error
-    nuX_M1::rN
-    nuX_M1::rE
-    nux_M1::rf
-    nuX_M1::rP
-"
-
-TimerReport::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
-TimerReport::out_filename = "TimerReport"
-TimerReport::output_all_timers_together = yes
-TimerReport::output_all_timers_readable = yes
-TimerReport::n_top_timers = 50
+nuX_FakeRates::eta_nue			= 0.0
+nuX_FakeRates::eta_nua			= 0.0
+nuX_FakeRates::eta_nux			= 0.0
+nuX_FakeRates::kappa_scat_nue		= 0.0
+nuX_FakeRates::kappa_scat_nua		= 0.0
+nuX_FakeRates::kappa_scat_nux		= 0.0
+nuX_FakeRates::kappa_abs_nue		= 0.0
+nuX_FakeRates::kappa_abs_nua		= 0.0
