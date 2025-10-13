@@ -19,6 +19,7 @@
 
 #include "roots.hxx"
 
+//Eq labels refer to https://arxiv.org/pdf/2111.14858
 namespace nuX_M1 {
 
 using namespace nuX_Utils;
@@ -486,18 +487,18 @@ zFunction(double xi, void *params) {
 
   tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
   apply_closure(p->g_dd, p->g_uu, p->n_d, p->w_lorentz, p->u_u, p->v_d,
-                p->proj_ud, p->E, p->F_d, p->closure(xi), &P_dd);
+                p->proj_ud, p->E, p->F_d, p->closure(xi), &P_dd); // Eq. 16[ chi = (Eq. 17)]
 
   tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
-  assemble_rT(p->n_d, p->E, p->F_d, P_dd, &rT_dd);
+  assemble_rT(p->n_d, p->E, p->F_d, P_dd, &rT_dd); // Eq. 1
 
-  CCTK_REAL const J = calc_J_from_rT(rT_dd, p->u_u);
+  CCTK_REAL const J = calc_J_from_rT(rT_dd, p->u_u); // project Eq. 1, Eq.2 identifies J
 
   tensor::generic<CCTK_REAL, 4, 1> H_d;
-  calc_H_from_rT(rT_dd, p->u_u, p->proj_ud, &H_d);
+  calc_H_from_rT(rT_dd, p->u_u, p->proj_ud, &H_d); // project Eq. 1, Eq.2 identifies H_d  
 
   CCTK_REAL const H2 = tensor::dot(p->g_uu, H_d, H_d);
-  return SQ(J * xi) - H2;
+  return SQ(J * xi) - H2; // Eq. 18 LHS - RHS = 0
 }
 
 // Computes the closure in the lab frame with a rootfinding procedure
