@@ -30,7 +30,7 @@
  * Output:
  *      s:  a dimensionless quantity as defined in Eqn. (49)
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremKernelS(BS_REAL x, BS_REAL y, BS_REAL eta_star)
 {
     constexpr BS_REAL zero   = 0;
@@ -162,7 +162,7 @@ BS_REAL BremKernelS(BS_REAL x, BS_REAL y, BS_REAL eta_star)
  * Output:
  *    g: a dimensionless quantity as defined in Eqn. (52)
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremKernelG(BS_REAL y, BS_REAL eta_star)
 {
     constexpr BS_REAL zero       = 0;
@@ -236,7 +236,7 @@ BS_REAL BremKernelG(BS_REAL y, BS_REAL eta_star)
 }
 
 /* Compute the absorption kernels for a given NN Bremsstrahlung channel */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremSingleChannelAbsKernel(const BS_REAL n_nuc, const BS_REAL m_nuc,
                                    BremKernelParams* kernel_params,
                                    MyEOSParams* eos_params)
@@ -290,7 +290,7 @@ BS_REAL BremSingleChannelAbsKernel(const BS_REAL n_nuc, const BS_REAL m_nuc,
 
 /* Compute the angular independent part of the absorption kernels for the
  Bremsstrahlung reactions by summing the contributions of all NN channels */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremAllChannelsAbsKernel(BremKernelParams* kernel_params,
                                  MyEOSParams* eos_params)
 {
@@ -339,7 +339,7 @@ BS_REAL BremAllChannelsAbsKernel(BremKernelParams* kernel_params,
 
 /* Compute a specific Legendre coefficient in the expansion of production and
  * absorption kernels for the Bremsstrahlung reactions */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 MyKernelOutput BremKernelsLegCoeff(BremKernelParams* kernel_params,
                                    MyEOSParams* eos_params)
 {
@@ -392,7 +392,7 @@ MyKernelOutput BremKernelsLegCoeff(BremKernelParams* kernel_params,
     return brem_kernel;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void BremKernelsTable(const int n, BS_REAL* nu_array,
                       GreyOpacityParams* grey_pars, M1MatrixKokkos2D* out)
 {
@@ -434,7 +434,7 @@ void BremKernelsTable(const int n, BS_REAL* nu_array,
 // * The factor 2.0778 is different from the paper 1.04 to account
 //   for the nuclear matrix element for one-pion exchange
 //   (Adam Burrows, private comm)
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 BS_REAL QBrem_BRT06(const BS_REAL nb, const BS_REAL T, const BS_REAL xn,
                     const BS_REAL xp)
 {
@@ -452,7 +452,7 @@ BS_REAL QBrem_BRT06(const BS_REAL nb, const BS_REAL T, const BS_REAL xn,
 
 // Bremsstrahlung kernel from BRT06 Eq.(143) rewritten consistently
 // to fit within the framework of the present library
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 MyKernelOutput BremKernelsBRT06(BremKernelParams* kernel_params,
                                 MyEOSParams* eos_pars)
 {
@@ -481,7 +481,7 @@ MyKernelOutput BremKernelsBRT06(BremKernelParams* kernel_params,
     return brem_kernel;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_HOST CCTK_DEVICE inline
 void BremKernelsTableBRT06(const int n, BS_REAL* nu_array,
                            GreyOpacityParams* grey_pars, M1MatrixKokkos2D* out)
 {

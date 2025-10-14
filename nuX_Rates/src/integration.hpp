@@ -31,7 +31,7 @@
  *            This already contains metadata for the quadrature, the routine
  *            only populates the quadrature points and weights
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE void GaussLegendre(MyQuadrature* quad)
+CCTK_DEVICE CCTK_HOST inline void GaussLegendre(MyQuadrature* quad)
 {
     const double kEps = 1.0e-10; // 1.0e-14;
 
@@ -99,7 +99,7 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE void GaussLegendre(MyQuadrature* qu
  *    wtarray:  array of quadrature weights
  *    fnarray:  array of function values at corresponding quadrature positions
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 BS_REAL DoIntegration(const int n, const BS_REAL* wtarray,
                       const BS_REAL* fnarray)
 {
@@ -126,7 +126,7 @@ BS_REAL DoIntegration(const int n, const BS_REAL* wtarray,
  * x2 = 1. func: The function struct to be integrated t:    The value of points
  * at which to break the integral into two
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE BS_REAL GaussLegendreIntegrateZeroInf(MyQuadrature* quad,
+CCTK_DEVICE CCTK_HOST inline BS_REAL GaussLegendreIntegrateZeroInf(MyQuadrature* quad,
                                              MyFunction* func, BS_REAL t)
 {
 
@@ -178,7 +178,7 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE BS_REAL GaussLegendreIntegrateZeroI
  *      the emissivities and absoptivities for e and points neutrinos (take care
  * of constant multiplications separately outside)
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyKernelQuantity
+CCTK_DEVICE CCTK_HOST inline MyKernelQuantity
 GaussLegendreIntegrateZeroInfSpecial(MyQuadrature* quad,
                                      MyFunctionSpecial* func, BS_REAL t)
 {
@@ -279,7 +279,7 @@ GaussLegendreIntegrateZeroInfSpecial(MyQuadrature* quad,
  *    quad: A properly populated Gauss-Laguerre quadrature struct
  *    func:    The function struct to be integrated
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE BS_REAL GaussLaguerreIntegrateZeroInf(MyQuadrature* quad,
+CCTK_DEVICE CCTK_HOST inline BS_REAL GaussLaguerreIntegrateZeroInf(MyQuadrature* quad,
                                              MyFunction* func)
 {
 
@@ -315,7 +315,7 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE BS_REAL GaussLaguerreIntegrateZeroI
  * t:       the value at which to break the integral into two
  */
 // @TODO: rewrite loops in row-wise order
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand
 GaussLegendreIntegrateFixedSplit2D(MyQuadrature* quad, MyFunctionMultiD* func,
                                    BS_REAL t)
 {
@@ -407,7 +407,7 @@ GaussLegendreIntegrateFixedSplit2D(MyQuadrature* quad, MyFunctionMultiD* func,
  * t:       the value at which to break the integral into two
  */
 // @TODO: rewrite loops in row-wise order
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand
 GaussLegendreIntegrateFixedSplit1D(MyQuadrature* quad, MyFunctionMultiD* func,
                                    BS_REAL t)
 {
@@ -455,7 +455,7 @@ GaussLegendreIntegrateFixedSplit1D(MyQuadrature* quad, MyFunctionMultiD* func,
  * func:    the function(s) to be integrated
  * t:       the value at which to break the integral into two
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand GaussLegendreIntegrate2D(MyQuadrature* quad,
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand GaussLegendreIntegrate2D(MyQuadrature* quad,
                                                       MyFunctionMultiD* func,
                                                       BS_REAL* tx, BS_REAL* ty)
 {
@@ -533,7 +533,7 @@ CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand GaussLegendre
  * func:    the function(s) to be integrated
  * t:       the value at which to break the integral into two
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 MyQuadratureIntegrand
 GaussLegendreIntegrate1D(MyQuadrature* quad, MyFunctionMultiD* func, BS_REAL* t)
 {
@@ -571,7 +571,7 @@ GaussLegendreIntegrate1D(MyQuadrature* quad, MyFunctionMultiD* func, BS_REAL* t)
     return result;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 MyQuadratureIntegrand
 GaussLegendreIntegrate2DMatrix(const MyQuadrature* quad,
                                const M1MatrixKokkos2D* mat, BS_REAL t)
@@ -631,7 +631,7 @@ GaussLegendreIntegrate2DMatrix(const MyQuadrature* quad,
 }
 
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 void GaussLegendreIntegrate2DMatrixForM1Coeffs(const MyQuadrature* quad,
                                                const M1MatrixKokkos2D* mat,
                                                BS_REAL t,
@@ -710,7 +710,7 @@ void GaussLegendreIntegrate2DMatrixForM1Coeffs(const MyQuadrature* quad,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 void GaussLegendreIntegrate2DMatrixForNEPS(const MyQuadrature* quad,
                                            const M1MatrixKokkos2D* mat,
                                            BS_REAL t,
@@ -793,7 +793,7 @@ void GaussLegendreIntegrate2DMatrixForNEPS(const MyQuadrature* quad,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 MyQuadratureIntegrand
 GaussLegendreIntegrate1DMatrix(const MyQuadrature* quad,
                                const int num_integrands,
@@ -828,7 +828,7 @@ GaussLegendreIntegrate1DMatrix(const MyQuadrature* quad,
 }
 
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST inline
 void GaussLegendreIntegrate1DMatrixOnlyNumber(const MyQuadrature* quad,
                                               const int num_integrands,
                                               const BS_REAL mat[][BS_N_MAX],
@@ -875,7 +875,7 @@ void GaussLegendreIntegrate1DMatrixOnlyNumber(const MyQuadrature* quad,
  * quad:    must be a properly populated 1d quadrature generated from between
  * interval of integration func:    the function(s) to be integrated
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand
 GaussLegendreIntegrate1DFiniteInterval(MyQuadrature* quad,
                                        MyFunctionMultiD* func, BS_REAL* t)
 {
@@ -912,7 +912,7 @@ GaussLegendreIntegrate1DFiniteInterval(MyQuadrature* quad,
  * quad:    must be a properly populated 2d quadrature generated from between
  * interval of integration func:    the function(s) to be integrated
  */
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE MyQuadratureIntegrand GaussLegendreIntegrate2DFiniteInterval(
+CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand GaussLegendreIntegrate2DFiniteInterval(
     MyQuadrature* quad, MyFunctionMultiD* func, BS_REAL* tx, BS_REAL* ty)
 {
     (void)tx;
