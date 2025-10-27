@@ -66,7 +66,7 @@ SCHEDULE nuX_M1_InitVolform IN nuX_M1_InitialGroup
     WRITES: volform(everywhere)
 } "Compute the volume form"
 
-SCHEDULE nuX_M1_Reset IN nuX_M1_InitialGroup 
+SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
     AFTER (nuX_M1_InitVolform)
 {
     LANG: C
@@ -360,7 +360,7 @@ SCHEDULE nuX_M1_DecrementTimeIntegratorStage IN nuX_M1_TimeStep AFTER nuX_M1_Cal
     READS: TimeIntegratorStage
     WRITES: TimeIntegratorStage
     SYNC: TimeIntegratorStage
-} "Decrement TimeIntegratorStage after CalcUpdate (fix race)"
+} "Decrement TimeIntegratorStage"
 
 
 # -----------------------------------------------------------------------------
