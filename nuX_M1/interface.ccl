@@ -125,8 +125,6 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
 
 CCTK_REAL nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
 
-CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"
-
-CCTK_REAL M1_OriginalTime CENTERING={ccc} TAGS='checkpoint="no"' "Time at end of fluid integration"
+CCTK_INT TimeIntegratorStage TYPE=SCALAR TAGS='checkpoint="no"' "Current stage of the time integrator"
 
 CCTK_REAL volform TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Sqrt of the determinant of the spatial metric"

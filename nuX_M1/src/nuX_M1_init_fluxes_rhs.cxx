@@ -1,4 +1,3 @@
-// nuX_M1_init_fluxes_rhs.cxx — correct, ghost-aware zeroing
 #include <loop_device.hxx>
 #include "cctk.h"
 #include "cctk_Arguments.h"

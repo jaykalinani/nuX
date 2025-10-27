@@ -319,7 +319,7 @@ template <int dir> void M1_CalcFlux(CCTK_ARGUMENTS) {
                 fhigh - Aeff * (1.0 - phi[iv]) * (fhigh - flow);
 
             const int comp = PINDEX1D(ig, iv);
-	    const ptrdiff_t idx = layout_fc.linear(p.i, p.j, p.k, comp);
+            const ptrdiff_t idx = layout_fc.linear(p.i, p.j, p.k, comp);
             nu_flux_dir[idx] = fnum;
 
             assert(isfinite(nu_flux_dir[idx]));
@@ -351,13 +351,14 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   CCTK_REAL *r_rhs[5] = {rN_rhs, rFx_rhs, rFy_rhs, rFz_rhs, rE_rhs};
 
   // grid spacings
-  const CCTK_REAL delta[3]  = {CCTK_DELTA_SPACE(0), CCTK_DELTA_SPACE(1), CCTK_DELTA_SPACE(2)};
+  const CCTK_REAL delta[3] = {CCTK_DELTA_SPACE(0), CCTK_DELTA_SPACE(1),
+                              CCTK_DELTA_SPACE(2)};
   const CCTK_REAL idelta[3] = {1.0 / delta[0], 1.0 / delta[1], 1.0 / delta[2]};
 
   const int groupspec = ngroups * nspecies;
 
   // Loop over cell centres
-  grid.loop_int_device<1,1,1>(
+  grid.loop_int_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const Loop::PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         // cell-centred linear index (no component)
@@ -365,9 +366,9 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
         // indices of faces bounding this cell in 'dir'
         const int fL = layout_fc.linear(p.i, p.j, p.k);
-        const int fR = (dir == 0)   ? layout_fc.linear(p.i+1, p.j,   p.k)
-                       : (dir == 1) ? layout_fc.linear(p.i,   p.j+1, p.k)
-                                    : layout_fc.linear(p.i,   p.j,   p.k+1);
+        const int fR = (dir == 0)   ? layout_fc.linear(p.i + 1, p.j, p.k)
+                       : (dir == 1) ? layout_fc.linear(p.i, p.j + 1, p.k)
+                                    : layout_fc.linear(p.i, p.j, p.k + 1);
 
         if (!nuX_m1_mask[ijk_cc]) {
           for (int ig = 0; ig < groupspec; ++ig) {
@@ -375,24 +376,26 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
               const int comp = PINDEX1D(ig, iv);
 
               // correct 4D indexing into face-centred array
-              const ptrdiff_t idxL = layout_fc.linear(p.i, p.j, p.k,     comp);
-              const ptrdiff_t idxR = (dir == 0)   ? layout_fc.linear(p.i+1, p.j,   p.k, comp)
-                                   : (dir == 1) ? layout_fc.linear(p.i,   p.j+1, p.k, comp)
-                                                : layout_fc.linear(p.i,   p.j,   p.k+1, comp);
+              const ptrdiff_t idxL = layout_fc.linear(p.i, p.j, p.k, comp);
+              const ptrdiff_t idxR =
+                  (dir == 0)   ? layout_fc.linear(p.i + 1, p.j, p.k, comp)
+                  : (dir == 1) ? layout_fc.linear(p.i, p.j + 1, p.k, comp)
+                               : layout_fc.linear(p.i, p.j, p.k + 1, comp);
 
               const CCTK_REAL flux_L = nu_flux_dir[idxL];
               const CCTK_REAL flux_R = nu_flux_dir[idxR];
-              
+
               // correct 4D indexing into cell-centred RHS
               const ptrdiff_t idxC = layout_cc.linear(p.i, p.j, p.k, ig);
               const CCTK_REAL testvar = idelta[dir] * (flux_L - flux_R);
 
-	      if (!isfinite(r_rhs[iv][idxC])) r_rhs[iv][idxC] = 0.0;
+              if (!isfinite(r_rhs[iv][idxC]))
+                r_rhs[iv][idxC] = 0.0;
               r_rhs[iv][idxC] += idelta[dir] * (flux_L - flux_R);
 
               assert(isfinite(flux_L));
               assert(isfinite(flux_R));
-	      assert(isfinite(testvar));
+              assert(isfinite(testvar));
               assert(isfinite(r_rhs[iv][idxC]));
             } // iv
           } // ig
@@ -407,8 +410,7 @@ extern "C" void nuX_M1_CalcFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcFluxes;
   DECLARE_CCTK_PARAMETERS;
   if (verbose) {
-    CCTK_INFO(
-        "nuX_M1_CalcFluxes");
+    CCTK_INFO("nuX_M1_CalcFluxes");
   }
   M1_CalcFlux<0>(cctkGH);
   M1_CalcFlux<1>(cctkGH);
@@ -419,8 +421,7 @@ extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_UpdateRHSFromFluxes;
   DECLARE_CCTK_PARAMETERS;
   if (verbose) {
-    CCTK_INFO(
-        "nuX_M1_UpdateRHSFromFluxes");
+    CCTK_INFO("nuX_M1_UpdateRHSFromFluxes");
   }
   M1_UpdateRHSFromFluxes<0>(cctkGH);
   M1_UpdateRHSFromFluxes<1>(cctkGH);

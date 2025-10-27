@@ -10,6 +10,7 @@ nuX_M1_calc_opacity.cxx \
 nuX_M1_calc_fakeopacity.cxx \
 nuX_M1_calc_radial_fluxes.cxx \
 nuX_M1_copy_levels.cxx \
+nuX_M1_decrement_time.cxx \
 nuX_M1_fiducial_velocity.cxx \
 nuX_M1_init.cxx \
 nuX_M1_initial_copy.cxx \
