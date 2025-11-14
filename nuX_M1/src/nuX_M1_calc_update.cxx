@@ -472,7 +472,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           assert(isfinite(momx[ijk]));
           // Compute back reaction on the fluid
           // NOTE: fluid backreaction is only needed at the last substep
-          if (backreact && 0 == *TimeIntegratorStage) {
+          if (backreact && 1 == *TimeIntegratorStage) {
             assert(ngroups == 1);
             assert(nspecies == 3);
             assert(isfinite(momx[ijk]));

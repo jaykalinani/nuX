@@ -165,7 +165,7 @@ if (reset_to_equilibrium) {
 # Main loop
 ###############################################################################
 SCHEDULE nuX_M1_InitialCopy AT CCTK_EVOL \
-    BEFORE (MoL_Evolution nuX_M1_WRAP)
+    BEFORE (ODESolvers_Solve nuX_M1_WRAP)
 {
     LANG: C
     READS: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
@@ -173,9 +173,9 @@ SCHEDULE nuX_M1_InitialCopy AT CCTK_EVOL \
 } "Copy the data from the previous time-level to the current one"
 
 SCHEDULE GROUP nuX_M1_WRAP AT CCTK_EVOL \
-    AFTER (MoL_Evolution MoL_PseudoEvolution MoL_PostStep nuX_M1_InitialCopy)
+    AFTER (ODESolvers_Solve ODESolvers_PostStep nuX_M1_InitialCopy)
 {
-} "This group wrapps all nuX_M1 updates"
+} "This group wraps all nuX_M1 updates"
 
 SCHEDULE GROUP nuX_M1_EVOL IN nuX_M1_WRAP
 {
@@ -416,6 +416,17 @@ if (add_to_Tmunu) {
 ###############################################################################
 # Stuff outside of the main loop
 ###############################################################################
+
+if (copy_levels) {
+    SCHEDULE nuX_M1_CopyLevels AT CCTK_POSTSTEP \
+    AFTER nuX_M1_WRAP
+    {
+        LANG: C
+        READS: rN(everywhere) rE(everywhere) rF(everywhere) 
+        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere) 
+    } "Persist current radiation fields into past timelevel after each step"
+}
+
 # This group is basically the equivalent of MoL_PostStep
 SCHEDULE GROUP nuX_M1_PostStep AT PostInitial BEFORE MoL_PostStep
 {
