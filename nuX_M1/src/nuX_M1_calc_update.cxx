@@ -163,7 +163,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
           // Compute radiation quantities in the fluid frame
           CCTK_REAL J = rJ[i4D];
-          CCTK_REAL const Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, J, E,
+          CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, J, E,
                                                 F_d, rad_E_floor, rad_eps);
           if (!isfinite(Gamma) || Gamma < 1.0)
             Gamma = 1.0; // JayMOD

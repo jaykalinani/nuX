@@ -321,7 +321,7 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector &q, void *params,
   double m_cdt = p->cdt;                                                       \
   double m_qstar[] = {p->Estar, p->Fstar_d(1), p->Fstar_d(2), p->Fstar_d(3)};  \
                                                                                \
-  __source_jacobian_low_level(m_q, m_Fup, m_F2, m_chi, m_kscat, m_kabs, m_vup, \
+  __source_jacobian_low_level(m_q, m_Fup, m_F2, m_chi, m_kabs, m_kscat, m_vup, \
                               m_vdw, m_v2, m_W, m_alpha, m_cdt, m_qstar, J);
 
   EVALUATE_ZJAC
