@@ -118,13 +118,8 @@ CCTK_DEVICE CCTK_HOST void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
   // fluxes over the full 1D line including ghosts so that the subsequent
   // RHS update can safely reference fluxes near the interior boundary.
   //--------------------------------------------------------------------
-  auto nghost_all = grid.nghostzones;
-  nghost_all[0] = 0;
-  nghost_all[1] = 0;
-  nghost_all[2] = 0;
-
-  grid.loop_int_device<1, 1, 1>(
-      nghost_all,
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) {
         const int i = p.i;
         const int j = p.j;

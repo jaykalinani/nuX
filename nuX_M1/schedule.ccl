@@ -270,65 +270,62 @@ else {
 if (include_fluxes) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
-               nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
+           nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
-        LANG: C
+    	LANG: C
 
-        # geometry and slicing
-        READS: ADMBaseX::metric(interior)
-        READS: ADMBaseX::lapse(interior)
-        READS: ADMBaseX::shift(interior)
-        READS: ADMBaseX::curv(interior)
-        READS: volform(interior)
+    	# geometry and slicing
+   	READS: ADMBaseX::metric(everywhere)
+    	READS: ADMBaseX::lapse(everywhere)
+    	READS: ADMBaseX::shift(everywhere)
+    	READS: ADMBaseX::curv(everywhere)
+    	READS: volform(everywhere)
 
-        # neutrino conserved / moments
-        READS: rN(interior) rE(interior) rF(interior)
-        READS: rHt(interior) rH(interior)
-        READS: rP(interior) rJ(interior)
+   	# neutrino conserved / moments
+    	READS: rN(everywhere) rE(everywhere) rF(everywhere)
+    	READS: rHt(everywhere) rH(everywhere)
+    	READS: rP(everywhere) rJ(everywhere)
 
-        # fiducial observer fields
-        READS: fidu_vel(interior)
-        READS: fidu_w_lorentz(interior)
+    	# fiducial observer fields
+    	READS: fidu_vel(everywhere)
+    	READS: fidu_w_lorentz(everywhere)
 
-        # no opacities needed here; this kernel only builds physical fluxes
 
-        WRITES: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
-        SYNC: nu_flux_x nu_flux_y nu_flux_z
+        WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
+    	SYNC: nu_flux_x nu_flux_y nu_flux_z
     } "Compute neutrino transport fluxes at cell centres"
 
-
     SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcFluxes nuX_M1_InitFluxesRHS)
+    AFTER (nuX_M1_CalcFluxes nuX_M1_InitFluxesRHS)
     {
-        LANG: C
+    	LANG: C
 
-        # precomputed physical fluxes per direction
-        READS: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
+    	# precomputed physical fluxes per direction
+    	READS: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
 
-        # geometry and slicing (for characteristic speeds)
-        READS: ADMBaseX::metric(interior)
-        READS: ADMBaseX::lapse(interior)
-        READS: ADMBaseX::shift(interior)
-        READS: ADMBaseX::curv(interior)
-        READS: volform(interior)
+   	# geometry and slicing (for characteristic speeds)
+    	READS: ADMBaseX::metric(everywhere)
+   	READS: ADMBaseX::lapse(everywhere)
+    	READS: ADMBaseX::shift(everywhere)
+    	READS: ADMBaseX::curv(everywhere)
+    	READS: volform(everywhere)
 
-        # neutrino conserved variables used in the limiter stencil
-        READS: rN(interior) rE(interior) rF(interior)
+    	# neutrino conserved variables used in the limiter stencil
+    	READS: rN(everywhere) rE(everywhere) rF(everywhere)
 
-        # opacities (absorption + scattering) used in the A-factor
-        READS: opacs(interior)
+    	# opacities (absorption + scattering) used in the A-factor
+    	READS: opacs(everywhere)
 
-        # optional mask for turning transport off in selected regions
-        READS: nuX_m1_mask(interior)
+    	# optional mask for turning transport off in selected regions
+    	READS: nuX_m1_mask(interior)
 
-        # RHS are updated in-place (read-modify-write)
-        READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
-        WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+    	# RHS are updated in-place (read-modify-write)
+    	READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+    	WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
 
-        SYNC: rN_rhs rE_rhs rF_rhs
+   	SYNC: rN_rhs rE_rhs rF_rhs
     } "Add limited flux divergence to the neutrino RHS"
-
 }
 
 if (include_GR_sources) {

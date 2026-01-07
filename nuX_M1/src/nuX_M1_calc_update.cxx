@@ -165,8 +165,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           CCTK_REAL J = rJ[i4D];
           CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, J, E,
                                                 F_d, rad_E_floor, rad_eps);
-          if (!isfinite(Gamma) || Gamma < 1.0)
-            Gamma = 1.0; // JayMOD
+          //if (!isfinite(Gamma) || Gamma < 1.0)
+          //  Gamma = 1.0; // JayMOD
           tensor::generic<CCTK_REAL, 4, 1> H_d;
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
 
