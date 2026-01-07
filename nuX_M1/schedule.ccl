@@ -268,34 +268,66 @@ else {
 }
 
 if (include_fluxes) {
+
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
+        AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
+               nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
         LANG: C
+
+        # geometry and slicing
         READS: ADMBaseX::metric(interior)
         READS: ADMBaseX::lapse(interior)
         READS: ADMBaseX::shift(interior)
         READS: ADMBaseX::curv(interior)
+        READS: volform(interior)
+
+        # neutrino conserved / moments
         READS: rN(interior) rE(interior) rF(interior)
-        READS: fidu_vel(interior) nuX_m1_mask(interior)
         READS: rHt(interior) rH(interior)
         READS: rP(interior) rJ(interior)
-        READS: volform(interior)
+
+        # fiducial observer fields
+        READS: fidu_vel(interior)
         READS: fidu_w_lorentz(interior)
-        READS: opacs(interior)
+
+        # no opacities needed here; this kernel only builds physical fluxes
+
         WRITES: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
         SYNC: nu_flux_x nu_flux_y nu_flux_z
-    } "Compute the radiation fluxes and add them the RHS"
+    } "Compute neutrino transport fluxes at cell centres"
 
-   SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_CalcFluxes nuX_M1_CalcOpacity nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
+
+    SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
+        AFTER (nuX_M1_CalcFluxes nuX_M1_InitFluxesRHS)
     {
         LANG: C
+
+        # precomputed physical fluxes per direction
         READS: nu_flux_x(interior) nu_flux_y(interior) nu_flux_z(interior)
+
+        # geometry and slicing (for characteristic speeds)
+        READS: ADMBaseX::metric(interior)
+        READS: ADMBaseX::lapse(interior)
+        READS: ADMBaseX::shift(interior)
+        READS: ADMBaseX::curv(interior)
+        READS: volform(interior)
+
+        # neutrino conserved variables used in the limiter stencil
+        READS: rN(interior) rE(interior) rF(interior)
+
+        # opacities (absorption + scattering) used in the A-factor
+        READS: opacs(interior)
+
+        # optional mask for turning transport off in selected regions
         READS: nuX_m1_mask(interior)
+
+        # RHS are updated in-place (read-modify-write)
+        READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
         WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
-        SYNC: rN_rhs rE_rhs rF_rhs 
-    } "Compute the radiation fluxes and add them the RHS"
+
+        SYNC: rN_rhs rE_rhs rF_rhs
+    } "Add limited flux divergence to the neutrino RHS"
 
 }
 
@@ -377,6 +409,15 @@ SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
 {
 } "Apply boundary conditions during the evolution"
 # -----------------------------------------------------------------------------
+
+SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
+{
+    LANG: C
+    OPTIONS: SINGLEMAP
+    SYNC: rN
+    SYNC: rE
+    SYNC: rF
+} "Select boundary conditions"
 
 SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
     AFTER nuX_M1_SelectBC
