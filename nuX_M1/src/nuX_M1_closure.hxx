@@ -590,10 +590,15 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   CCTK_REAL a_root = result.first;
   CCTK_REAL b_root = result.second;
 
-  // average approach:
-  CCTK_REAL const fa = fn(a_root);
-  CCTK_REAL const fb = fn(b_root);
-  CCTK_REAL xi = (abs(fb) < abs(fa)) ? b_root : a_root;
+  CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+
+  if (!isfinite(xi)) {
+    CCTK_REAL const fa = fn(a_root);
+    CCTK_REAL const fb = fn(b_root);
+
+    xi = (abs(fb) < abs(fa)) ? b_root : a_root;
+  }
+
   *chi = closure_fun(xi);
   /*
     do {
@@ -675,4 +680,3 @@ apply_floor(tensor::symmetric2<CCTK_REAL, 4, 2> const &g_uu, CCTK_REAL *E,
 } // namespace nuX_M1
 
 #endif
-

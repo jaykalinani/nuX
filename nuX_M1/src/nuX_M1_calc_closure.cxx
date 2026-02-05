@@ -72,8 +72,8 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             rPyz[i4D] = 0;
             rPzz[i4D] = 0;
             rnnu[i4D] = 0;
-            continue;
           }
+	  return;
         }
 
         tensor::metric<4> g_dd;
