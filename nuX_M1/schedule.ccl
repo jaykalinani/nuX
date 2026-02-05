@@ -189,8 +189,7 @@ SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL BEFORE nuX_M1_TimeStep
 } "Set the time integrator index"
 
 
-SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL AFTER nuX_M1_TimeStep \
-    AFTER nuX_M1_TimeStep
+SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL AFTER nuX_M1_TimeStep 
 {
     LANG: C
     OPTIONS: LEVEL
@@ -251,7 +250,7 @@ if (use_fakerates) {
   {
       LANG: C
       READS: TimeIntegratorStage
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_M1_mask(everywhere) volform(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere) volform(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute fake opacities"
@@ -261,7 +260,7 @@ else {
   {
       LANG: C
       READS: TimeIntegratorStage
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_M1_mask(everywhere) volform(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere) volform(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute the opacities"
@@ -344,7 +343,7 @@ if (include_GR_sources) {
 }
 
 SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes)
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
 {
     LANG: C
     
@@ -367,10 +366,11 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
 
+### The following scheduling might not work; needs testing
 if (backreact) {
     SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
     {
@@ -402,7 +402,7 @@ SCHEDULE nuX_M1_DecrementTimeIntegratorStage IN nuX_M1_TimeStep AFTER nuX_M1_Cal
 #}
 
 SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
-    AFTER nuX_M1_CalcUpdate
+    AFTER nuX_M1_DecrementTimeIntegratorStage
 {
 } "Apply boundary conditions during the evolution"
 # -----------------------------------------------------------------------------
@@ -417,7 +417,7 @@ SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
 } "Select boundary conditions"
 
 SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
-    AFTER nuX_M1_SelectBC
+    AFTER nuX_M1_Sync
 {
 } "Apply boundary conditions"
 

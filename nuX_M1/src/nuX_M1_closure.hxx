@@ -568,11 +568,22 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
 
   // Rootfinding
   int iter = 0;
-  const CCTK_REAL log2 = log(2.0);
-  const CCTK_INT minbits = int(abs(log(closure_epsilon)) / log2);
   CCTK_REAL a = x_lo;
   CCTK_REAL b = x_hi;
   auto fn = [&params](auto x) { return zFunction(x, &params); };
+
+  // Map an absolute interval tolerance to Algo::brent(min_bits, ...) on [0,1]
+  // so that (hi-lo) ~ 2^{-min_bits} roughly matches closure_epsilon.
+  int minbits;
+  if (!(closure_epsilon > 0)) {
+    minbits = 1;
+  } else {
+    CCTK_REAL const ce = closure_epsilon;
+    CCTK_REAL const inv = 1.0 / ce;
+    CCTK_REAL const lg = log2(inv);
+    minbits = static_cast<int>(ceil(lg));
+    minbits = max(1, min(minbits, std::numeric_limits<CCTK_REAL>::digits - 2));
+  }
 
   auto result = Algo::brent(fn, a, b, minbits, closure_maxiter, iter);
   // Bracket endpoints
@@ -580,7 +591,9 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   CCTK_REAL b_root = result.second;
 
   // average approach:
-  CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+  CCTK_REAL const fa = fn(a_root);
+  CCTK_REAL const fb = fn(b_root);
+  CCTK_REAL xi = (abs(fb) < abs(fa)) ? b_root : a_root;
   *chi = closure_fun(xi);
   /*
     do {
@@ -662,3 +675,4 @@ apply_floor(tensor::symmetric2<CCTK_REAL, 4, 2> const &g_uu, CCTK_REAL *E,
 } // namespace nuX_M1
 
 #endif
+

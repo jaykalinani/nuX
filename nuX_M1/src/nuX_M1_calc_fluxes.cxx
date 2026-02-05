@@ -71,8 +71,7 @@ CCTK_HOST CCTK_DEVICE inline CCTK_REAL face_speed(
     CCTK_REAL alpha_cell) {
 
   // NOTE: gamma is a 3-metric (indices 0..2) like in THC.
-  const CCTK_REAL gdd  = gamma(dir, dir);
-  const CCTK_REAL root = alpha_cell * sqrt(fabs(gdd));
+  const CCTK_REAL root = alpha_cell * sqrt(gamma(dir, dir));
 
   const CCTK_REAL lamP = -beta_u(dir + 1) + root;
   const CCTK_REAL lamM = -beta_u(dir + 1) - root;

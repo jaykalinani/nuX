@@ -25,8 +25,7 @@ extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
 
         // Loop over groups/species.
-        // int groupspec = ngroups * nspecies;
-        for (int ig = 0; ig < 3; ++ig) {
+        for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
           rN_p[i4D] = rN[i4D];
           rE_p[i4D] = rE[i4D];
