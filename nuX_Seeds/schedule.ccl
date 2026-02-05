@@ -20,6 +20,7 @@ if ((CCTK_Equals(nuX_test_case, "diff_limit_square")) || (CCTK_EQUALS(nuX_test_c
     LANG: C
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
   } "Setup diffusion limit test Hydro initial conditions."
    SCHEDULE nuX_Seeds_SetupNeutTest_diff_limit_test IN nuX_M1_InitialData{
     LANG: C
