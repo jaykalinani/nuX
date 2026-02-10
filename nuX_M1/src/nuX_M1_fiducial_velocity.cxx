@@ -37,7 +37,7 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
 
   if (CCTK_Equals(fiducial_velocity, "fluid")) {
 
-    grid.loop_all_device<1, 1, 1>(
+    grid.loop_int_device<1, 1, 1>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const int ijk = layout2.linear(p.i, p.j, p.k);
@@ -66,7 +66,7 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
 
   } else if (CCTK_Equals(fiducial_velocity, "mixed")) {
 
-    grid.loop_all_device<1, 1, 1>(
+    grid.loop_int_device<1, 1, 1>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const int ijk = layout2.linear(p.i, p.j, p.k);
@@ -100,7 +100,7 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
 
   } else {
 
-    grid.loop_all_device<1, 1, 1>(
+    grid.loop_int_device<1, 1, 1>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
           const int ijk = layout2.linear(p.i, p.j, p.k);

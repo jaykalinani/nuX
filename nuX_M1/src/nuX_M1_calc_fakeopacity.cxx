@@ -52,27 +52,8 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
 
   FakeRatesDef *myfakerates = global_fakerates;
 
-  grid.loop_all_device<1, 1, 1>(
-      grid.nghostzones, [=] CCTK_DEVICE(const Loop::PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
-        for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
-          // Initialize to finite, safe defaults
-          abs_0[i4D] = 0.0;
-          abs_1[i4D] = 0.0;
-          scat_1[i4D] = 0.0;
-          eta_0[i4D] = 0.0;
-          eta_1[i4D] = 0.0;
-          nueave[i4D] = 0.0;
-        }
-      });
-
   if (*TimeIntegratorStage != 2) {
-    if (verbose) {
-      CCTK_VINFO(
-          "nuX_M1_CalcFakeOpacity skipping work at TimeIntegratorStage=%d",
-          (int)*TimeIntegratorStage);
-    }
+    // Keep opacities frozen across the substeps, matching THC_M1 behavior.
     return;
   }
 
@@ -91,9 +72,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             scat_1[i4D] = 0.0;
           }
           return;
-        }
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcFakeOpacity 2");
         }
         assert(nspecies == 3);
         assert(ngroups == 1);
@@ -126,9 +104,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             nudens_0[3] = dup_fac * rnnu[i4D] / volformL;
             nudens_1[3] = dup_fac * rJ[i4D] / volformL;
           }
-        }
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcFakeOpacity 3");
         }
         // Convert emissivities, opacities from nurates
         CCTK_REAL kappa_0_loc[MAX_GROUPSPECIES], kappa_1_loc[MAX_GROUPSPECIES];
@@ -165,9 +140,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
 
           CCTK_REAL epsL = eps[ijk];
           CCTK_REAL etot = epsL;
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcFakeOpacity 4");
-          }
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
             etot += rJ[layout2.linear(p.i, p.j, p.k, ig)];
           }
@@ -202,9 +174,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           assert(isfinite(nudens_1_trap[1]));
           assert(isfinite(nudens_1_trap[2]));
         }
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcFakeOpacity 5");
-        }
         // Compute the neutrino black body function assuming fixed temperature
         // and Y_e
         CCTK_REAL nudens_0_thin[3], nudens_1_thin[3];
@@ -219,9 +188,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           nudens_1_thin[2] *= 0.5;
           nudens_0_thin[3] = nudens_0_thin[2];
           nudens_1_thin[3] = nudens_1_thin[2];
-        }
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcFakeOpacity 6");
         }
         // Correct cross-sections for incoming neutrino energy
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
@@ -266,9 +232,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           //   changing the emissivities.
           // It would be better to have emissivities and absorptivities
           // that satisfy Kirchhoff's law.
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcFakeOpacity 7");
-          }
           if (ig == 2) {
             eta_0[i4D] = corr_fac * eta_0_loc[ig];
             eta_1[i4D] = corr_fac * eta_1_loc[ig];
@@ -286,9 +249,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           assert(isfinite(abs_1[i4D]));
           assert(isfinite(eta_0[i4D]));
           assert(isfinite(eta_1[i4D]));
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcFakeOpacity 8");
-          }
         }
       });
 }

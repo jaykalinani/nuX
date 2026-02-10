@@ -34,7 +34,7 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
 
   const GF3D2<const CCTK_REAL> gf_alp(layout2, alp);
 
-  grid.loop_all_device<1, 1, 1>(
+  grid.loop_int_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int ijk = layout2.linear(p.i, p.j, p.k);

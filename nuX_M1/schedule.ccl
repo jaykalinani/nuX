@@ -83,6 +83,8 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup
     READS: HydroBaseX::vel(everywhere)
     WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
     WRITES: fidu_w_lorentz(everywhere)
+    SYNC: fidu_vel
+    SYNC: fidu_w_lorentz
 } "Compute the fiducial velocity"
 
 
@@ -142,6 +144,8 @@ if (reset_to_equilibrium) {
 
          WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
          WRITES: fidu_w_lorentz(everywhere)
+         SYNC: fidu_vel
+         SYNC: fidu_w_lorentz
     } "Compute the fiducial velocity"
 
 #    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
@@ -152,7 +156,7 @@ if (reset_to_equilibrium) {
 
     if (copy_levels) {
         SCHEDULE nuX_M1_CopyLevels AT CCTK_POST_RECOVER_VARIABLES \
-            AFTER nuX_M1_SetToEquilibrium
+            AFTER nuX_M1_FiducialVelocity
         {
             LANG: C
             READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -218,6 +222,16 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
+# Ensure conserved vars have valid ghost zones before closure/fluxes
+SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
+{
+    LANG: C
+    OPTIONS: SINGLEMAP
+    SYNC: rN
+    SYNC: rE
+    SYNC: rF
+} "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
+
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
@@ -226,6 +240,8 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
     READS: HydroBaseX::vel(everywhere) 
     WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
     WRITES: fidu_w_lorentz(everywhere)
+    SYNC: fidu_vel
+    SYNC: fidu_w_lorentz
     
 } "Compute the fiducial velocity"
 
@@ -266,6 +282,21 @@ else {
   } "Compute the opacities"
 }
 
+# Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
+SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
+    BEFORE nuX_M1_CalcFluxes
+{
+    LANG: C
+    OPTIONS: SINGLEMAP
+    SYNC: rP
+    SYNC: rJ
+    SYNC: rHt
+    SYNC: rH
+    SYNC: chi
+    SYNC: opacs
+} "Sync closure/opacities into ghost zones before flux divergence"
+
 if (include_fluxes) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
@@ -283,8 +314,11 @@ if (include_fluxes) {
 
    	# neutrino conserved / moments
     	READS: rN(everywhere) rE(everywhere) rF(everywhere)
-    	READS: rHt(everywhere) rH(everywhere)
-    	READS: rP(everywhere) rJ(everywhere)
+   	READS: rHt(everywhere) rH(everywhere)
+   	READS: rP(everywhere) rJ(everywhere)
+
+    # opacities for A-factor in numerical flux
+    READS: opacs(everywhere)
 
     	# fiducial observer fields
     	READS: fidu_vel(everywhere)
@@ -343,7 +377,8 @@ if (include_GR_sources) {
 }
 
 SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
+           nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
 {
     LANG: C
     
@@ -435,6 +470,8 @@ if (add_to_Tmunu) {
         READS: nuX_m1_mask(everywhere)
         WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
         WRITES: fidu_w_lorentz(everywhere)
+        SYNC: fidu_vel
+        SYNC: fidu_w_lorentz
     } "Compute the fiducial velocity"
 
     SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
