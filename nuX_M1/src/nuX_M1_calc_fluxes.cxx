@@ -461,6 +461,8 @@ void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
             //----------------------------------------------------------------
             // Discrete divergence contribution for this cell/component
             //----------------------------------------------------------------
+            // if (ig == 0)
+            //   CCTK_VINFO("Nan check: F_L = %g; F_R = %g;", F_L, F_R);
             const int idx_rhs = layout_cc.linear(i, j, k, ig);
             r_rhs[iv][idx_rhs] += idx * (F_L - F_R);
           } // iv
