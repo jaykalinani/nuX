@@ -121,7 +121,6 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
         my_grey_opacity_params.eos_pars.yp = yeL;
         my_grey_opacity_params.eos_pars.yn = 1.0 - yeL;
 
-        printf("Getting mu's for grey_opac_params\n");
         CCTK_REAL mu_pL, mu_nL, mu_eL;
         eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL,
                                               mu_eL);
@@ -231,7 +230,8 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
           // TODO: Change BetaEq call to accept more lepton fractions if 4
           // species are evolved
           CCTK_REAL ylep_e = yeL - (nudens_0[0] - nudens_0[1]) / nbL;
-          CCTK_REAL temp_trap, ye_trap;
+          CCTK_REAL temp_trap = tempL;
+          CCTK_REAL ye_trap = yeL;
           int ierr = BetaEquilibriumTrapped(rhoL, nbL, etot, ylep_e, temp_trap,
                                             ye_trap, tempL, yeL, eos_3p);
           // ierr = WeakEquilibrium(
@@ -253,39 +253,10 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
             //         &nudens_0_trap[0], &nudens_0_trap[1], &nudens_0_trap[2],
             //         &nudens_1_trap[0], &nudens_1_trap[1], &nudens_1_trap[2]);
             if (ierr) {
-              printf("Could not find the weak equilibrium!");
-              // printf("Reflevel = " << ilogb(cctkGH->cctk_levfac[0]) << endl;
-              printf("Iteration = %i\n", cctk_iteration);
-              printf("(i, j, k) = (%i, %i, %i)\n", p.i, p.j, p.k);
-              printf("(x, y, z) = (%e, %e, %e)\n", p.x, p.y, p.z);
-              printf("rho = %e\n", rhoL);
-              printf("temperature = %e\n", tempL);
-              printf("Y_e = %e\n", yeL);
-              printf("nudens_0 = %e, %e, %e, %e\n", nudens_0[0], nudens_0[1],
-                     nudens_0[2], nudens_0[3]);
-              printf("nudens_1 = %e, %e, %e, %e\n", nudens_1[0], nudens_1[1],
-                     nudens_1[2], nudens_1[3]);
-
-              // ostringstream ss;
-              // ss << "Could not find the weak equilibrium!" << endl;
-              // ss << "Reflevel = " << ilogb(cctkGH->cctk_levfac[0]) << endl;
-              // ss << "Iteration = " << cctk_iteration << endl;
-              // ss << "(i, j, k) = (" << i << ", " << j << ", " << k << ")\n";
-              // ss << "(x, y, z) = (" << x[ijk] << ", " << y[ijk] << ", "
-              //                       << z[ijk] << ")\n";
-              // ss << "rho = " << rho[ijk] << endl;
-              // ss << "temperature = " << temperature[ijk] << endl;
-              // ss << "Y_e = " << Y_e[ijk] << endl;
-              // ss << "alp = " << alp[ijk] << endl;
-              // ss << "nudens_0 = " << nudens_0[0] << " " << nudens_0[1]
-              //                     << " " << nudens_0[2] << endl;
-              // ss << "nudens_1 = " << nudens_1[0] << " " << nudens_1[1]
-              //                     << " " << nudens_1[2] << endl;
-              // Printer::print_warn(ss.str());
+              // Keep the initialized fallback state (tempL, yeL) in this lane.
             }
           }
 
-          printf("Getting mu's for trapped neutrinos\n");
           CCTK_REAL mu_p_trap, mu_n_trap, mu_e_trap;
           eos_3p->mu_pne_from_valid_rho_temp_ye(
               rhoL, temp_trap, ye_trap, mu_p_trap, mu_n_trap, mu_e_trap);

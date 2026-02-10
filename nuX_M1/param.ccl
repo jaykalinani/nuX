@@ -225,5 +225,9 @@ BOOLEAN calc_analysis "Calculate analysis quantities"
 {
 } "yes"
 
+BOOLEAN debug_blocker "stop stuff from running"
+{
+} "yes"
+
 SHARES: EOSX
 USES CCTK_REAL particle_mass

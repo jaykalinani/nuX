@@ -91,9 +91,6 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         if (nuX_m1_mask[ijk]) {
           return;
         }
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcUpdate 2");
-        }
         // Metric, normal, projectors
         tensor::metric<4> g_dd;
         tensor::inv_metric<4> g_uu;
@@ -131,9 +128,6 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         CCTK_REAL DrFz[MAX_GROUPSPECIES];
         CCTK_REAL DrN[MAX_GROUPSPECIES];
         CCTK_REAL DDxp[MAX_GROUPSPECIES];
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcUpdate 3");
-        }
         // --------------------------
         // Step 1 — compute sources
         // --------------------------

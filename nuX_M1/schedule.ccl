@@ -152,7 +152,7 @@ if (reset_to_equilibrium) {
 
     if (copy_levels) {
         SCHEDULE nuX_M1_CopyLevels AT CCTK_POST_RECOVER_VARIABLES \
-            AFTER nuX_M1_SetToEquilibrium
+            AFTER nuX_M1_FiducialVelocity
         {
             LANG: C
             READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -189,13 +189,6 @@ SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL BEFORE nuX_M1_TimeStep
 } "Set the time integrator index"
 
 
-SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL AFTER nuX_M1_TimeStep 
-{
-    LANG: C
-    OPTIONS: LEVEL
-    READS: TimeIntegratorStage  
-} "Clean ups after the time integration"
-
 SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
 {
     LANG: C
@@ -204,7 +197,7 @@ SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
 
 #------------------------------------------------------------------------------
 SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
-    WHILE nuX_M1::TimeIntegratorStage \
+    #WHILE nuX_M1::TimeIntegratorStage \
     AFTER (nuX_M1_InitTimeIntegrator nuX_M1_SetMask)
 {
 
@@ -216,7 +209,18 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
     LANG: C
     WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere) 
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
+    WRITES: opacs(everywhere) nueave(everywhere)
 } "Initialize explicit RHSs to zero"
+
+# Ensure conserved vars have valid ghost zones before closure/fluxes
+# SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
+# {
+#     LANG: C
+#     OPTIONS: SINGLEMAP
+#     SYNC: rN
+#     SYNC: rE
+#     SYNC: rF
+# } "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
@@ -226,7 +230,6 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
     READS: HydroBaseX::vel(everywhere) 
     WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
     WRITES: fidu_w_lorentz(everywhere)
-    
 } "Compute the fiducial velocity"
 
 SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
@@ -252,6 +255,7 @@ if (use_fakerates) {
       READS: TimeIntegratorStage
       READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere) volform(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+      READS: opacs(everywhere) nueave(everywhere)
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute fake opacities"
 }
@@ -265,6 +269,21 @@ else {
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute the opacities"
 }
+
+# Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
+# SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
+#     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
+#     BEFORE nuX_M1_CalcFluxes
+# {
+#     LANG: C
+#     OPTIONS: SINGLEMAP
+#     SYNC: rP
+#     SYNC: rJ
+#     SYNC: rHt
+#     SYNC: rH
+#     SYNC: chi
+#     SYNC: opacs
+# } "Sync closure/opacities into ghost zones before flux divergence"
 
 if (include_fluxes) {
 
@@ -283,15 +302,18 @@ if (include_fluxes) {
 
    	# neutrino conserved / moments
     	READS: rN(everywhere) rE(everywhere) rF(everywhere)
-    	READS: rHt(everywhere) rH(everywhere)
-    	READS: rP(everywhere) rJ(everywhere)
+   	READS: rHt(everywhere) rH(everywhere)
+   	READS: rP(everywhere) rJ(everywhere)
+
+    # opacities for A-factor in numerical flux
+    READS: opacs(everywhere)
 
     	# fiducial observer fields
     	READS: fidu_vel(everywhere)
     	READS: fidu_w_lorentz(everywhere)
 
 
-        WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
+      WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
     	SYNC: nu_flux_x nu_flux_y nu_flux_z
     } "Compute neutrino transport fluxes at cell centres"
 
@@ -305,7 +327,7 @@ if (include_fluxes) {
 
    	# geometry and slicing (for characteristic speeds)
     	READS: ADMBaseX::metric(everywhere)
-   	READS: ADMBaseX::lapse(everywhere)
+   	  READS: ADMBaseX::lapse(everywhere)
     	READS: ADMBaseX::shift(everywhere)
     	READS: ADMBaseX::curv(everywhere)
     	READS: volform(everywhere)
@@ -323,7 +345,7 @@ if (include_fluxes) {
     	READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     	WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
 
-   	SYNC: rN_rhs rE_rhs rF_rhs
+   	  # SYNC: rN_rhs rE_rhs rF_rhs
     } "Add limited flux divergence to the neutrino RHS"
 }
 
@@ -344,7 +366,8 @@ if (include_GR_sources) {
 }
 
 SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
+           nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
 {
     LANG: C
     
@@ -370,18 +393,6 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     #SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
-
-### The following scheduling might not work; needs testing
-if (backreact) {
-    SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
-    {
-    } "Apply BCs and synchronize hydro variables"
-
-    SCHEDULE GROUP HydroBase_Con2Prim IN nuX_M1_WRAP AFTER HydroBase_Boundaries
-    {
-        LANG: C
-    } "Computes the primitives from the conservatives"
-}
 
 SCHEDULE nuX_M1_DecrementTimeIntegratorStage IN nuX_M1_TimeStep AFTER nuX_M1_CalcUpdate
 {
@@ -412,15 +423,38 @@ SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
 {
     LANG: C
     OPTIONS: GLOBAL
-    SYNC: rN
-    SYNC: rE
-    SYNC: rF
+    # SYNC: rN
+    # SYNC: rE
+    # SYNC: rF
 } "Select boundary conditions"
 
 SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
     AFTER nuX_M1_Sync
 {
 } "Apply boundary conditions"
+
+if (!debug_blocker) {
+
+### The following scheduling might not work; needs testing
+if (backreact) {
+    SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
+    {
+    } "Apply BCs and synchronize hydro variables"
+
+    SCHEDULE GROUP HydroBase_Con2Prim IN nuX_M1_WRAP AFTER HydroBase_Boundaries
+    {
+        LANG: C
+    } "Computes the primitives from the conservatives"
+}
+
+SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL AFTER nuX_M1_TimeStep 
+{
+    LANG: C
+    OPTIONS: LEVEL
+    READS: TimeIntegratorStage  
+} "Clean ups after the time integration"
+
+} # debug blocker
 
 if (add_to_Tmunu) {
     SCHEDULE GROUP nuX_M1_Tmunu IN TmunuBaseX_AddToTmunu
