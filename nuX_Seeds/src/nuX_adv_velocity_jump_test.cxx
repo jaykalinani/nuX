@@ -1,20 +1,16 @@
 #include <cmath>
-#include <cassert>
 #include <loop_device.hxx>
-#include <mat.hxx>
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
 #include "setup_eos.hxx"
-#include "aster_utils.hxx"
 
 namespace nuX_Seeds {
 
 using namespace Loop;
 using namespace EOSX;
-using namespace AsterUtils;
 
 // -----------------------------------------------------------------------------
 // Main setup routine
@@ -109,13 +105,6 @@ extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout2(cctkGH, {1, 1, 1});
-  const smat<GF3D2<const CCTK_REAL8>, 3> gf_g{
-      GF3D2<const CCTK_REAL8>(layout2, gxx),
-      GF3D2<const CCTK_REAL8>(layout2, gxy),
-      GF3D2<const CCTK_REAL8>(layout2, gxz),
-      GF3D2<const CCTK_REAL8>(layout2, gyy),
-      GF3D2<const CCTK_REAL8>(layout2, gyz),
-      GF3D2<const CCTK_REAL8>(layout2, gzz)};
 
   CCTK_REAL nx = test_nvec[0];
   CCTK_REAL ny = test_nvec[1];
@@ -135,7 +124,6 @@ extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
           CCTK_REAL const dotp3d = nx * p.x + ny * p.y + nz * p.z;
@@ -144,25 +132,10 @@ extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
           } else if (dotp3d >= 0.0) {
             rE[i4D] = 0.0;
           }
-          const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
-            return calc_avg_v2c(gf_g(i, j), p);
-          });
-
-          vec<CCTK_REAL, 3> v_up;
-          vec<CCTK_REAL, 3> v_low;
-
-          v_up(0) = velx[ijk];
-          v_up(1) = vely[ijk];
-          v_up(2) = velz[ijk];
-
-          v_low = calc_contraction(g_avg, v_up);
-
           rN[i4D] = rE[i4D];
-          CCTK_REAL const W = calc_wlorentz(v_low, v_up);
-          CCTK_REAL const Jo3 = rE[i4D] / (4 * W * W - 1);
-          rFx[i4D] = 4 * W * W * velx[ijk] * Jo3;
-          rFy[i4D] = 4 * W * W * vely[ijk] * Jo3;
-          rFz[i4D] = 4 * W * W * velz[ijk] * Jo3;
+          rFx[i4D] = rE[i4D] * nx;
+          rFy[i4D] = rE[i4D] * ny;
+          rFz[i4D] = rE[i4D] * nz;
         }
       });
 }
