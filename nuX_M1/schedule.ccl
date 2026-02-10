@@ -367,7 +367,7 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    #SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
 
@@ -411,7 +411,7 @@ SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
 SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
 {
     LANG: C
-    OPTIONS: SINGLEMAP
+    OPTIONS: GLOBAL
     SYNC: rN
     SYNC: rE
     SYNC: rF
@@ -465,77 +465,78 @@ if (copy_levels) {
     } "Persist current radiation fields into past timelevel after each step"
 }
 
-# This group is basically the equivalent of MoL_PostStep
-SCHEDULE GROUP nuX_M1_PostStep AT PostInitial BEFORE MoL_PostStep
+# This group is basically the equivalent of ODESolvers_PostStep
+SCHEDULE GROUP nuX_M1_PostStep AT PostInitial BEFORE ODESolvers_PostStep
 {
 } "Poststep operations"
 
-SCHEDULE GROUP nuX_M1_PostStep AT PostRegrid BEFORE MoL_PostStep
+SCHEDULE GROUP nuX_M1_PostStep AT PostRegrid BEFORE ODESolvers_PostStep
 {
 } "Poststep operations"
 
-SCHEDULE GROUP nuX_M1_PostStep AT PostRegridInitial BEFORE MoL_PostStep
+SCHEDULE GROUP nuX_M1_PostStep AT PostRegridInitial BEFORE ODESolvers_PostStep
 {
 } "Poststep operations"
 
-SCHEDULE GROUP nuX_M1_PostStep AT PostRestrict BEFORE MoL_PostStep
+SCHEDULE GROUP nuX_M1_PostStep AT PostRestrict BEFORE ODESolvers_PostStep
 {
 } "Poststep operations"
 
-SCHEDULE GROUP nuX_M1_PostStep AT Post_Recover_Variables BEFORE MoL_PostStep
+SCHEDULE GROUP nuX_M1_PostStep AT Post_Recover_Variables BEFORE ODESolvers_PostStep
 {
 } "Poststep operations"
 
-SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_PostStep BEFORE MoL_PostStep
+SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_PostStep BEFORE ODESolvers_PostStep
 {
 } "Apply the boundary conditions"
 
-SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
-{
-    LANG: C
+if (calc_analysis) {
+  SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
+  {
+      LANG: C
 
-    READS: ADMBaseX::metric(everywhere)
-    READS: ADMBaseX::lapse(everywhere)
-    READS: ADMBaseX::shift(everywhere)
-    READS: ADMBaseX::curv(everywhere)
-    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
-    READS: fidu_w_lorentz(everywhere)
-    READS: volform(everywhere)
-    READS: rN(everywhere) rE(everywhere) rF(everywhere) 
-    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
-    WRITES: chi(everywhere)
-} "Compute the M1 closure everywhere on the grid"
+      READS: ADMBaseX::metric(everywhere)
+      READS: ADMBaseX::lapse(everywhere)
+      READS: ADMBaseX::shift(everywhere)
+      READS: ADMBaseX::curv(everywhere)
+      READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
+      READS: fidu_w_lorentz(everywhere)
+      READS: volform(everywhere)
+      READS: rN(everywhere) rE(everywhere) rF(everywhere) 
+      WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+      WRITES: chi(everywhere)
+  } "Compute the M1 closure everywhere on the grid"
 
-SCHEDULE nuX_M1_Analysis AT CCTK_ANALYSIS AFTER nuX_M1_CalcClosure
-{
-    LANG: C
-    TRIGGERS: neutrino_fractions
-    READS: HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere)
-    READS: volform(everywhere)
-    READS: rnnu(everywhere) rJ(everywhere)
-    WRITES: ynue(everywhere) ynua(everywhere) ynux(everywhere)
-    WRITES: znue(everywhere) znua(everywhere) znux(everywhere)
-} "Computes M1 analysis quantities"
+  SCHEDULE nuX_M1_Analysis AT CCTK_ANALYSIS AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      TRIGGERS: neutrino_fractions
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere)
+      READS: volform(everywhere)
+      READS: rnnu(everywhere) rJ(everywhere)
+      WRITES: ynue(everywhere) ynua(everywhere) ynux(everywhere)
+      WRITES: znue(everywhere) znua(everywhere) znux(everywhere)
+  } "Computes M1 analysis quantities"
 
-SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
-             AFTER nuX_M1_CalcClosure \
-             BEFORE outflow
-{
-    LANG: C
-    READS: ADMBaseX::metric(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::lapse(everywhere)
-    READS: ADMBaseX::curv(everywhere) volform(everywhere)
-    READS: rHt(everywhere) rH(everywhere) rE(everywhere) rJ(everywhere) rN(everywhere) rF(everywhere)
-    READS: fidu_vel(everywhere) fidu_w_lorentz(everywhere)
-    READS: nuX_m1_mask(everywhere)
-    WRITES: radial_fluxes(everywhere)
-} "Compute radial fluxes"
-
+  SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
+               AFTER nuX_M1_CalcClosure \
+               BEFORE outflow
+  {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::lapse(everywhere)
+      READS: ADMBaseX::curv(everywhere) volform(everywhere)
+      READS: rHt(everywhere) rH(everywhere) rE(everywhere) rJ(everywhere) rN(everywhere) rF(everywhere)
+      READS: fidu_vel(everywhere) fidu_w_lorentz(everywhere)
+      READS: nuX_m1_mask(everywhere)
+      WRITES: radial_fluxes(everywhere)
+  } "Compute radial fluxes"
+}
 
 # This would need to change if we want to couple with another hydro solver
 # if (!CCTK_Equals(evolution_method, "nuXode")) {
-#    SCHEDULE nuX_M1_MoLRegister IN MoL_Register
+#    SCHEDULE nuX_M1_ODESolversRegister IN ODESolvers_Register
 #    {
 #        LANG: C
 #        OPTIONS: GLOBAL
-#    } "Register variables with MoL"
+#    } "Register variables with ODESolvers"
 #  }

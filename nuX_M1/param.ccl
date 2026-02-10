@@ -221,5 +221,9 @@ BOOLEAN use_fakerates "Whether to use fakerates for testing" STEERABLE=always
 {
 } "no"
 
+BOOLEAN calc_analysis "Calculate analysis quantities"
+{
+} "yes"
+
 SHARES: EOSX
 USES CCTK_REAL particle_mass
