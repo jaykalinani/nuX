@@ -334,11 +334,12 @@ if (include_GR_sources) {
     {
         LANG: C
         
-        READS: ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
-        READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere)
-        READS: rE(everywhere) rF(everywhere) rP(everywhere)
-        READS: volform(everywhere) nuX_m1_mask(everywhere)
-        WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
+        READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+        READS: rE(interior) rF(interior) rP(interior)
+        READS: volform(interior) nuX_m1_mask(interior)
+        READS: rF_rhs(interior) rE_rhs(interior)
+        WRITES: rF_rhs(interior) rE_rhs(interior)
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
@@ -444,7 +445,6 @@ if (add_to_Tmunu) {
         READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
         READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
         READS: volform(everywhere) rE(everywhere) rF(everywhere) 
-        READS: ADMBaseX::shift(everywhere)
         READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
