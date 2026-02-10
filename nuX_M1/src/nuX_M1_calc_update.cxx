@@ -162,10 +162,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
           // Compute radiation quantities in the fluid frame
           CCTK_REAL J = rJ[i4D];
-          CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, J, E,
-                                                F_d, rad_E_floor, rad_eps);
-          //if (!isfinite(Gamma) || Gamma < 1.0)
-          //  Gamma = 1.0; // JayMOD
+          CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, J, E, F_d,
+                                          rad_E_floor, rad_eps);
           tensor::generic<CCTK_REAL, 4, 1> H_d;
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
 
@@ -179,9 +177,6 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           DrFz[ig] = dt * tS_d(3);
           DrN[ig] = dt * alp[ijk] *
                     (volform[ijk] * eta_0[i4D] - abs_0[i4D] * rN[i4D] / Gamma);
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcUpdate 4");
-          }
           assert(isfinite(DrE[ig]));
           assert(isfinite(DrFx[ig]));
           assert(isfinite(DrFy[ig]));
@@ -189,10 +184,6 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           assert(isfinite(DrN[ig]));
 
 #else // NUX_M1_SRC_METHOD != NUX_M1_SRC_EXPL
-
-          // Here we boost to the fluid frame, compute fluid matter
-          // interaction, and boost back. These values are used as
-          // initial guess for the implicit solve.
 
           // Predictor (advect radiation)
           CCTK_REAL Estar = rE_p[i4D] + dt * rE_rhs[i4D];
@@ -204,23 +195,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           CCTK_REAL Nstar = std::max(rN_p[i4D] + dt * rN_rhs[i4D], rad_N_floor);
           CCTK_REAL Enew = Estar;
 
-          // Closure (GPU-safe; gsl pointer ignored)
-          // Compute quantities in the fluid frame
           tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        fidu_w_lorentz[ijk], u_u, v_d, proj_ud, Estar, Fstar_d,
                        &chi[i4D], &P_dd, closure_epsilon, closure_maxiter);
 
-/*
-          // Guard closure output: JMOD
-          if (!(isfinite(chi[i4D]) && chi[i4D] >= CCTK_REAL(1.0 / 3.0) &&
-                chi[i4D] <= CCTK_REAL(1.0))) {
-            chi[i4D] = CCTK_REAL(1.0 / 3.0); // thick-limit fallback
-            apply_closure(g_dd, g_uu, n_d, fidu_w_lorentz[ijk], u_u, v_d,
-                          proj_ud, Estar, Fstar_d, chi[i4D], &P_dd);
-          }
-*/
-          // Build T^{μν} in normal frame
           tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
           assemble_rT(n_d, Estar, Fstar_d, P_dd, &rT_dd);
 
@@ -228,14 +207,10 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           tensor::generic<CCTK_REAL, 4, 1> Hstar_d;
           calc_H_from_rT(rT_dd, u_u, proj_ud, &Hstar_d);
 
-          // Matter interaction estimate (fluid frame)
           CCTK_REAL const dtau = dt / fidu_w_lorentz[ijk];
-          CCTK_REAL Jnew =
-              (Jstar + dtau * eta_1[i4D] * volform[ijk]) /
-              (1 + dtau * abs_1[i4D]);
+          CCTK_REAL Jnew = (Jstar + dtau * eta_1[i4D] * volform[ijk]) /
+                           (1 + dtau * abs_1[i4D]);
 
-          // Only three components of H^a are independent H^0 is found by
-          // requiring H^a u_a = 0
           CCTK_REAL const khat = (abs_1[i4D] + scat_1[i4D]);
           tensor::generic<CCTK_REAL, 4, 1> Hnew_d;
           for (int a = 1; a < 4; ++a)
@@ -244,25 +219,18 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           for (int a = 1; a < 4; ++a)
             Hnew_d(0) -= Hnew_d(a) * (u_u(a) / u_u(0));
 
-          // Update T^{μν} pieces
           CCTK_REAL const H2 = tensor::dot(g_uu, Hnew_d, Hnew_d);
 
-#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST) 
-          // BOOST (and IMPlicit fallback here): compute xi and use chosen
-          // closure
+#if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST)
           CCTK_REAL const xi = (Jnew > rad_E_floor ? sqrt(H2) / Jnew : 0.0);
           chi[i4D] = closure_fun(xi);
-      // chi[i4D] = closure_fun ? closure_fun(xi) : (CCTK_REAL)(1.0 / 3.0);
 #else
-          // Thick-limit default
           chi[i4D] = (CCTK_REAL)(1.0 / 3.0);
 #endif
 
           CCTK_REAL const dthick = 3.0 * (1.0 - chi[i4D]) / 2.0;
           CCTK_REAL const dthin = 1.0 - dthick;
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcUpdate 5");
-          }
+
           for (int a = 0; a < 4; ++a)
             for (int b = a; b < 4; ++b) {
               rT_dd(a, b) =
@@ -272,24 +240,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                   dthick * Jnew * (g_dd(a, b) + u_d(a) * u_d(b)) / 3.0;
             }
 
-          // Boost back to lab frame
           Enew = calc_J_from_rT(rT_dd, n_u);
           calc_H_from_rT(rT_dd, n_u, gamma_ud, &Fnew_d);
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
-/*
-          // One-stop sanity: if any non-finite, fall back to predictor (no
-          // source this step)
-          if (!isfinite(Enew) || !isfinite(Fnew_d(1)) || !isfinite(Fnew_d(2)) ||
-              !isfinite(Fnew_d(3))) {
-            Enew = Estar;
-            Fnew_d = Fstar_d;
-            chi[i4D] = CCTK_REAL(1.0 / 3.0);
-          }
-*/
-
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
-          // Compute interaction with matter
           (void)source_update(
               cctkGH, p.i, p.j, p.k, ig, closure_fun, closure_epsilon,
               closure_maxiter, dt, alp[ijk], g_dd, g_uu, n_d, n_u, gamma_ud,
@@ -297,70 +252,39 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
               Estar, Fstar_d, volform[ijk] * eta_1[i4D], abs_1[i4D],
               scat_1[i4D], &chi[i4D], &Enew, &Fnew_d, source_thick_limit,
               source_scat_limit, source_maxiter);
+
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
-/*
-          CCTK_REAL F2s = tensor::dot(g_uu, Fstar_d, Fstar_d);
-          if (F2s < CCTK_REAL(0))
-            F2s = CCTK_REAL(0);
-          const CCTK_REAL rstar = sqrt(F2s) / max(Estar, CCTK_REAL(1e-300));
-          if (rstar > CCTK_REAL(1.0 - 1e-7) &&
-              ((p.i | p.j | p.k) & 31) == 0) { // sparse print
-            printf("nuX_M1: near-causal PRED @(%d,%d,%d) ig=%d r=%.6e\n", p.i,
-                   p.j, p.k, ig, rstar);
-          }
-*/
-          // Update closure
           apply_closure(g_dd, g_uu, n_d, fidu_w_lorentz[ijk], u_u, v_d, proj_ud,
                         Enew, Fnew_d, chi[i4D], &P_dd);
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcUpdate 6");
-          }
-          // Compute new radiation energy density in the fluid frame
+
           tensor::symmetric2<CCTK_REAL, 4, 2> T_dd;
           assemble_rT(n_d, Enew, Fnew_d, P_dd, &T_dd);
           Jnew = calc_J_from_rT(T_dd, u_u);
 #endif
 
-/*
-          if (!(isfinite(Fnew_d(1)) && isfinite(Fstar_d(1)))) {
-            printf("NaN in Fnew/Fstar at i,j,k=%d,%d,%d ig=%d  E*=%g Enew=%g  "
-                   "w=%g a1=%g s1=%g\n",
-                   p.i, p.j, p.k, ig, Estar, Enew, fidu_w_lorentz[ijk],
-                   abs_1[i4D], scat_1[i4D]);
-          }
-*/
-          // Changes (predictor → updated)
           DrE[ig] = Enew - Estar;
           DrFx[ig] = Fnew_d(1) - Fstar_d(1);
           DrFy[ig] = Fnew_d(2) - Fstar_d(2);
           DrFz[ig] = Fnew_d(3) - Fstar_d(3);
 
-          // Updated Gamma (lab ↔ fluid relation)
-          CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, Jnew, Enew, Fnew_d,
-                              rad_E_floor, rad_eps);
+          CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[ijk], v_u, Jnew, Enew,
+                                          Fnew_d, rad_E_floor, rad_eps);
 
-          // Number density update
-          // N^k+1 = N^* + dt ( eta - abs N^k+1 )
           if (source_therm_limit < 0 || dt * abs_0[i4D] < source_therm_limit) {
-            DrN[ig] =
-                (Nstar + dt * alp[ijk] * volform[ijk] * eta_0[i4D]) /
-                    (1 + dt * alp[ijk] * abs_0[i4D] / Gamma) -
-                Nstar;
+            DrN[ig] = (Nstar + dt * alp[ijk] * volform[ijk] * eta_0[i4D]) /
+                          (1 + dt * alp[ijk] * abs_0[i4D] / Gamma) -
+                      Nstar;
           } else {
-            DrN[ig] = (nueave[i4D] > 0
-                           ? (Gamma * Jnew) / nueave[i4D] - Nstar
-                           : 0.0);
+            DrN[ig] =
+                (nueave[i4D] > 0 ? (Gamma * Jnew) / nueave[i4D] - Nstar : 0.0);
           }
 
 #endif // NUX_M1_SRC_METHOD
 
-          // Fluid lepton sources (ν_e – \barν_e)
           DDxp[ig] = -mb * (DrN[ig] * (ig == 0) - DrN[ig] * (ig == 1));
         } // ig
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcUpdate 7");
-        }
+
         // --------------------------
         // Step 2 — source limiter
         // --------------------------
@@ -396,92 +320,43 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           }
           theta = max((CCTK_REAL)0.0, theta);
         }
-        if (verbose) {
-          CCTK_INFO("nuX_M1_CalcUpdate 8");
-        }
+
         // --------------------------
         // Step 3 — apply updates
         // --------------------------
         for (int ig = 0; ig < groupspec; ++ig) {
           int const i4D = layout2.linear(p.i, p.j, p.k, ig);
 
-          assert(isfinite(DrE[ig]));
-          assert(isfinite(DrFx[ig]));
-          assert(isfinite(DrFy[ig]));
-          assert(isfinite(DrFz[ig]));
-          assert(isfinite(DrN[ig]));
-          assert(isfinite(rN[i4D]));
-          assert(isfinite(rE[i4D]));
-          assert(isfinite(rFx[i4D]));
-          assert(isfinite(rFy[i4D]));
-          assert(isfinite(rFz[i4D]));
-          assert(isfinite(rN_p[i4D]));
-          assert(isfinite(rE_p[i4D]));
-          assert(isfinite(rFx_p[i4D]));
-          assert(isfinite(rFy_p[i4D]));
-          assert(isfinite(rFz_p[i4D]));
-          // Update radiation quantities
           CCTK_REAL E = rE_p[i4D] + dt * rE_rhs[i4D] + theta * DrE[ig];
           F_d(1) = rFx_p[i4D] + dt * rFx_rhs[i4D] + theta * DrFx[ig];
           F_d(2) = rFy_p[i4D] + dt * rFy_rhs[i4D] + theta * DrFy[ig];
           F_d(3) = rFz_p[i4D] + dt * rFz_rhs[i4D] + theta * DrFz[ig];
           apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
 
-/*
-          CCTK_REAL F2 = tensor::dot(g_uu, F_d, F_d);
-          if (F2 < CCTK_REAL(0))
-            F2 = CCTK_REAL(0);
-          const CCTK_REAL rcorr = sqrt(F2) / max(E, CCTK_REAL(1e-300));
-          if (rcorr > CCTK_REAL(1.0 - 1e-7) &&
-              ((p.i | p.j | p.k) & 31) == 0) { // sparse print
-            printf("[nuX_M1] near-causal CORR @(%d,%d,%d) ig=%d r=%.6e\n", p.i,
-                   p.j, p.k, ig, rcorr);
-          }
-*/
           CCTK_REAL N = rN_p[i4D] + dt * rN_rhs[i4D] + theta * DrN[ig];
           N = max(N, rad_N_floor);
-          assert(isfinite(momx[ijk]));
-          // Compute back reaction on the fluid
-          // NOTE: fluid backreaction is only needed at the last substep
+
           if (backreact && 1 == *TimeIntegratorStage) {
             assert(ngroups == 1);
             assert(nspecies == 3);
-            assert(isfinite(momx[ijk]));
-            if (verbose) {
-              CCTK_INFO("nuX_M1_CalcUpdate 9");
-            }
             momx[ijk] -= theta * DrFx[ig];
-            assert(isfinite(momx[ijk]));
             momy[ijk] -= theta * DrFy[ig];
             momz[ijk] -= theta * DrFz[ig];
             tau[ijk] -= theta * DrE[ig];
             DYe[ijk] += theta * DDxp[ig];
-            // densxn[ijk] -= theta * DDxp[ig];
             netabs[ijk] += theta * DDxp[ig];
             netheat[ijk] -= theta * DrE[ig];
           }
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcUpdate 10");
-          }
-          // Save updated results into grid functions
+
           rE[i4D] = E;
           unpack_F_d(F_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
           rN[i4D] = N;
-/* 
-         if (!isfinite(rN[i4D]) || !isfinite(rE[i4D]) || !isfinite(rFx[i4D]) ||
-              !isfinite(rFy[i4D]) || !isfinite(rFz[i4D])) {
-            printf("Non-finite before sync at (i,j,k)=(%d,%d,%d), ig=%d\n", p.i,
-                   p.j, p.k, ig);
-          }
-*/
+
           assert(isfinite(rN[i4D]));
           assert(isfinite(rE[i4D]));
           assert(isfinite(rFx[i4D]));
           assert(isfinite(rFy[i4D]));
           assert(isfinite(rFz[i4D]));
-          if (verbose) {
-            CCTK_INFO("nuX_M1_CalcUpdate 11");
-          }
         }
       });
 }
