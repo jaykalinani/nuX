@@ -30,7 +30,7 @@ extern "C" void nuX_Seeds_SetupHydroTest_adv_velocity_jump(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout3(cctkGH, {1, 0, 0});
   const GF3D2layout layout4(cctkGH, {0, 1, 0});
   const GF3D2layout layout5(cctkGH, {0, 0, 1});
@@ -53,9 +53,9 @@ extern "C" void nuX_Seeds_SetupHydroTest_adv_velocity_jump(CCTK_ARGUMENTS) {
 
   grid.loop_all_device<1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
                                                       const PointDesc &p) {
-    const int ijk = layout2.linear(p.i, p.j, p.k);
+    const int ijk = layout_cc.linear(p.i, p.j, p.k);
     for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-      int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+      int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
       CCTK_REAL const dotp3d = nx * p.x + ny * p.y + nz * p.z;
       if (dotp3d < 0.0) {
         velx[ijk] = static_velx;
@@ -104,7 +104,7 @@ extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_Seeds_SetupNeutTest_adv_velocity_jump");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   CCTK_REAL nx = test_nvec[0];
   CCTK_REAL ny = test_nvec[1];
@@ -125,7 +125,7 @@ extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           CCTK_REAL const dotp3d = nx * p.x + ny * p.y + nz * p.z;
           if (dotp3d < 0.0) {
             rE[i4D] = static_E;

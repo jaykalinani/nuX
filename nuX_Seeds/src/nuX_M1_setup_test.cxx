@@ -43,11 +43,11 @@ extern "C" void nuX_M1_SetupTest_beam(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_SetupTest_beam");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         CCTK_REAL nx = beam_test_dir[0];
         CCTK_REAL ny = beam_test_dir[1];
         CCTK_REAL nz = beam_test_dir[2];
@@ -67,7 +67,7 @@ extern "C" void nuX_M1_SetupTest_beam(CCTK_ARGUMENTS) {
                             (p.y - ny * p.y) * (p.y - ny * p.y) +
                             (p.z - nz * p.z) * (p.z - nz * p.z);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           if (proj < beam_position && offset2 < beam_width * beam_width) {
             rE[i4D] = 1.0;
             rN[i4D] = 1.0;
@@ -93,13 +93,13 @@ extern "C" void nuX_M1_SetupTest_diff(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_SetupTest_diff");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           if (CCTK_Equals(diff_profile, "step")) {
             rE[i4D] = (p.x > -0.5 && p.x < 0.5) ? 1.0 : 0.0;
           } else if (CCTK_Equals(diff_profile, "gaussian")) {
@@ -123,15 +123,15 @@ extern "C" void nuX_M1_SetupTest_equil(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_SetupTest_equil");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         assert(ngroups == 1 && nspecies == 3);
         CCTK_REAL const W = fidu_w_lorentz[ijk];
         for (int is = 0; is < nspecies; ++is) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, is);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, is);
           CCTK_REAL const Jnu = equil_nudens_1[is];
           rE[i4D] = (4. * W * W - 1.) / 3. * Jnu;
           rFx[i4D] = 4. / 3. * W * W * fidu_velx[ijk] * Jnu;
@@ -150,17 +150,17 @@ extern "C" void nuX_M1_SetupTest_kss(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_SetupTest_kss");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
 
         if (CCTK_Equals(nuX_m1_test, "kerrschild") ||
             CCTK_Equals(nuX_m1_test, "shadow") ||
             CCTK_Equals(nuX_m1_test, "sphere")) {
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-            int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+            int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
             rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;
           }
         }
@@ -178,16 +178,16 @@ extern "C" void nuX_M1_KerrSchild_Mask(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_KerrSchild_Mask");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         if (p.x * p.x + p.y * p.y + p.z * p.z <
             kerr_mask_radius * kerr_mask_radius) {
           nuX_m1_mask[ijk] = 1;
           for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-            int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+            int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
             rN[i4D] = rE[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;
           }
         } else {
@@ -211,11 +211,11 @@ extern "C" void nuX_M1_SetupTest_Hydro(CCTK_ARGUMENTS) {
   CCTK_REAL dz = CCTK_DELTA_SPACE(2);
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         if (CCTK_Equals(nuX_m1_test, "shadow") ||
             CCTK_Equals(nuX_m1_test, "sphere")) {
           rho[ijk] = volume(1.0, p.x, p.y, p.z, dx, dy, dz);

@@ -37,12 +37,12 @@ extern "C" void nuX_Seeds_SetupHydroTest_homog_sphere(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   grid.loop_all_device<1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
                                                       const PointDesc &p) {
-    const int ijk = layout2.linear(p.i, p.j, p.k);
+    const int ijk = layout_cc.linear(p.i, p.j, p.k);
     for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-      int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+      int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
       rho[ijk] =
           static_rho * volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
       eps[ijk] =
@@ -66,12 +66,12 @@ extern "C" void nuX_Seeds_SetupNeutTest_homog_sphere(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_Seeds_SetupNeutTest_homog_sphere");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;
         }
       });

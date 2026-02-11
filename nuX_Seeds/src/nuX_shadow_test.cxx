@@ -37,7 +37,7 @@ extern "C" void nuX_Seeds_SetupHydroTest_shadow(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   CCTK_REAL nx = test_nvec[0];
   CCTK_REAL ny = test_nvec[1];
@@ -57,9 +57,9 @@ extern "C" void nuX_Seeds_SetupHydroTest_shadow(CCTK_ARGUMENTS) {
 
   grid.loop_all_device<1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
                                                       const PointDesc &p) {
-    const int ijk = layout2.linear(p.i, p.j, p.k);
+    const int ijk = layout_cc.linear(p.i, p.j, p.k);
     for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-      int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+      int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
       rho[ijk] =
           static_rho * volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
       eps[ijk] =
@@ -83,7 +83,7 @@ extern "C" void nuX_Seeds_SetupNeutTest_shadow(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_Seeds_SetupNeutTest_shadow");
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   CCTK_REAL nx = test_nvec[0];
   CCTK_REAL ny = test_nvec[1];
@@ -103,17 +103,17 @@ extern "C" void nuX_Seeds_SetupNeutTest_shadow(CCTK_ARGUMENTS) {
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           rE[i4D] = rN[i4D] = rFx[i4D] = rFy[i4D] = rFz[i4D] = 0.0;
         }
       });
   grid.loop_int_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           if ((p.BI[0] == -1.0) && (nx == 1.0) && (abs(p.y) < beam_radius)) {
             rFx[i4D] = 1.0; // If on -X boundary, flux in +X
             rE[i4D] = 1.0;

@@ -45,16 +45,16 @@ extern "C" void nuX_Seeds_SetupHydroTest_diff_limit_test(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout3(cctkGH, {1, 0, 0});
   const GF3D2layout layout4(cctkGH, {0, 1, 0});
   const GF3D2layout layout5(cctkGH, {0, 0, 1});
 
   grid.loop_all_device<1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
                                                       const PointDesc &p) {
-    const int ijk = layout2.linear(p.i, p.j, p.k);
+    const int ijk = layout_cc.linear(p.i, p.j, p.k);
     for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-      int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+      int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
       // set the velocity to zero in param file
       velx[ijk] = static_velx;
       vely[ijk] = static_vely;
@@ -107,20 +107,20 @@ extern "C" void nuX_Seeds_SetupNeutTest_diff_limit_test(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const smat<GF3D2<const CCTK_REAL8>, 3> gf_g{
-      GF3D2<const CCTK_REAL8>(layout2, gxx),
-      GF3D2<const CCTK_REAL8>(layout2, gxy),
-      GF3D2<const CCTK_REAL8>(layout2, gxz),
-      GF3D2<const CCTK_REAL8>(layout2, gyy),
-      GF3D2<const CCTK_REAL8>(layout2, gyz),
-      GF3D2<const CCTK_REAL8>(layout2, gzz)};
+      GF3D2<const CCTK_REAL8>(layout_cc, gxx),
+      GF3D2<const CCTK_REAL8>(layout_cc, gxy),
+      GF3D2<const CCTK_REAL8>(layout_cc, gxz),
+      GF3D2<const CCTK_REAL8>(layout_cc, gyy),
+      GF3D2<const CCTK_REAL8>(layout_cc, gyz),
+      GF3D2<const CCTK_REAL8>(layout_cc, gzz)};
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
           const smat<CCTK_REAL, 3> g_avg([&](int i, int j) ARITH_INLINE {
             return calc_avg_v2c(gf_g(i, j), p);
