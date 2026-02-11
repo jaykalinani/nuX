@@ -22,12 +22,12 @@ using namespace nuX_Seeds_volume;
 // Main setup routine
 // -----------------------------------------------------------------------------
 
-extern "C" void nuX_Seeds_SetupHydroTest_homog_sphere(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_homog_sphere;
+extern "C" void nuX_Seeds_SetupHydroTest_sphere(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_sphere;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupHydroTest_homog_sphere");
+    CCTK_INFO("nuX_Seeds_SetupHydroTest_sphere");
 
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
@@ -43,13 +43,12 @@ extern "C" void nuX_Seeds_SetupHydroTest_homog_sphere(CCTK_ARGUMENTS) {
     const int ijk = layout_cc.linear(p.i, p.j, p.k);
     for (int ig = 0; ig < ngroups * nspecies; ++ig) {
       int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
-      rho[ijk] =
-          static_rho * volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
-      eps[ijk] =
-          static_eps * volume_f(roi_radius, p.x, p.y, p.z, p.dx, p.dy, p.dz);
-      velx[ijk] = static_velx;
-      vely[ijk] = static_vely;
-      velz[ijk] = static_velz;
+      // Match THC sphere hydro setup: unit-radius density sphere at rest.
+      rho[ijk] = volume_f(1.0, p.x, p.y, p.z, p.dx, p.dy, p.dz);
+      eps[ijk] = static_eps;
+      velx[ijk] = 0.0;
+      vely[ijk] = 0.0;
+      velz[ijk] = 0.0;
       Ye[ijk] = static_ye;
 
       press[ijk] =
@@ -58,12 +57,12 @@ extern "C" void nuX_Seeds_SetupHydroTest_homog_sphere(CCTK_ARGUMENTS) {
   });
 }
 
-extern "C" void nuX_Seeds_SetupNeutTest_homog_sphere(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_homog_sphere;
+extern "C" void nuX_Seeds_SetupNeutTest_sphere(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_sphere;
   DECLARE_CCTK_PARAMETERS;
 
   if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupNeutTest_homog_sphere");
+    CCTK_INFO("nuX_Seeds_SetupNeutTest_sphere");
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
