@@ -1,14 +1,195 @@
 # -----------------------------------------------------------------------------
 # Active thorns
 # -----------------------------------------------------------------------------
-ActiveThorns = " 
+ActiveThorns = "
+   ADMBaseX
+   AsterMasks
+   AsterX
    CarpetX
+   Con2PrimFactory
+   EOSX
+   HydroBaseX
+   IOUtil
+   ODESolvers
+   TimerReport
+   TmunuBaseX
+   nuX_FakeRates
    nuX_M1
-   nuX_Utils 
-   HydroBaseX  
-   ADMBaseX 
+   nuX_Seeds
+   nuX_Utils
    "
 
 # -----------------------------------------------------------------------------
 # Global variables
 # -----------------------------------------------------------------------------
+$nlevels = 1
+$ncells = 100
+$xmax = 2.0
+$xmin = -2.0
+
+# -----------------------------------------------------------------------------
+# ADMBaseX
+# -----------------------------------------------------------------------------
+ADMBaseX::initial_data    = "Cartesian Minkowski"
+ADMBaseX::initial_dtlapse = "none"
+ADMBaseX::initial_dtshift = "none"
+ADMBaseX::initial_lapse   = "one"
+ADMBaseX::initial_shift   = "zero"
+
+# -----------------------------------------------------------------------------
+# AsterX
+# -----------------------------------------------------------------------------
+AsterX::debug_mode           = "yes"
+AsterX::flux_type            = "LxF"
+AsterX::local_estimate_error = "no"
+AsterX::recon_type           = "z_vec"
+
+# -----------------------------------------------------------------------------
+# Cactus
+# -----------------------------------------------------------------------------
+Cactus::cctk_final_time    = 1.0
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode       = "mixed-error"
+Cactus::terminate          = "time"
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::blocking_factor_x       = 1
+CarpetX::blocking_factor_y       = 1
+CarpetX::blocking_factor_z       = 1
+CarpetX::boundary_upper_x        = none
+CarpetX::boundary_upper_y        = none
+CarpetX::boundary_upper_z        = "neumann"
+CarpetX::boundary_x              = none
+CarpetX::boundary_y              = none
+CarpetX::boundary_z              = "neumann"
+CarpetX::dtfac                   = 0.125
+CarpetX::ghost_size              = 2
+CarpetX::max_num_levels          = $nlevels
+CarpetX::ncells_x                = 2
+CarpetX::ncells_y                = 2
+CarpetX::ncells_z                = $ncells
+CarpetX::out_norm_every          = 1
+CarpetX::out_norm_omit_unstable  = yes
+CarpetX::out_norm_vars           = "all"
+CarpetX::periodic                = yes
+CarpetX::periodic_x              = yes
+CarpetX::periodic_y              = yes
+CarpetX::periodic_z              = no
+CarpetX::poison_undefined_values = yes
+CarpetX::prolongation_type       = "ddf"
+CarpetX::regrid_error_threshold  = 0.01
+CarpetX::regrid_every            = 100000
+CarpetX::verbose                 = yes
+CarpetX::xmax                    = $xmax
+CarpetX::xmin                    = $xmin
+CarpetX::ymax                    = $xmax
+CarpetX::ymin                    = $xmin
+CarpetX::zmax                    = $xmax
+CarpetX::zmin                    = $xmin
+
+CarpetX::out_tsv_vars = "
+    nuX_M1::rN
+    nuX_M1::rE
+    nux_M1::rf
+    nuX_M1::rP
+    nuX_M1::rnnu
+    nuX_M1::rJ
+    nuX_M1::rHt
+    nuX_M1::rH
+    nuX_M1::fidu_vel
+    nuX_M1::opacs
+    nuX_M1::fluidsources
+    nuX_M1::nu_flux_x
+    nuX_M1::nu_flux_y
+    nuX_M1::nu_flux_z
+    nuX_M1::radial_fluxes
+"
+
+# -----------------------------------------------------------------------------
+# Con2PrimFactory
+# -----------------------------------------------------------------------------
+Con2PrimFactory::B_lim       = 1e8
+Con2PrimFactory::Ye_lenient  = "yes"
+Con2PrimFactory::c2p_prime   = "Noble"
+Con2PrimFactory::c2p_second  = "Palenzuela"
+Con2PrimFactory::c2p_tol     = 1e-8
+Con2PrimFactory::max_iter    = 100
+Con2PrimFactory::rho_abs_min = 1e-8
+Con2PrimFactory::unit_test   = "yes"
+Con2PrimFactory::vw_lim      = 1e8
+
+# -----------------------------------------------------------------------------
+# EOSX
+# -----------------------------------------------------------------------------
+EOSX::eps_max       = 1e8
+EOSX::eps_min       = 1e-5
+EOSX::evolution_eos = "IdealGas"
+EOSX::gl_gamma      = 2.0
+EOSX::poly_gamma    = 2.0
+EOSX::poly_k        = 1
+EOSX::rho_max       = 1e8
+
+# -----------------------------------------------------------------------------
+# IO
+# -----------------------------------------------------------------------------
+IO::out_dir   = $parfile
+IO::out_every = 1
+
+# -----------------------------------------------------------------------------
+# ODESolvers
+# -----------------------------------------------------------------------------
+ODESolvers::method = "RK4"
+
+# -----------------------------------------------------------------------------
+# ReconX
+# -----------------------------------------------------------------------------
+ReconX::reconstruction_method = "minmod"
+
+# -----------------------------------------------------------------------------
+# TimerReport
+# -----------------------------------------------------------------------------
+TimerReport::n_top_timers               = 50
+TimerReport::out_every                  = 10000
+TimerReport::out_filename               = "TimerReport"
+TimerReport::output_all_timers_readable = yes
+TimerReport::output_all_timers_together = yes
+
+# -----------------------------------------------------------------------------
+# nuX_FakeRates
+# -----------------------------------------------------------------------------
+nuX_FakeRates::eta_nua        = 0.0
+nuX_FakeRates::eta_nue        = 0.0
+nuX_FakeRates::eta_nux        = 0.0
+nuX_FakeRates::kappa_abs_nua  = 0.0
+nuX_FakeRates::kappa_abs_nue  = 0.0
+nuX_FakeRates::kappa_scat_nua = 0.0
+nuX_FakeRates::kappa_scat_nue = 0.0
+nuX_FakeRates::kappa_scat_nux = 0.0
+
+# -----------------------------------------------------------------------------
+# nuX_M1
+# -----------------------------------------------------------------------------
+nuX_M1::add_to_Tmunu         = "no"
+nuX_M1::backreact            = "no"
+nuX_M1::bc_type              = "none"
+nuX_M1::closure              = "Minerbo"
+nuX_M1::closure_epsilon      = 1e-5
+nuX_M1::closure_maxiter      = 1000
+nuX_M1::copy_levels          = "yes"
+nuX_M1::fiducial_velocity    = "fluid"
+nuX_M1::include_GR_sources   = "yes"
+nuX_M1::include_fluxes       = "yes"
+nuX_M1::reset_to_equilibrium = "no"
+nuX_M1::use_fakerates        = "yes"
+nuX_M1::verbose              = "no"
+
+# -----------------------------------------------------------------------------
+# nuX_Seeds
+# -----------------------------------------------------------------------------
+nuX_Seeds::beam_position = -0.5
+nuX_Seeds::beam_radius   = 1.5
+nuX_Seeds::nuX_test_case = "beam"
+nuX_Seeds::test_nvec     = [0.0,0.0,1.0]
+nuX_Seeds::verbose       = "yes"
