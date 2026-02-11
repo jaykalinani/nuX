@@ -28,6 +28,13 @@ extern "C" void nuX_M1_InitFluxesRHS(CCTK_ARGUMENTS) {
           rFx_rhs[i4D] = 0.0;
           rFy_rhs[i4D] = 0.0;
           rFz_rhs[i4D] = 0.0;
+
+          abs_0[i4D] = 0.0;
+          abs_1[i4D] = 0.0;
+          eta_0[i4D] = 0.0;
+          eta_1[i4D] = 0.0;
+          scat_1[i4D] = 0.0;
+          nueave[i4D] = 0.0;
         }
       });
 

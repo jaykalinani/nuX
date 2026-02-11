@@ -212,6 +212,7 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
 {
     LANG: C
     WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere) 
+    WRITES: opacs(everywhere) nueave(everywhere)
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
@@ -261,6 +262,7 @@ if (use_fakerates) {
       READS: ADMBaseX::metric(everywhere)
       READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+      READS: opacs(everywhere) nueave(everywhere)
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute fake opacities"
 }
@@ -364,6 +366,7 @@ if (include_GR_sources) {
         READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere)
         READS: rE(everywhere) rF(everywhere) rP(everywhere)
         READS: nuX_m1_mask(everywhere)
+        READS: rF_rhs(everywhere) rE_rhs(everywhere)
         WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
     } "Compute the radiation GR sources and add them to the RHS"
 }
