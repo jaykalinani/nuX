@@ -57,26 +57,25 @@ public:
     return m1_opacities;
   }
 
-  CCTK_DEVICE CCTK_HOST inline 
-  void FakeNeutrinoDens(CCTK_REAL rho, CCTK_REAL &num_nue, CCTK_REAL &num_nua,
-                  CCTK_REAL &num_nux, CCTK_REAL &ene_nue, CCTK_REAL &ene_nua, CCTK_REAL &ene_nux) {
+  CCTK_DEVICE CCTK_HOST inline void
+  FakeNeutrinoDens(CCTK_REAL rho, CCTK_REAL &num_nue, CCTK_REAL &num_nua,
+                   CCTK_REAL &num_nux, CCTK_REAL &ene_nue, CCTK_REAL &ene_nua,
+                   CCTK_REAL &ene_nux) {
 
-    if(rho*kabs_nue > FLT_EPSILON*et_nue) {
-        num_nue = et_nue/(rho*kabs_nue);
-        ene_nue = et_nue/(rho*kabs_nue);
-    }
-    else {
-        num_nue = 1.0;
-        ene_nue = 1.0;
+    if (rho * kabs_nue > FLT_EPSILON * et_nue) {
+      num_nue = et_nue / (rho * kabs_nue);
+      ene_nue = et_nue / (rho * kabs_nue);
+    } else {
+      num_nue = 1.0;
+      ene_nue = 1.0;
     }
 
-    if(rho*kabs_nua > FLT_EPSILON*et_nua) {
-        num_nua = et_nua/(rho*kabs_nua);
-        ene_nua = et_nua/(rho*kabs_nua);
-    }
-    else {
-        num_nua = 1.0;
-        ene_nua = 1.0;
+    if (rho * kabs_nua > FLT_EPSILON * et_nua) {
+      num_nua = et_nua / (rho * kabs_nua);
+      ene_nua = et_nua / (rho * kabs_nua);
+    } else {
+      num_nua = 1.0;
+      ene_nua = 1.0;
     }
 
     num_nux = 1.0;
@@ -84,6 +83,6 @@ public:
   }
 };
 
-extern FakeRatesDef* global_fakerates;
+extern FakeRatesDef *global_fakerates;
 
-} // namespace
+} // namespace nuX_FakeRates
