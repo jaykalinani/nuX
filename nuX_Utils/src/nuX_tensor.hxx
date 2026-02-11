@@ -5,6 +5,7 @@
 #include <cstddef> // for ptrdiff_t
 
 #include <cctk.h>
+#include <loop_device.hxx>
 
 #include "nuX_metric.hxx"
 #include "nuX_pow.hxx"
@@ -19,6 +20,20 @@ namespace tensor {
 //! Kronecher delta symbol
 CCTK_HOST CCTK_DEVICE inline CCTK_REAL delta(int a, int b) {
   return a == b ? 1.0 : 0.0;
+}
+
+// Second-order average of a vertex-centered field to a cell center.
+template <typename T>
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline T
+interp_v2c(const Loop::GF3D2<const T> &gf, const Loop::PointDesc &p,
+           int const oi = 0, int const oj = 0, int const ok = 0) {
+  const auto I0 = p.I + p.DI[0] * oi + p.DI[1] * oj + p.DI[2] * ok;
+  T gf_avg = 0.0;
+  for (int dk = 0; dk < 2; ++dk)
+    for (int dj = 0; dj < 2; ++dj)
+      for (int di = 0; di < 2; ++di)
+        gf_avg += gf(I0 + p.DI[0] * di + p.DI[1] * dj + p.DI[2] * dk);
+  return gf_avg * T(0.125);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -601,10 +616,13 @@ public:
 class fluid_velocity_field_const {
 public:
   //! Initialize the fluid 4 velocity
-  fluid_velocity_field_const(CCTK_REAL const *alp, CCTK_REAL const *betax,
+  fluid_velocity_field_const(Loop::GF3D2layout const &layout_vc,
+                             Loop::GF3D2layout const &layout_cc,
+                             CCTK_REAL const *alp, CCTK_REAL const *betax,
                              CCTK_REAL const *betay, CCTK_REAL const *betaz,
                              CCTK_REAL const *w_lorentz, CCTK_REAL const *velx,
-                             CCTK_REAL const *vely, CCTK_REAL const *velz) {
+                             CCTK_REAL const *vely, CCTK_REAL const *velz)
+      : m_layout_vc(layout_vc), m_layout_cc(layout_cc) {
     m_data[0] = alp;
     m_data[1] = betax;
     m_data[2] = betay;
@@ -627,6 +645,22 @@ public:
                               m_data[3][ijk], m_data[4][ijk], m_data[5][ijk],
                               m_data[6][ijk], m_data[7][ijk], u->data());
   }
+
+  //! Evaluate the fluid four velocity at a given cell center from
+  //! vertex-centered lapse/shift and cell-centered primitives.
+  CCTK_HOST CCTK_DEVICE inline void get(Loop::PointDesc const &p,
+                                        generic<CCTK_REAL, 4, 1> *u) const {
+    const Loop::GF3D2<const CCTK_REAL> gf_alp(m_layout_vc, m_data[0]);
+    const Loop::GF3D2<const CCTK_REAL> gf_betax(m_layout_vc, m_data[1]);
+    const Loop::GF3D2<const CCTK_REAL> gf_betay(m_layout_vc, m_data[2]);
+    const Loop::GF3D2<const CCTK_REAL> gf_betaz(m_layout_vc, m_data[3]);
+    const int ijk = m_layout_cc.linear(p.I);
+    nuX_Utils::valencia::uvel(interp_v2c(gf_alp, p), interp_v2c(gf_betax, p),
+                              interp_v2c(gf_betay, p), interp_v2c(gf_betaz, p),
+                              m_data[4][ijk], m_data[5][ijk], m_data[6][ijk],
+                              m_data[7][ijk], u->data());
+  }
+
   //! Evaluate the three velocity at a given location
   CCTK_HOST CCTK_DEVICE inline void get(ptrdiff_t const ijk,
                                         generic<CCTK_REAL, 3, 1> *v) const {
@@ -634,8 +668,16 @@ public:
     (*v)(1) = m_data[6][ijk];
     (*v)(2) = m_data[7][ijk];
   }
+  //! Evaluate the three velocity at a given location
+  CCTK_HOST CCTK_DEVICE inline void get(Loop::PointDesc const &p,
+                                        generic<CCTK_REAL, 3, 1> *v) const {
+    const int ijk = m_layout_cc.linear(p.I);
+    get(ijk, v);
+  }
 
 private:
+  Loop::GF3D2layout m_layout_vc;
+  Loop::GF3D2layout m_layout_cc;
   CCTK_REAL const *m_data[8];
 };
 
@@ -643,15 +685,17 @@ private:
 class slicing_geometry_const {
 public:
   //! Initialize the slicing geometry from the ADM quantities
-  slicing_geometry_const(CCTK_REAL const *alp, CCTK_REAL const *betax,
+  slicing_geometry_const(Loop::GF3D2layout const &layout_vc,
+                         Loop::GF3D2layout const &layout_cc,
+                         CCTK_REAL const *alp, CCTK_REAL const *betax,
                          CCTK_REAL const *betay, CCTK_REAL const *betaz,
                          CCTK_REAL const *gxx, CCTK_REAL const *gxy,
                          CCTK_REAL const *gxz, CCTK_REAL const *gyy,
                          CCTK_REAL const *gyz, CCTK_REAL const *gzz,
                          CCTK_REAL const *kxx, CCTK_REAL const *kxy,
                          CCTK_REAL const *kxz, CCTK_REAL const *kyy,
-                         CCTK_REAL const *kyz, CCTK_REAL const *kzz,
-                         CCTK_REAL const *volform) {
+                         CCTK_REAL const *kyz, CCTK_REAL const *kzz)
+      : m_layout_vc(layout_vc), m_layout_cc(layout_cc) {
     m_data[0] = alp;
     m_data[1] = betax;
     m_data[2] = betay;
@@ -668,12 +712,21 @@ public:
     m_data[13] = kyy;
     m_data[14] = kyz;
     m_data[15] = kzz;
-    m_data[16] = volform;
 #ifdef NUX_UTILS_DEBUG
     for (int i = 0; i < 16; ++i) {
       assert(m_data[i]);
     }
 #endif
+  }
+
+  CCTK_HOST CCTK_DEVICE inline CCTK_REAL
+  get_lapse(Loop::PointDesc const &p) const {
+    return interp_component(0, p, 0, 0, 0);
+  }
+  CCTK_HOST CCTK_DEVICE inline CCTK_REAL get_lapse(Loop::PointDesc const &p,
+                                                   int const oi, int const oj,
+                                                   int const ok) const {
+    return interp_component(0, p, oi, oj, ok);
   }
 
   //! Get the normal vector to the spacelike hypersurface
@@ -682,10 +735,27 @@ public:
     nuX_Utils::metric::normal(m_data[0][ijk], m_data[1][ijk], m_data[2][ijk],
                               m_data[3][ijk], n->data());
   }
+  //! Get the normal vector to the spacelike hypersurface
+  CCTK_HOST CCTK_DEVICE inline void
+  get_normal(Loop::PointDesc const &p, generic<CCTK_REAL, 4, 1> *n) const {
+    nuX_Utils::metric::normal(interp_component(0, p, 0, 0, 0),
+                              interp_component(1, p, 0, 0, 0),
+                              interp_component(2, p, 0, 0, 0),
+                              interp_component(3, p, 0, 0, 0), n->data());
+  }
   //! Get the normal one-form to the spacelike hypersurface
   CCTK_HOST CCTK_DEVICE inline void
   get_normal_form(ptrdiff_t const ijk, generic<CCTK_REAL, 4, 1> *n_d) const {
     (*n_d)(0) = -m_data[0][ijk];
+    (*n_d)(1) = 0.0;
+    (*n_d)(2) = 0.0;
+    (*n_d)(3) = 0.0;
+  }
+  //! Get the normal one-form to the spacelike hypersurface
+  CCTK_HOST CCTK_DEVICE inline void
+  get_normal_form(Loop::PointDesc const &p,
+                  generic<CCTK_REAL, 4, 1> *n_d) const {
+    (*n_d)(0) = -interp_component(0, p, 0, 0, 0);
     (*n_d)(1) = 0.0;
     (*n_d)(2) = 0.0;
     (*n_d)(3) = 0.0;
@@ -698,6 +768,20 @@ public:
     (*beta_u)(1) = m_data[2][ijk];
     (*beta_u)(2) = m_data[3][ijk];
   }
+  //! Get the shift vector
+  CCTK_HOST CCTK_DEVICE inline void
+  get_shift_vec(Loop::PointDesc const &p,
+                generic<CCTK_REAL, 3, 1> *beta_u) const {
+    get_shift_vec(p, 0, 0, 0, beta_u);
+  }
+  //! Get the shift vector with integer cell offsets
+  CCTK_HOST CCTK_DEVICE inline void
+  get_shift_vec(Loop::PointDesc const &p, int const oi, int const oj,
+                int const ok, generic<CCTK_REAL, 3, 1> *beta_u) const {
+    (*beta_u)(0) = interp_component(1, p, oi, oj, ok);
+    (*beta_u)(1) = interp_component(2, p, oi, oj, ok);
+    (*beta_u)(2) = interp_component(3, p, oi, oj, ok);
+  }
   //! Get the shift 4-vector β^μ = (0, β^i)
   CCTK_HOST CCTK_DEVICE inline void
   get_shift_vec(ptrdiff_t const ijk, generic<CCTK_REAL, 4, 1> *beta_u) const {
@@ -705,6 +789,21 @@ public:
     (*beta_u)(1) = m_data[1][ijk];
     (*beta_u)(2) = m_data[2][ijk];
     (*beta_u)(3) = m_data[3][ijk];
+  }
+  //! Get the shift 4-vector β^μ = (0, β^i)
+  CCTK_HOST CCTK_DEVICE inline void
+  get_shift_vec(Loop::PointDesc const &p,
+                generic<CCTK_REAL, 4, 1> *beta_u) const {
+    get_shift_vec(p, 0, 0, 0, beta_u);
+  }
+  //! Get the shift 4-vector β^μ = (0, β^i), with cell offsets
+  CCTK_HOST CCTK_DEVICE inline void
+  get_shift_vec(Loop::PointDesc const &p, int const oi, int const oj,
+                int const ok, generic<CCTK_REAL, 4, 1> *beta_u) const {
+    (*beta_u)(0) = 0.0;
+    (*beta_u)(1) = interp_component(1, p, oi, oj, ok);
+    (*beta_u)(2) = interp_component(2, p, oi, oj, ok);
+    (*beta_u)(3) = interp_component(3, p, oi, oj, ok);
   }
 
   //! Get a component of the shift vector on the entire grid
@@ -733,12 +832,39 @@ public:
     (*g)(1, 2) = m_data[8][ijk];
     (*g)(2, 2) = m_data[9][ijk];
   }
+  //! Get the spatial metric at a given location
+  CCTK_HOST CCTK_DEVICE inline void get_metric(Loop::PointDesc const &p,
+                                               metric<3> *g) const {
+    (*g)(0, 0) = interp_component(4, p, 0, 0, 0);
+    (*g)(0, 1) = interp_component(5, p, 0, 0, 0);
+    (*g)(0, 2) = interp_component(6, p, 0, 0, 0);
+    (*g)(1, 1) = interp_component(7, p, 0, 0, 0);
+    (*g)(1, 2) = interp_component(8, p, 0, 0, 0);
+    (*g)(2, 2) = interp_component(9, p, 0, 0, 0);
+  }
   //! Get inverse spatial metric at a given location
   CCTK_HOST CCTK_DEVICE inline void get_inv_metric(ptrdiff_t const ijk,
                                                    inv_metric<3> *u) const {
     u->from_metric(m_data[4][ijk], m_data[5][ijk], m_data[6][ijk],
-                   m_data[7][ijk], m_data[8][ijk], m_data[9][ijk],
-                   m_data[16][ijk] * m_data[16][ijk]);
+                   m_data[7][ijk], m_data[8][ijk], m_data[9][ijk]);
+  }
+  //! Get inverse spatial metric at a given location
+  CCTK_HOST CCTK_DEVICE inline void get_inv_metric(Loop::PointDesc const &p,
+                                                   inv_metric<3> *u) const {
+    get_inv_metric(p, 0, 0, 0, u);
+  }
+  //! Get inverse spatial metric at a given location, with cell offsets
+  CCTK_HOST CCTK_DEVICE inline void get_inv_metric(Loop::PointDesc const &p,
+                                                   int const oi, int const oj,
+                                                   int const ok,
+                                                   inv_metric<3> *u) const {
+    const CCTK_REAL gxx = interp_component(4, p, oi, oj, ok);
+    const CCTK_REAL gxy = interp_component(5, p, oi, oj, ok);
+    const CCTK_REAL gxz = interp_component(6, p, oi, oj, ok);
+    const CCTK_REAL gyy = interp_component(7, p, oi, oj, ok);
+    const CCTK_REAL gyz = interp_component(8, p, oi, oj, ok);
+    const CCTK_REAL gzz = interp_component(9, p, oi, oj, ok);
+    u->from_metric(gxx, gxy, gxz, gyy, gyz, gzz);
   }
 
   //! \brief Get the projector onto the spacelike hypersurface:
@@ -756,6 +882,21 @@ public:
         gamma_ud->at(a, b) = delta(a, b) + n_u(a) * n_d(b);
       }
   }
+  //! \brief Get the projector onto the spacelike hypersurface:
+  //! \f$ \gamma^a_{\phantom{a}b} \f$
+  CCTK_HOST CCTK_DEVICE inline void
+  get_space_proj(Loop::PointDesc const &p,
+                 generic<CCTK_REAL, 4, 2> *gamma_ud) const {
+    generic<CCTK_REAL, 4, 1> n_d;
+    generic<CCTK_REAL, 4, 1> n_u;
+    get_normal(p, &n_u);
+    get_normal_form(p, &n_d);
+
+    for (int a = 0; a < 4; ++a)
+      for (int b = 0; b < 4; ++b) {
+        gamma_ud->at(a, b) = delta(a, b) + n_u(a) * n_d(b);
+      }
+  }
 
   //! Get the spacetime metric at a given location
   CCTK_HOST CCTK_DEVICE inline void get_metric(ptrdiff_t const ijk,
@@ -764,6 +905,16 @@ public:
                 m_data[4][ijk], m_data[5][ijk], m_data[6][ijk], m_data[7][ijk],
                 m_data[8][ijk], m_data[9][ijk]);
   }
+  //! Get the spacetime metric at a given location
+  CCTK_HOST CCTK_DEVICE inline void get_metric(Loop::PointDesc const &p,
+                                               metric<4> *g) const {
+    g->from_adm(
+        interp_component(0, p, 0, 0, 0), interp_component(1, p, 0, 0, 0),
+        interp_component(2, p, 0, 0, 0), interp_component(3, p, 0, 0, 0),
+        interp_component(4, p, 0, 0, 0), interp_component(5, p, 0, 0, 0),
+        interp_component(6, p, 0, 0, 0), interp_component(7, p, 0, 0, 0),
+        interp_component(8, p, 0, 0, 0), interp_component(9, p, 0, 0, 0));
+  }
 
   //! Get the spacetime inverse metric at a given location
   CCTK_HOST CCTK_DEVICE inline void get_inv_metric(ptrdiff_t const ijk,
@@ -771,6 +922,16 @@ public:
     u->from_adm(m_data[0][ijk], m_data[1][ijk], m_data[2][ijk], m_data[3][ijk],
                 m_data[4][ijk], m_data[5][ijk], m_data[6][ijk], m_data[7][ijk],
                 m_data[8][ijk], m_data[9][ijk]);
+  }
+  //! Get the spacetime inverse metric at a given location
+  CCTK_HOST CCTK_DEVICE inline void get_inv_metric(Loop::PointDesc const &p,
+                                                   inv_metric<4> *u) const {
+    u->from_adm(
+        interp_component(0, p, 0, 0, 0), interp_component(1, p, 0, 0, 0),
+        interp_component(2, p, 0, 0, 0), interp_component(3, p, 0, 0, 0),
+        interp_component(4, p, 0, 0, 0), interp_component(5, p, 0, 0, 0),
+        interp_component(6, p, 0, 0, 0), interp_component(7, p, 0, 0, 0),
+        interp_component(8, p, 0, 0, 0), interp_component(9, p, 0, 0, 0));
   }
 
   //! Get the extrinsic curvature at a given location
@@ -783,9 +944,29 @@ public:
     (*k)(1, 2) = m_data[14][ijk];
     (*k)(2, 2) = m_data[15][ijk];
   }
+  //! Get the extrinsic curvature at a given location
+  CCTK_HOST CCTK_DEVICE inline void
+  get_extr_curv(Loop::PointDesc const &p,
+                symmetric2<CCTK_REAL, 3, 2> *k) const {
+    (*k)(0, 0) = interp_component(10, p, 0, 0, 0);
+    (*k)(0, 1) = interp_component(11, p, 0, 0, 0);
+    (*k)(0, 2) = interp_component(12, p, 0, 0, 0);
+    (*k)(1, 1) = interp_component(13, p, 0, 0, 0);
+    (*k)(1, 2) = interp_component(14, p, 0, 0, 0);
+    (*k)(2, 2) = interp_component(15, p, 0, 0, 0);
+  }
 
 private:
-  CCTK_REAL const *m_data[17];
+  CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+  interp_component(int const comp, Loop::PointDesc const &p, int const oi,
+                   int const oj, int const ok) const {
+    const Loop::GF3D2<const CCTK_REAL> gf(m_layout_vc, m_data[comp]);
+    return interp_v2c(gf, p, oi, oj, ok);
+  }
+
+  Loop::GF3D2layout m_layout_vc;
+  Loop::GF3D2layout m_layout_cc;
+  CCTK_REAL const *m_data[16];
 };
 
 } // namespace tensor
