@@ -20,7 +20,7 @@ extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
@@ -28,7 +28,7 @@ extern "C" void nuX_M1_InitialCopy(CCTK_ARGUMENTS) {
         const int groupspec = ngroups * nspecies;
 
         for (int ig = 0; ig < groupspec; ++ig) {
-          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
+          const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
           rN[i4D] = rN_p[i4D];
           rE[i4D] = rE_p[i4D];

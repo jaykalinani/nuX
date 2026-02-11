@@ -115,11 +115,11 @@ double sign(double x) {
 */
 
 // Low level kernel computing the Jacobian matrix
-CCTK_HOST CCTK_DEVICE void
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
                             double kapa, double kaps, double vup[4],
                             double vdown[4], double v2, double W, double alpha,
-                            double cdt, double *qstar, arith_matrix &J) {
+                            double cdt, arith_matrix &J) {
   const double kapas = kapa + kaps;
   const double alpW = alpha * W;
 
@@ -319,10 +319,9 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector &q, void *params,
   double m_W = p->W;                                                           \
   double m_alpha = p->alp;                                                     \
   double m_cdt = p->cdt;                                                       \
-  double m_qstar[] = {p->Estar, p->Fstar_d(1), p->Fstar_d(2), p->Fstar_d(3)};  \
                                                                                \
   __source_jacobian_low_level(m_q, m_Fup, m_F2, m_chi, m_kabs, m_kscat, m_vup, \
-                              m_vdw, m_v2, m_W, m_alpha, m_cdt, m_qstar, J);
+                              m_vdw, m_v2, m_W, m_alpha, m_cdt, J);
 
   EVALUATE_ZJAC
 

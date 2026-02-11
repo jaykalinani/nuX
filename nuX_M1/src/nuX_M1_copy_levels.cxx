@@ -18,14 +18,14 @@ extern "C" void nuX_M1_CopyLevels(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         // Loop over groups/species.
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           rN_p[i4D] = rN[i4D];
           rE_p[i4D] = rE[i4D];
           rFx_p[i4D] = rFx[i4D];

@@ -37,22 +37,6 @@ CCTK_HOST CCTK_DEVICE inline CCTK_REAL minmod2(CCTK_REAL rl, CCTK_REAL rp,
 }
 
 //-------------------------------------------------------------------------
-// Read a “conserved” scalar U^{(iv)} from the 5-tuple.
-//
-// iv: 0 -> rN, 1 -> rFx, 2 -> rFy, 3 -> rFz, 4 -> rE
-//-------------------------------------------------------------------------
-CCTK_HOST CCTK_DEVICE inline CCTK_REAL read_cons_by_iv(
-    int iv, const CCTK_REAL *__restrict__ rN, const CCTK_REAL *__restrict__ rFx,
-    const CCTK_REAL *__restrict__ rFy, const CCTK_REAL *__restrict__ rFz,
-    const CCTK_REAL *__restrict__ rE, int idx) {
-  return (iv == 0)   ? rN[idx]
-         : (iv == 1) ? rFx[idx]
-         : (iv == 2) ? rFy[idx]
-         : (iv == 3) ? rFz[idx]
-                     : rE[idx];
-}
-
-//-------------------------------------------------------------------------
 // Characteristic speed in a given spatial direction:
 //
 //   lambda = -beta_dir ± alpha sqrt(gamma^{dir,dir})
@@ -88,18 +72,19 @@ CCTK_DEVICE CCTK_HOST void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
 
   // These are treated as *cell-centred* storage for physical fluxes
   CCTK_REAL *restrict nu_flux_dir =
       (dir == 0 ? nu_flux_x : (dir == 1 ? nu_flux_y : nu_flux_z));
 
-  tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
-                                      gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz,
-                                      kzz, volform);
+  tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
+                                      betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
+                                      kxy, kxz, kyy, kyz, kzz);
 
-  tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz,
-                                          fidu_w_lorentz, fidu_velx, fidu_vely,
-                                          fidu_velz);
+  tensor::fluid_velocity_field_const fidu(layout_vc, layout_cc, alp, betax,
+                                          betay, betaz, fidu_w_lorentz,
+                                          fidu_velx, fidu_vely, fidu_velz);
 
   const int groupspec = ngroups * nspecies;
 
@@ -110,85 +95,80 @@ CCTK_DEVICE CCTK_HOST void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
   // fluxes over the full 1D line including ghosts so that the subsequent
   // RHS update can safely reference fluxes near the interior boundary.
   //--------------------------------------------------------------------
-  grid.loop_all_device<1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
-                                                      const PointDesc &p) {
-    const int i = p.i;
-    const int j = p.j;
-    const int k = p.k;
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+        const int i = p.i;
+        const int j = p.j;
+        const int k = p.k;
 
-    const int idx = layout_cc.linear(i, j, k);
+        const int idx = layout_cc.linear(i, j, k);
 
-    // Local geometry at this cell
-    tensor::inv_metric<3> gamma_uu;
-    tensor::inv_metric<4> g_uu;
-    tensor::generic<CCTK_REAL, 4, 1> beta_u;
+        // Local geometry at this cell
+        tensor::inv_metric<3> gamma_uu;
+        tensor::inv_metric<4> g_uu;
+        tensor::generic<CCTK_REAL, 4, 1> beta_u;
 
-    geom.get_inv_metric(idx, &gamma_uu);
-    geom.get_inv_metric(idx, &g_uu);
-    geom.get_shift_vec(idx, &beta_u);
+        geom.get_inv_metric(p, &gamma_uu);
+        geom.get_inv_metric(p, &g_uu);
+        geom.get_shift_vec(p, &beta_u);
 
-    const CCTK_REAL alpha = alp[idx];
+        const CCTK_REAL alpha = geom.get_lapse(p);
+        const CCTK_REAL beta_x = beta_u(1);
+        const CCTK_REAL beta_y = beta_u(2);
+        const CCTK_REAL beta_z = beta_u(3);
+        const CCTK_REAL W = fidu_w_lorentz[idx];
+        const CCTK_REAL vel_x = fidu_velx[idx];
+        const CCTK_REAL vel_y = fidu_vely[idx];
+        const CCTK_REAL vel_z = fidu_velz[idx];
 
-    // Fiducial 4-velocity and 3-velocity at this cell
-    tensor::generic<CCTK_REAL, 4, 1> u_u, v_u;
-    fidu.get(idx, &u_u);
-    pack_v_u(fidu_velx[idx], fidu_vely[idx], fidu_velz[idx], &v_u);
+        // Fiducial 4-velocity and 3-velocity at this cell
+        tensor::generic<CCTK_REAL, 4, 1> u_u, v_u;
+        fidu.get(p, &u_u);
+        pack_v_u(vel_x, vel_y, vel_z, &v_u);
 
-    // Temporary tensors used for flux construction
-    tensor::generic<CCTK_REAL, 4, 1> H_d, H_u, F_d, F_u, fnu_u;
-    tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
-    tensor::generic<CCTK_REAL, 4, 2> P_ud;
+        // Temporary tensors used for flux construction
+        tensor::generic<CCTK_REAL, 4, 1> H_d, H_u, F_d, F_u, fnu_u;
+        tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
+        tensor::generic<CCTK_REAL, 4, 2> P_ud;
 
-    for (int ig = 0; ig < groupspec; ++ig) {
-      const int i4D = layout_cc.linear(i, j, k, ig);
+        for (int ig = 0; ig < groupspec; ++ig) {
+          const int i4D = layout_cc.linear(i, j, k, ig);
 
-      // Assemble radiation tensors at cell centre
-      pack_F_d(betax[idx], betay[idx], betaz[idx], rFx[i4D], rFy[i4D], rFz[i4D],
-               &F_d);
-      pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
-      pack_P_dd(betax[idx], betay[idx], betaz[idx], rPxx[i4D], rPxy[i4D],
-                rPxz[i4D], rPyy[i4D], rPyz[i4D], rPzz[i4D], &P_dd);
+          // Assemble radiation tensors at cell centre
+          pack_F_d(beta_x, beta_y, beta_z, rFx[i4D], rFy[i4D], rFz[i4D], &F_d);
+          pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
+          pack_P_dd(beta_x, beta_y, beta_z, rPxx[i4D], rPxy[i4D], rPxz[i4D],
+                    rPyy[i4D], rPyz[i4D], rPzz[i4D], &P_dd);
 
-      tensor::contract(g_uu, H_d, &H_u);
-      tensor::contract(g_uu, F_d, &F_u);
-      tensor::contract(g_uu, P_dd, &P_ud);
+          tensor::contract(g_uu, H_d, &H_u);
+          tensor::contract(g_uu, F_d, &F_u);
+          tensor::contract(g_uu, P_dd, &P_ud);
 
-      assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
+          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
 
-      const CCTK_REAL Gamma = compute_Gamma(fidu_w_lorentz[idx], v_u, rJ[i4D],
-                                            rE[i4D], F_d, rad_E_floor, rad_eps);
+          const CCTK_REAL Gamma = compute_Gamma(W, v_u, rJ[i4D], rE[i4D], F_d,
+                                                rad_E_floor, rad_eps);
 
-      const CCTK_REAL nnu = rN[i4D] / Gamma; // fmax(Gamma, 1.0);
+          const CCTK_REAL nnu = rN[i4D] / Gamma; // fmax(Gamma, 1.0);
 
-      // Store physical flux components at this cell
-      for (int iv = 0; iv < 5; ++iv) {
-        const int comp = PINDEX1D(ig, iv);
-        const int idx_flux = layout_cc.linear(i, j, k, comp);
+          const int comp_n = PINDEX1D(ig, 0);
+          const int comp_fx = PINDEX1D(ig, 1);
+          const int comp_fy = PINDEX1D(ig, 2);
+          const int comp_fz = PINDEX1D(ig, 3);
+          const int comp_e = PINDEX1D(ig, 4);
 
-        CCTK_REAL fval = 0.0;
-
-        switch (iv) {
-        case 0: // number density flux
-          fval = alpha * nnu * fnu_u(dir + 1);
-          break;
-        case 1: // momentum flux (x-like component)
-          fval = calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 1);
-          break;
-        case 2: // momentum flux (y-like component)
-          fval = calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 2);
-          break;
-        case 3: // momentum flux (z-like component)
-          fval = calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 3);
-          break;
-        case 4: // energy flux
-          fval = calc_E_flux(alpha, beta_u, rE[i4D], F_u, dir + 1);
-          break;
-        }
-
-        nu_flux_dir[idx_flux] = fval;
-      }
-    } // ig
-  });
+          nu_flux_dir[layout_cc.linear(i, j, k, comp_n)] =
+              alpha * nnu * fnu_u(dir + 1);
+          nu_flux_dir[layout_cc.linear(i, j, k, comp_fx)] =
+              calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 1);
+          nu_flux_dir[layout_cc.linear(i, j, k, comp_fy)] =
+              calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 2);
+          nu_flux_dir[layout_cc.linear(i, j, k, comp_fz)] =
+              calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 3);
+          nu_flux_dir[layout_cc.linear(i, j, k, comp_e)] =
+              calc_E_flux(alpha, beta_u, rE[i4D], F_u, dir + 1);
+        } // ig
+      });
 }
 
 //---------------------------------------------------------------------
@@ -211,6 +191,7 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
 
   const CCTK_REAL dx = CCTK_DELTA_SPACE(dir);
   const CCTK_REAL idx = 1.0 / dx;
@@ -224,9 +205,9 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   const CCTK_REAL *nu_flux_dir =
       (dir == 0 ? nu_flux_x : (dir == 1 ? nu_flux_y : nu_flux_z));
 
-  tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
-                                      gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz,
-                                      kzz, volform);
+  tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
+                                      betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
+                                      kxy, kxz, kyy, kyz, kzz);
 
   // THC needs at least 2 ghost zones along each direction
   assert(cctk_nghostzones[dir] >= 2);
@@ -272,28 +253,22 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
         const int j_jp2 = j + 2 * dj;
         const int k_jp2 = k + 2 * dk;
 
-        const int idx_jm2 = idx_cell(i_jm2, j_jm2, k_jm2);
-        const int idx_jm1 = idx_cell(i_jm1, j_jm1, k_jm1);
-        const int idx_j = idx_cell(i, j, k);
-        const int idx_jp1 = idx_cell(i_jp1, j_jp1, k_jp1);
-        const int idx_jp2 = idx_cell(i_jp2, j_jp2, k_jp2);
-
         // Precompute characteristic speeds at j-1, j, j+1
         tensor::inv_metric<3> gamma_jm1, gamma_j, gamma_jp1;
         tensor::generic<CCTK_REAL, 4, 1> beta_jm1, beta_j, beta_jp1;
 
-        geom.get_inv_metric(idx_jm1, &gamma_jm1);
-        geom.get_shift_vec(idx_jm1, &beta_jm1);
+        geom.get_inv_metric(p, -di, -dj, -dk, &gamma_jm1);
+        geom.get_shift_vec(p, -di, -dj, -dk, &beta_jm1);
 
-        geom.get_inv_metric(idx_j, &gamma_j);
-        geom.get_shift_vec(idx_j, &beta_j);
+        geom.get_inv_metric(p, 0, 0, 0, &gamma_j);
+        geom.get_shift_vec(p, 0, 0, 0, &beta_j);
 
-        geom.get_inv_metric(idx_jp1, &gamma_jp1);
-        geom.get_shift_vec(idx_jp1, &beta_jp1);
+        geom.get_inv_metric(p, di, dj, dk, &gamma_jp1);
+        geom.get_shift_vec(p, di, dj, dk, &beta_jp1);
 
-        const CCTK_REAL alpha_jm1 = alp[idx_jm1];
-        const CCTK_REAL alpha_j = alp[idx_j];
-        const CCTK_REAL alpha_jp1 = alp[idx_jp1];
+        const CCTK_REAL alpha_jm1 = geom.get_lapse(p, -di, -dj, -dk);
+        const CCTK_REAL alpha_j = geom.get_lapse(p);
+        const CCTK_REAL alpha_jp1 = geom.get_lapse(p, di, dj, dk);
 
         const CCTK_REAL clight_jm1 =
             face_speed(dir, gamma_jm1, beta_jm1, alpha_jm1);
@@ -310,7 +285,11 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
           // Right interface j+1/2: use cells j and j+1
           const int idx4_j = layout_cc.linear(i, j, k, ig);
+          const int idx_rhs = idx4_j;
+          const int idx4_jm2 = layout_cc.linear(i_jm2, j_jm2, k_jm2, ig);
+          const int idx4_jm1 = layout_cc.linear(i_jm1, j_jm1, k_jm1, ig);
           const int idx4_jp1 = layout_cc.linear(i_jp1, j_jp1, k_jp1, ig);
+          const int idx4_jp2 = layout_cc.linear(i_jp2, j_jp2, k_jp2, ig);
 
           const CCTK_REAL kappa_j = abs_1[idx4_j] + scat_1[idx4_j];
           const CCTK_REAL kappa_jp1 = abs_1[idx4_jp1] + scat_1[idx4_jp1];
@@ -327,8 +306,6 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
           }
 
           // Left interface j-1/2: use cells j-1 and j
-          const int idx4_jm1 = layout_cc.linear(i_jm1, j_jm1, k_jm1, ig);
-
           const CCTK_REAL kappa_jm1 = abs_1[idx4_jm1] + scat_1[idx4_jm1];
           const CCTK_REAL kapa_L = 0.5 * (kappa_jm1 + kappa_j);
 
@@ -352,54 +329,56 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
             //
             // NOTE: These must be indexed with (i,j,k,ig), matching THC.
             //----------------------------------------------------------------
-            const int idx4_jm2 = layout_cc.linear(i_jm2, j_jm2, k_jm2, ig);
-            const int idx4_j = layout_cc.linear(i, j, k, ig);
-            const int idx4_jp2 = layout_cc.linear(i_jp2, j_jp2, k_jp2, ig);
+            const CCTK_REAL *const u_cons = (iv == 0)   ? rN
+                                            : (iv == 1) ? rFx
+                                            : (iv == 2) ? rFy
+                                            : (iv == 3) ? rFz
+                                                        : rE;
 
-            const CCTK_REAL u_jm1 =
-                read_cons_by_iv(iv, rN, rFx, rFy, rFz, rE, idx4_jm1);
-            const CCTK_REAL u_j =
-                read_cons_by_iv(iv, rN, rFx, rFy, rFz, rE, idx4_j);
-            const CCTK_REAL u_jp1 =
-                read_cons_by_iv(iv, rN, rFx, rFy, rFz, rE, idx4_jp1);
-            const CCTK_REAL u_jp2 =
-                read_cons_by_iv(iv, rN, rFx, rFy, rFz, rE, idx4_jp2);
+            const CCTK_REAL u_jm1 = u_cons[idx4_jm1];
+            const CCTK_REAL u_j = u_cons[idx4_j];
+            const CCTK_REAL u_jp1 = u_cons[idx4_jp1];
+            const CCTK_REAL u_jp2 = u_cons[idx4_jp2];
 
-            //----------------------------------------------------------------
-            // 1) Right interface F_R at j+1/2 (between j and j+1)
-            //    This exactly mirrors the original scheme with:
-            //
-            //    ujm  = u_{j-1}, uj = u_j, ujp = u_{j+1}, ujpp = u_{j+2}
-            //----------------------------------------------------------------
-            const CCTK_REAL dup_R = u_jp2 - u_jp1; // ujpp - ujp
-            const CCTK_REAL duc_R = u_jp1 - u_j;   // ujp  - uj
-            const CCTK_REAL dum_R = u_j - u_jm1;   // uj   - ujm
+            CCTK_REAL F_R;
+            {
+              //----------------------------------------------------------------
+              // 1) Right interface F_R at j+1/2 (between j and j+1)
+              //    This exactly mirrors the original scheme with:
+              //
+              //    ujm  = u_{j-1}, uj = u_j, ujp = u_{j+1}, ujpp = u_{j+2}
+              //----------------------------------------------------------------
+              const CCTK_REAL dup_R = u_jp2 - u_jp1; // ujpp - ujp
+              const CCTK_REAL duc_R = u_jp1 - u_j;   // ujp  - uj
+              const CCTK_REAL dum_R = u_j - u_jm1;   // uj   - ujm
 
-            CCTK_REAL phi_R = 0.0;
-            bool saw_R = false;
+              CCTK_REAL phi_R = 0.0;
+              bool saw_R = false;
 
-            if (dup_R * duc_R > 0.0 && dum_R * duc_R > 0.0 && duc_R != 0.0) {
-              phi_R = minmod2(dum_R / duc_R, dup_R / duc_R, minmod_theta);
-            } else if (dup_R * duc_R < 0.0 && dum_R * duc_R < 0.0) {
-              saw_R = true;
+              if (dup_R * duc_R > 0.0 && dum_R * duc_R > 0.0 && duc_R != 0.0) {
+                phi_R = minmod2(dum_R / duc_R, dup_R / duc_R, minmod_theta);
+              } else if (dup_R * duc_R < 0.0 && dum_R * duc_R < 0.0) {
+                saw_R = true;
+              }
+
+              // Physical fluxes at j and j+1
+              const CCTK_REAL f_j =
+                  nu_flux_dir[layout_cc.linear(i, j, k, comp)];
+              const CCTK_REAL f_jp1 =
+                  nu_flux_dir[layout_cc.linear(i_jp1, j_jp1, k_jp1, comp)];
+
+              // Characteristic speed at the interface: max(c_j, c_{j+1})
+              const CCTK_REAL cmx_R = fmax(clight_j, clight_jp1);
+
+              const CCTK_REAL flux_low_R =
+                  0.5 * (f_j + f_jp1 - cmx_R * (u_jp1 - u_j));
+              const CCTK_REAL flux_high_R = 0.5 * (f_j + f_jp1);
+
+              const CCTK_REAL Aeff_R = (saw_R ? 1.0 : A_R);
+
+              F_R = flux_high_R -
+                    Aeff_R * (1.0 - phi_R) * (flux_high_R - flux_low_R);
             }
-
-            // Physical fluxes at j and j+1
-            const CCTK_REAL f_j = nu_flux_dir[layout_cc.linear(i, j, k, comp)];
-            const CCTK_REAL f_jp1 =
-                nu_flux_dir[layout_cc.linear(i_jp1, j_jp1, k_jp1, comp)];
-
-            // Characteristic speed at the interface: max(c_j, c_{j+1})
-            const CCTK_REAL cmx_R = fmax(clight_j, clight_jp1);
-
-            const CCTK_REAL flux_low_R =
-                0.5 * (f_j + f_jp1 - cmx_R * (u_jp1 - u_j));
-            const CCTK_REAL flux_high_R = 0.5 * (f_j + f_jp1);
-
-            const CCTK_REAL Aeff_R = (saw_R ? 1.0 : A_R);
-
-            const CCTK_REAL F_R = flux_high_R - Aeff_R * (1.0 - phi_R) *
-                                                    (flux_high_R - flux_low_R);
 
             //----------------------------------------------------------------
             // 2) Left interface F_L at j-1/2 (between j-1 and j)
@@ -407,43 +386,46 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
             //    In the original algorithm this is computed one step back
             //    using the stencil {u_{j-2}, u_{j-1}, u_j, u_{j+1}}.
             //----------------------------------------------------------------
-            const CCTK_REAL u_jm2 =
-                read_cons_by_iv(iv, rN, rFx, rFy, rFz, rE, idx4_jm2);
+            CCTK_REAL F_L;
+            {
+              const CCTK_REAL u_jm2 = u_cons[idx4_jm2];
 
-            const CCTK_REAL dup_L = u_jp1 - u_j; // ujpp - ujp (j -> j-1 shift)
-            const CCTK_REAL duc_L = u_j - u_jm1; // ujp  - uj
-            const CCTK_REAL dum_L = u_jm1 - u_jm2; // uj   - ujm
+              const CCTK_REAL dup_L =
+                  u_jp1 - u_j; // ujpp - ujp (j -> j-1 shift)
+              const CCTK_REAL duc_L = u_j - u_jm1;   // ujp  - uj
+              const CCTK_REAL dum_L = u_jm1 - u_jm2; // uj   - ujm
 
-            CCTK_REAL phi_L = 0.0;
-            bool saw_L = false;
+              CCTK_REAL phi_L = 0.0;
+              bool saw_L = false;
 
-            if (dup_L * duc_L > 0.0 && dum_L * duc_L > 0.0 && duc_L != 0.0) {
-              phi_L = minmod2(dum_L / duc_L, dup_L / duc_L, minmod_theta);
-            } else if (dup_L * duc_L < 0.0 && dum_L * duc_L < 0.0) {
-              saw_L = true;
+              if (dup_L * duc_L > 0.0 && dum_L * duc_L > 0.0 && duc_L != 0.0) {
+                phi_L = minmod2(dum_L / duc_L, dup_L / duc_L, minmod_theta);
+              } else if (dup_L * duc_L < 0.0 && dum_L * duc_L < 0.0) {
+                saw_L = true;
+              }
+
+              // Physical fluxes at j-1 and j
+              const CCTK_REAL f_jm1 =
+                  nu_flux_dir[layout_cc.linear(i_jm1, j_jm1, k_jm1, comp)];
+              const CCTK_REAL f_jL =
+                  nu_flux_dir[layout_cc.linear(i, j, k, comp)];
+
+              // Characteristic speed at left interface: max(c_{j-1}, c_j)
+              const CCTK_REAL cmx_L = fmax(clight_jm1, clight_j);
+
+              const CCTK_REAL flux_low_L =
+                  0.5 * (f_jm1 + f_jL - cmx_L * (u_j - u_jm1));
+              const CCTK_REAL flux_high_L = 0.5 * (f_jm1 + f_jL);
+
+              const CCTK_REAL Aeff_L = (saw_L ? 1.0 : A_L);
+
+              F_L = flux_high_L -
+                    Aeff_L * (1.0 - phi_L) * (flux_high_L - flux_low_L);
             }
-
-            // Physical fluxes at j-1 and j
-            const CCTK_REAL f_jm1 =
-                nu_flux_dir[layout_cc.linear(i_jm1, j_jm1, k_jm1, comp)];
-            const CCTK_REAL f_jL = nu_flux_dir[layout_cc.linear(i, j, k, comp)];
-
-            // Characteristic speed at left interface: max(c_{j-1}, c_j)
-            const CCTK_REAL cmx_L = fmax(clight_jm1, clight_j);
-
-            const CCTK_REAL flux_low_L =
-                0.5 * (f_jm1 + f_jL - cmx_L * (u_j - u_jm1));
-            const CCTK_REAL flux_high_L = 0.5 * (f_jm1 + f_jL);
-
-            const CCTK_REAL Aeff_L = (saw_L ? 1.0 : A_L);
-
-            const CCTK_REAL F_L = flux_high_L - Aeff_L * (1.0 - phi_L) *
-                                                    (flux_high_L - flux_low_L);
 
             //----------------------------------------------------------------
             // Discrete divergence contribution for this cell/component
             //----------------------------------------------------------------
-            const int idx_rhs = layout_cc.linear(i, j, k, ig);
             r_rhs[iv][idx_rhs] += idx * (F_L - F_R);
           } // iv
         } // ig

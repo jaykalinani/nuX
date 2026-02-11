@@ -59,15 +59,7 @@ SCHEDULE GROUP nuX_M1_InitialGroup AT CCTK_INITIAL IN ODESolvers_Initial \
 {
 } "M1 initial group"
 
-SCHEDULE nuX_M1_InitVolform IN nuX_M1_InitialGroup 
-{
-    LANG: C
-    READS: ADMBaseX::metric(everywhere)
-    WRITES: volform(everywhere)
-} "Compute the volume form"
-
 SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
-    AFTER (nuX_M1_InitVolform)
 {
     LANG: C
 
@@ -98,7 +90,6 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_InitialGroup \
     READS: ADMBaseX::lapse(everywhere)
     READS: ADMBaseX::shift(everywhere)
     READS: ADMBaseX::curv(everywhere)
-    READS: volform(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
     READS: fidu_w_lorentz(everywhere)
     READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -255,7 +246,6 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
     READS: ADMBaseX::lapse(everywhere)
     READS: ADMBaseX::shift(everywhere)
     READS: ADMBaseX::curv(everywhere)
-    READS: volform(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
     READS: fidu_w_lorentz(everywhere)
     READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -268,7 +258,8 @@ if (use_fakerates) {
   {
       LANG: C
       READS: TimeIntegratorStage
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere) volform(everywhere)
+      READS: ADMBaseX::metric(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute fake opacities"
@@ -278,7 +269,8 @@ else {
   {
       LANG: C
       READS: TimeIntegratorStage
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere) volform(everywhere)
+      READS: ADMBaseX::metric(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
       WRITES: opacs(everywhere) nueave(everywhere)
   } "Compute the opacities"
@@ -308,11 +300,10 @@ if (include_fluxes) {
     	LANG: C
 
     	# geometry and slicing
-   	READS: ADMBaseX::metric(everywhere)
+        READS: ADMBaseX::metric(everywhere)
     	READS: ADMBaseX::lapse(everywhere)
     	READS: ADMBaseX::shift(everywhere)
     	READS: ADMBaseX::curv(everywhere)
-    	READS: volform(everywhere)
 
    	# neutrino conserved / moments
     	READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -344,7 +335,6 @@ if (include_fluxes) {
    	READS: ADMBaseX::lapse(everywhere)
     	READS: ADMBaseX::shift(everywhere)
     	READS: ADMBaseX::curv(everywhere)
-    	READS: volform(everywhere)
 
     	# neutrino conserved variables used in the limiter stencil
     	READS: rN(everywhere) rE(everywhere) rF(everywhere)
@@ -373,7 +363,7 @@ if (include_GR_sources) {
         READS: ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
         READS: ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere)
         READS: rE(everywhere) rF(everywhere) rP(everywhere)
-        READS: volform(everywhere) nuX_m1_mask(everywhere)
+        READS: nuX_m1_mask(everywhere)
         WRITES: rF_rhs(everywhere) rE_rhs(everywhere)
     } "Compute the radiation GR sources and add them to the RHS"
 }
@@ -386,7 +376,7 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     
     READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
     READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
-    READS: volform(interior) nuX_m1_mask(interior)
+    READS: nuX_m1_mask(interior)
     READS: fidu_vel(interior) fidu_w_lorentz(interior) 
     READS: rN(interior) rE(interior) rF(interior)  
     READS: rN_p(interior) rE_p(interior) rF_p(interior)
@@ -482,7 +472,7 @@ if (add_to_Tmunu) {
         READS: nuX_m1_mask(everywhere)
         READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
         READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
-        READS: volform(everywhere) rE(everywhere) rF(everywhere) 
+        READS: rE(everywhere) rF(everywhere)
         READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
@@ -538,7 +528,6 @@ SCHEDULE nuX_M1_CalcClosure AT CCTK_ANALYSIS
     READS: ADMBaseX::curv(everywhere)
     READS: fidu_vel(everywhere) nuX_m1_mask(everywhere) 
     READS: fidu_w_lorentz(everywhere)
-    READS: volform(everywhere)
     READS: rN(everywhere) rE(everywhere) rF(everywhere) 
     WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
     WRITES: chi(everywhere)
@@ -549,7 +538,7 @@ SCHEDULE nuX_M1_Analysis AT CCTK_ANALYSIS AFTER nuX_M1_CalcClosure
     LANG: C
     TRIGGERS: neutrino_fractions
     READS: HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere)
-    READS: volform(everywhere)
+    READS: ADMBaseX::metric(everywhere)
     READS: rnnu(everywhere) rJ(everywhere)
     WRITES: ynue(everywhere) ynua(everywhere) ynux(everywhere)
     WRITES: znue(everywhere) znua(everywhere) znux(everywhere)
@@ -561,7 +550,7 @@ SCHEDULE nuX_M1_CalcRadialFluxes AT CCTK_ANALYSIS \
 {
     LANG: C
     READS: ADMBaseX::metric(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::lapse(everywhere)
-    READS: ADMBaseX::curv(everywhere) volform(everywhere)
+    READS: ADMBaseX::curv(everywhere)
     READS: rHt(everywhere) rH(everywhere) rE(everywhere) rJ(everywhere) rN(everywhere) rF(everywhere)
     READS: fidu_vel(everywhere) fidu_w_lorentz(everywhere)
     READS: nuX_m1_mask(everywhere)

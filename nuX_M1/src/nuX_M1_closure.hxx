@@ -64,9 +64,9 @@ enum ClosFlag : CCTK_INT {
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 print_stuff(cGH const *cctkGH, const PointDesc &p, int const ig, ostream &ss) {
   DECLARE_CCTK_ARGUMENTS;
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
-  int const ijk = layout2.linear(p.i, p.j, p.k);
-  int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  int const ijk = layout_cc.linear(p.i, p.j, p.k);
+  int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
   ss << "Iteration = " << cctkGH->cctk_iteration << endl;
   ss << "Reflevel = " << ilogb(cctkGH->cctk_levfac[0]) << endl;
@@ -538,9 +538,6 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
 
   // int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
 
-  CCTK_INT clos_flag_code = CLOS_OK; // Default closure flag to success
-  bool clos_flag_local = true;
-
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
   if (zFunction(x_lo, &params) * zFunction(x_hi, &params) >= 0) {
@@ -627,33 +624,6 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   #endif
 
   */
-  switch (clos_flag_code) {
-  case CLOS_OK:
-    // printf("Closure succeeded.\n");
-    break;
-  case CLOS_I:
-    printf("Initial value closure NaN or inf.\n");
-    // print_stuff(cctkGH, ig, &params, ss); // Won't work, only have point
-    // information during loop.
-    break;
-  case GSL_I:
-    printf("Initial GSL solver error.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  case CLOS_IT:
-    printf("Iteration closure NaN or inf.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  case GSL_IT:
-    printf("Iterative GSL solver error.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  case GSL_MAXIT:
-    printf("GSL solver reached max iterations.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  }
-
   // We are done, update the closure with the newly found chi
   apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                 P_dd);
