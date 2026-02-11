@@ -9,7 +9,7 @@ namespace nuX_M1 {
 
 using namespace Loop;
 
-extern "C" void nuX_M1_InitFluxesRHS(CCTK_ARGUMENTS) {
+extern "C" void nuX_M1_InitFluxesRHSOpacs(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS;
   DECLARE_CCTK_PARAMETERS;
 
