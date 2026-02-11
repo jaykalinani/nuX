@@ -72,17 +72,18 @@ SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
     LANG: C
 
     WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
+    WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
 } "Initialize everything to zero"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup 
     AFTER (nuX_M1_Reset)
 {
     LANG: C
-    READS: ADMBaseX::metric(everywhere)
-    READS: AsterX::dens(everywhere)
-    READS: HydroBaseX::vel(everywhere)
-    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
-    WRITES: fidu_w_lorentz(everywhere)
+    READS: ADMBaseX::metric(interior)
+    READS: AsterX::dens(interior)
+    READS: HydroBaseX::vel(interior)
+    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
+    WRITES: fidu_w_lorentz(interior)
     SYNC: fidu_vel
     SYNC: fidu_w_lorentz
 } "Compute the fiducial velocity"
@@ -132,15 +133,16 @@ if (reset_to_equilibrium) {
     {
         LANG: C
         WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
+        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
     } "Initialize everything to zero"
 
     SCHEDULE nuX_M1_FiducialVelocity AT CCTK_POST_RECOVER_VARIABLES \
         AFTER nuX_M1_Reset
     {
         LANG: C
-         READS: ADMBaseX::metric(everywhere)
-         READS: AsterX::dens(everywhere)
-         READS: HydroBaseX::vel(everywhere)
+         READS: ADMBaseX::metric(interior)
+         READS: AsterX::dens(interior)
+         READS: HydroBaseX::vel(interior)
 
          WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
          WRITES: fidu_w_lorentz(everywhere)
@@ -235,11 +237,11 @@ SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
-    READS: ADMBaseX::metric(everywhere)
-    READS: AsterX::dens(everywhere)
-    READS: HydroBaseX::vel(everywhere) 
-    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
-    WRITES: fidu_w_lorentz(everywhere)
+    READS: ADMBaseX::metric(interior)
+    READS: AsterX::dens(interior)
+    READS: HydroBaseX::vel(interior) 
+    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
+    WRITES: fidu_w_lorentz(interior)
     SYNC: fidu_vel
     SYNC: fidu_w_lorentz
     
@@ -317,8 +319,8 @@ if (include_fluxes) {
    	READS: rHt(everywhere) rH(everywhere)
    	READS: rP(everywhere) rJ(everywhere)
 
-    # opacities for A-factor in numerical flux
-    READS: opacs(everywhere)
+        # opacities for A-factor in numerical flux
+        READS: opacs(everywhere)
 
     	# fiducial observer fields
     	READS: fidu_vel(everywhere)
@@ -464,12 +466,12 @@ if (add_to_Tmunu) {
     SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
     {
         LANG: C
-        READS: ADMBaseX::metric(everywhere)
-        READS: AsterX::dens(everywhere)
-        READS: HydroBaseX::vel(everywhere)  
-        READS: nuX_m1_mask(everywhere)
-        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
-        WRITES: fidu_w_lorentz(everywhere)
+        READS: ADMBaseX::metric(interior)
+        READS: AsterX::dens(interior)
+        READS: HydroBaseX::vel(interior)  
+        READS: nuX_m1_mask(interior)
+        WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
+        WRITES: fidu_w_lorentz(interior)
         SYNC: fidu_vel
         SYNC: fidu_w_lorentz
     } "Compute the fiducial velocity"
@@ -481,7 +483,6 @@ if (add_to_Tmunu) {
         READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
         READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
         READS: volform(everywhere) rE(everywhere) rF(everywhere) 
-        READS: ADMBaseX::shift(everywhere)
         READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
