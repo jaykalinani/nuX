@@ -406,7 +406,8 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL const eta, CCTK_REAL const kabs, CCTK_REAL const kscat,
     CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
     CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit,
-    CCTK_INT source_maxiter) {
+    CCTK_INT source_maxiter, CCTK_REAL source_epsabs,
+    CCTK_REAL source_epsrel) {
 
   Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter,
            cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u,
@@ -460,10 +461,14 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   bool failed;
   const int minbits =
       static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
+  // Keep E non-negative, but allow signed fluxes.
+  // In diffusion/advection problems the implicit solve needs negative F
+  // (e.g. on the up-gradient side); clamping F >= 0 biases transport speed.
   auto q_out = Algo::newton_raphson_nd(fn_nd, q_initial_guess,
-                                       arith_vector{0.0, 0.0, 0.0, 0.0},
+                                       arith_vector{0.0, -10.0, -10.0, -10.0},
                                        arith_vector{10.0, 10.0, 10.0, 10.0},
-                                       minbits, source_maxiter, iters, failed);
+                                       minbits, source_maxiter, iters, failed,
+                                       source_epsabs, source_epsrel);
   if (failed) {
     // If we are here, then we are in trouble
 #ifdef WARN_FOR_SRC_FIX
@@ -480,7 +485,8 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
           cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter, cdt,
           alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W,
           Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
-          source_thick_limit, source_scat_limit, source_maxiter);
+          source_thick_limit, source_scat_limit, source_maxiter, source_epsabs,
+          source_epsrel);
       if (ierr == NUX_M1_SOURCE_OK) {
         return NUX_M1_SOURCE_EDDINGTON;
       } else {

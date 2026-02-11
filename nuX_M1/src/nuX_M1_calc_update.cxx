@@ -245,7 +245,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
               u_d, u_u, v_d, v_u, proj_ud, fidu_w_lorentz[ijk], Estar, Fstar_d,
               Estar, Fstar_d, volform[ijk] * eta_1[i4D], abs_1[i4D],
               scat_1[i4D], &chi[i4D], &Enew, &Fnew_d, source_thick_limit,
-              source_scat_limit, source_maxiter);
+              source_scat_limit, source_maxiter, source_epsabs, source_epsrel);
 
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
