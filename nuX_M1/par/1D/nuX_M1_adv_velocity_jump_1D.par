@@ -1,4 +1,7 @@
-ActiveThorns = " 
+# -----------------------------------------------------------------------------
+# Active thorns
+# -----------------------------------------------------------------------------
+ActiveThorns = "
    ADMBaseX
    AsterMasks
    AsterX
@@ -7,92 +10,85 @@ ActiveThorns = "
    EOSX
    HydroBaseX
    IOUtil
+   ODESolvers
+   TimerReport
+   TmunuBaseX
    nuX_FakeRates
    nuX_M1
    nuX_Seeds
    nuX_Utils
-   ODESolvers
-   TimerReport
-   TmunuBaseX
    "
 
- 
+# -----------------------------------------------------------------------------
+# Global variables
+# -----------------------------------------------------------------------------
 $nlevels = 1
-$ncells = 400
+$ncells = 200
+$xmax = 2.0
+$xmin = -2.0
 
-Cactus::cctk_show_schedule = yes
+# -----------------------------------------------------------------------------
+# ADMBaseX
+# -----------------------------------------------------------------------------
+ADMBaseX::initial_data    = "Cartesian Minkowski"
+ADMBaseX::initial_dtlapse = "none"
+ADMBaseX::initial_dtshift = "none"
+ADMBaseX::initial_lapse   = "one"
+ADMBaseX::initial_shift   = "zero"
 
-Cactus::presync_mode = "mixed-error"
-
-Cactus::terminate = "time"
-Cactus::cctk_final_time = 0.40
-
-ADMBaseX::initial_data            = "Cartesian Minkowski"
-ADMBaseX::initial_lapse           = "one"
-ADMBaseX::initial_shift           = "zero"
-ADMBaseX::initial_dtlapse         = "none"
-ADMBaseX::initial_dtshift         = "none"
-
-AsterX::debug_mode = "yes"
-AsterX::flux_type = "LxF"
+# -----------------------------------------------------------------------------
+# AsterX
+# -----------------------------------------------------------------------------
+AsterX::debug_mode           = "yes"
+AsterX::flux_type            = "LxF"
+AsterX::local_estimate_error = "no"
+AsterX::recon_type           = "z_vec"
 ##AsterX::update_tmunu = "no"
 
-CarpetX::verbose = yes
+# -----------------------------------------------------------------------------
+# Cactus
+# -----------------------------------------------------------------------------
+Cactus::cctk_final_time    = 1.0
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode       = "mixed-error"
+Cactus::terminate          = "time"
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::blocking_factor_x       = 1
+CarpetX::blocking_factor_y       = 1
+CarpetX::blocking_factor_z       = 1
+CarpetX::boundary_upper_x        = none
+CarpetX::boundary_upper_y        = none
+CarpetX::boundary_upper_z        = "neumann"
+CarpetX::boundary_x              = none
+CarpetX::boundary_y              = none
+CarpetX::boundary_z              = "neumann"
+CarpetX::dtfac                   = 0.250
+CarpetX::ghost_size              = 2
+CarpetX::max_num_levels          = $nlevels
+CarpetX::ncells_x                = 2
+CarpetX::ncells_y                = 2
+CarpetX::ncells_z                = $ncells
+CarpetX::out_norm_every          = 1
+CarpetX::out_norm_omit_unstable  = yes
+CarpetX::out_norm_vars           = "all"
+CarpetX::periodic                = yes
+CarpetX::periodic_x              = yes
+CarpetX::periodic_y              = yes
+CarpetX::periodic_z              = no
 CarpetX::poison_undefined_values = yes
-CarpetX::xmin = -0.5
-CarpetX::ymin = -0.5
-CarpetX::zmin = -0.5
-
-CarpetX::xmax = +0.5
-CarpetX::ymax = +0.5
-CarpetX::zmax = +0.5
-
-CarpetX::boundary_x = "linear extrapolation"
-CarpetX::boundary_y = "linear extrapolation"
-CarpetX::boundary_z = "linear extrapolation"
-
-CarpetX::boundary_upper_x = "linear extrapolation"
-CarpetX::boundary_upper_y = "linear extrapolation"
-CarpetX::boundary_upper_z = "linear extrapolation"
-
-CarpetX::ncells_x = 2
-CarpetX::ncells_y = 2
-CarpetX::ncells_z = $ncells
-
-CarpetX::max_num_levels = $nlevels
-CarpetX::regrid_every = 100000
-CarpetX::blocking_factor_x = 1
-CarpetX::blocking_factor_y = 1
-CarpetX::blocking_factor_z = 1
-CarpetX::regrid_error_threshold = 0.01
-
-CarpetX::prolongation_type = "ddf"
-CarpetX::ghost_size = 2
-CarpetX::dtfac = 0.50
- 
-
-ReconX::reconstruction_method = "minmod"
-
-Con2PrimFactory::c2p_prime = "Noble"
-Con2PrimFactory::c2p_second = "Palenzuela"
-Con2PrimFactory::c2p_tol = 1e-8
-Con2PrimFactory::max_iter = 100
-Con2PrimFactory::rho_abs_min = 1e-3
-Con2PrimFactory::unit_test = "yes"
-Con2PrimFactory::B_lim = 1e8
-Con2PrimFactory::vw_lim = 1e8
-Con2PrimFactory::Ye_lenient = "yes"
-
-EOSX::evolution_eos = "IdealGas"
-EOSX::gl_gamma = 2.0
-EOSX::poly_gamma = 2.0
-EOSX::rho_max = 1e8
-EOSX::eps_max = 1e8
-
-ODESolvers::method = "RK4"
-
-IO::out_dir = $parfile
-IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
+CarpetX::prolongation_type       = "ddf"
+CarpetX::regrid_error_threshold  = 0.01
+CarpetX::regrid_every            = 100000
+CarpetX::verbose                 = yes
+CarpetX::xmax                    = $xmax
+CarpetX::xmin                    = $xmin
+CarpetX::ymax                    = $xmax
+CarpetX::ymin                    = $xmin
+CarpetX::zmax                    = $xmax
+CarpetX::zmin                    = $xmin
 
 #CarpetX::out_silo_vars = "
 #    HydroBaseX::rho
@@ -108,49 +104,113 @@ IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
 #"
 
 CarpetX::out_tsv_vars = "
-    HydroBaseX::rho
-    HydroBaseX::vel
-    HydroBaseX::eps
-    HydroBaseX::press
-    HydroBaseX::Bvec
+#    HydroBaseX::rho
+#    HydroBaseX::vel
+#    HydroBaseX::eps
+#    HydroBaseX::press
+#    HydroBaseX::Bvec
     nuX_M1::rN
     nuX_M1::rE
     nux_M1::rf
     nuX_M1::rP
+    nuX_M1::rnnu
+    nuX_M1::rJ
+    nuX_M1::rHt
+    nuX_M1::rH
+    nuX_M1::fidu_vel
+    nuX_M1::opacs
+    nuX_M1::fluidsources
+    nuX_M1::nu_flux_x
+    nuX_M1::nu_flux_y
+    nuX_M1::nu_flux_z
+    nuX_M1::radial_fluxes
 "
 
-TimerReport::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
-TimerReport::out_filename = "TimerReport"
-TimerReport::output_all_timers_together = yes
+# -----------------------------------------------------------------------------
+# Con2PrimFactory
+# -----------------------------------------------------------------------------
+Con2PrimFactory::B_lim       = 1e8
+Con2PrimFactory::Ye_lenient  = "yes"
+Con2PrimFactory::c2p_prime   = "Noble"
+Con2PrimFactory::c2p_second  = "Palenzuela"
+Con2PrimFactory::c2p_tol     = 1e-8
+Con2PrimFactory::max_iter    = 100
+Con2PrimFactory::rho_abs_min = 1e-5
+Con2PrimFactory::unit_test   = "yes"
+Con2PrimFactory::vw_lim      = 1e8
+
+# -----------------------------------------------------------------------------
+# EOSX
+# -----------------------------------------------------------------------------
+EOSX::eps_max       = 1e8
+EOSX::eps_min       = 1e-5
+EOSX::evolution_eos = "IdealGas"
+EOSX::gl_gamma      = 2.0
+EOSX::poly_gamma    = 2.0
+EOSX::poly_k        = 1
+EOSX::rho_max       = 1e8
+
+# -----------------------------------------------------------------------------
+# IO
+# -----------------------------------------------------------------------------
+IO::out_dir   = $parfile
+IO::out_every = 1 #$ncells * 2 ** ($nlevels - 1) / 32
+
+# -----------------------------------------------------------------------------
+# ODESolvers
+# -----------------------------------------------------------------------------
+ODESolvers::method = "RK4"
+
+# -----------------------------------------------------------------------------
+# ReconX
+# -----------------------------------------------------------------------------
+ReconX::reconstruction_method = "minmod"
+
+# -----------------------------------------------------------------------------
+# TimerReport
+# -----------------------------------------------------------------------------
+TimerReport::n_top_timers               = 50
+TimerReport::out_every                  = 10000 #$ncells * 2 ** ($nlevels - 1) / 32
+TimerReport::out_filename               = "TimerReport"
 TimerReport::output_all_timers_readable = yes
-TimerReport::n_top_timers = 50
+TimerReport::output_all_timers_together = yes
 
+# -----------------------------------------------------------------------------
+# nuX_FakeRates
+# -----------------------------------------------------------------------------
+nuX_FakeRates::eta_nua        = 0.0
+nuX_FakeRates::eta_nue        = 0.0
+nuX_FakeRates::eta_nux        = 0.0
+nuX_FakeRates::kappa_abs_nua  = 0.0
+nuX_FakeRates::kappa_abs_nue  = 0.0
+nuX_FakeRates::kappa_scat_nua = 0.0
+nuX_FakeRates::kappa_scat_nue = 0.0
+nuX_FakeRates::kappa_scat_nux = 0.0
 
+# -----------------------------------------------------------------------------
+# nuX_M1
+# -----------------------------------------------------------------------------
+nuX_M1::add_to_Tmunu         = "yes"
+nuX_M1::backreact            = "yes"
+nuX_M1::bc_type              = "none" #? Not sure
+nuX_M1::closure              = "thin" #"Minerbo" #"thin"
+nuX_M1::closure_epsilon      = 1e-3
+nuX_M1::closure_maxiter      = 1000
+nuX_M1::copy_levels          = "yes"
+nuX_M1::include_GR_sources   = "yes"
+nuX_M1::include_fluxes       = "yes"
+nuX_M1::reset_to_equilibrium = "no"
+nuX_M1::use_fakerates        = "yes"
+nuX_M1::verbose              = "no"
 
-nuX_M1::add_to_Tmunu       = "no"
-nuX_M1::backreact          = "yes"
-nuX_M1::bc_type            = "none"  #? Not sure
-nuX_M1::closure            = "Minerbo"
-nuX_M1::closure_epsilon    = 1e-5
-nuX_M1::include_fluxes     = "yes"
-nuX_M1::include_GR_sources = "no"
-nuX_M1::verbose            = "yes"
-nuX_M1::use_fakerates      = "yes"
-
-nuX_Seeds::verbose         = "yes"
-nuX_Seeds::nuX_test_case   = "adv_velocity_jump"
-nuX_Seeds::test_nvec       = [0.0,0.0,1.0]
-nuX_Seeds::static_rho      = 1.0
-nuX_Seeds::static_E        = 1.0
-nuX_Seeds::static_eps      = 1.0e-2
-nuX_Seeds::static_ye       = 0.5
-nuX_Seeds::static_velz     = 0.87
-
-nuX_FakeRates::eta_nue			= 0.0
-nuX_FakeRates::eta_nua			= 0.0
-nuX_FakeRates::eta_nux			= 0.0
-nuX_FakeRates::kappa_scat_nue		= 0.0
-nuX_FakeRates::kappa_scat_nua		= 0.0
-nuX_FakeRates::kappa_scat_nux		= 0.0
-nuX_FakeRates::kappa_abs_nue		= 0.0
-nuX_FakeRates::kappa_abs_nua		= 0.0
+# -----------------------------------------------------------------------------
+# nuX_Seeds
+# -----------------------------------------------------------------------------
+nuX_Seeds::nuX_test_case = "adv_velocity_jump"
+nuX_Seeds::static_E      = 1.0
+nuX_Seeds::static_eps    = 1.0e-2
+nuX_Seeds::static_rho    = 1.0
+nuX_Seeds::static_velz   = 0.87
+nuX_Seeds::static_ye     = 0.5
+nuX_Seeds::test_nvec     = [0.0,0.0,1.0]
+nuX_Seeds::verbose       = "yes"

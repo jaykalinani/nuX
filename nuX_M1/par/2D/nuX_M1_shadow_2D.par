@@ -1,3 +1,6 @@
+# -----------------------------------------------------------------------------
+# Active thorns
+# -----------------------------------------------------------------------------
 ActiveThorns = " 
    ADMBaseX
    AsterMasks
@@ -16,10 +19,31 @@ ActiveThorns = "
    TmunuBaseX
    "
 
- 
+# -----------------------------------------------------------------------------
+# Global variables
+# -----------------------------------------------------------------------------
 $nlevels = 1
 $ncells = 400
 
+# -----------------------------------------------------------------------------
+# ADMBaseX
+# -----------------------------------------------------------------------------
+ADMBaseX::initial_data            = "Cartesian Minkowski"
+ADMBaseX::initial_lapse           = "one"
+ADMBaseX::initial_shift           = "zero"
+ADMBaseX::initial_dtlapse         = "none"
+ADMBaseX::initial_dtshift         = "none"
+
+# -----------------------------------------------------------------------------
+# AsterX
+# -----------------------------------------------------------------------------
+AsterX::debug_mode = "yes"
+AsterX::flux_type = "LxF"
+AsterX::update_tmunu = "no"
+
+# -----------------------------------------------------------------------------
+# Cactus
+# -----------------------------------------------------------------------------
 Cactus::cctk_show_schedule = yes
 
 Cactus::presync_mode = "mixed-error"
@@ -27,16 +51,9 @@ Cactus::presync_mode = "mixed-error"
 Cactus::terminate = "time"
 Cactus::cctk_final_time = 0.40
 
-ADMBaseX::initial_data            = "Cartesian Minkowski"
-ADMBaseX::initial_lapse           = "one"
-ADMBaseX::initial_shift           = "zero"
-ADMBaseX::initial_dtlapse         = "none"
-ADMBaseX::initial_dtshift         = "none"
-
-AsterX::debug_mode = "yes"
-AsterX::flux_type = "LxF"
-AsterX::update_tmunu = "no"
-
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
 CarpetX::verbose = yes
 
 CarpetX::xmin = -0.5
@@ -70,29 +87,6 @@ CarpetX::prolongation_type = "ddf"
 CarpetX::ghost_size = 3
 CarpetX::dtfac = 0.40
  
-
-ReconX::reconstruction_method = "wenoz"
-
-Con2PrimFactory::c2p_prime = "Noble"
-Con2PrimFactory::c2p_second = "Palenzuela"
-Con2PrimFactory::c2p_tol = 1e-8
-Con2PrimFactory::max_iter = 100
-Con2PrimFactory::rho_abs_min = 1e-8
-Con2PrimFactory::unit_test = "yes"
-Con2PrimFactory::B_lim = 1e8
-Con2PrimFactory::vw_lim = 1e8
-Con2PrimFactory::Ye_lenient = "yes"
-
-EOSX::evolution_eos = "IdealGas"
-EOSX::gl_gamma = 2.0
-EOSX::poly_gamma = 2.0
-EOSX::rho_max = 1e8
-EOSX::eps_max = 1e8
-
-ODESolvers::method = "RK4"
-
-IO::out_dir = $parfile
-IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
 CarpetX::out_silo_vars = "
     HydroBaseX::rho
     HydroBaseX::vel
@@ -119,14 +113,68 @@ CarpetX::out_tsv_vars = "
     nuX_M1::rP
 "
 
+# -----------------------------------------------------------------------------
+# Con2PrimFactory
+# -----------------------------------------------------------------------------
+Con2PrimFactory::c2p_prime = "Noble"
+Con2PrimFactory::c2p_second = "Palenzuela"
+Con2PrimFactory::c2p_tol = 1e-8
+Con2PrimFactory::max_iter = 100
+Con2PrimFactory::rho_abs_min = 1e-8
+Con2PrimFactory::unit_test = "yes"
+Con2PrimFactory::B_lim = 1e8
+Con2PrimFactory::vw_lim = 1e8
+Con2PrimFactory::Ye_lenient = "yes"
+
+# -----------------------------------------------------------------------------
+# EOSX
+# -----------------------------------------------------------------------------
+EOSX::evolution_eos = "IdealGas"
+EOSX::gl_gamma = 2.0
+EOSX::poly_gamma = 2.0
+EOSX::rho_max = 1e8
+EOSX::eps_max = 1e8
+
+# -----------------------------------------------------------------------------
+# FakeRates
+# -----------------------------------------------------------------------------
+FakeRates::eta_nue			= 0.0
+FakeRates::eta_nua			= 0.0
+FakeRates::eta_nux			= 0.0
+FakeRates::kappa_scat_nue		= 0.0
+FakeRates::kappa_scat_nua		= 0.0
+FakeRates::kappa_scat_nux		= 0.0
+FakeRates::kappa_abs_nue		= 1.0
+FakeRates::kappa_abs_nua		= 1.0
+
+# -----------------------------------------------------------------------------
+# IO
+# -----------------------------------------------------------------------------
+IO::out_dir = $parfile
+IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
+
+# -----------------------------------------------------------------------------
+# ODESolvers
+# -----------------------------------------------------------------------------
+ODESolvers::method = "RK4"
+
+# -----------------------------------------------------------------------------
+# ReconX
+# -----------------------------------------------------------------------------
+ReconX::reconstruction_method = "wenoz"
+
+# -----------------------------------------------------------------------------
+# TimerReport
+# -----------------------------------------------------------------------------
 TimerReport::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
 TimerReport::out_filename = "TimerReport"
 TimerReport::output_all_timers_together = yes
 TimerReport::output_all_timers_readable = yes
 TimerReport::n_top_timers = 50
 
-
-
+# -----------------------------------------------------------------------------
+# nuX_M1
+# -----------------------------------------------------------------------------
 nuX_M1::add_to_Tmunu       = "no"
 nuX_M1::backreact          = "no"
 nuX_M1::bc_type            = "none"  #? Not sure
@@ -136,7 +184,9 @@ nuX_M1::include_fluxes     = "yes"
 nuX_M1::include_GR_sources = "yes"
 nuX_M1::verbose            = "yes"
 
-
+# -----------------------------------------------------------------------------
+# nuX_Seeds
+# -----------------------------------------------------------------------------
 nuX_Seeds::verbose         = "yes"
 nuX_Seeds::nuX_test_case   = "shadow"
 nuX_Seeds::test_nvec       = [1.0,0.0,0.0]
@@ -145,12 +195,3 @@ nuX_Seeds::static_eps      = 1.0e-2
 nuX_Seeds::static_ye       = 0.5
 nuX_Seeds::roi_radius      = 1.0
 nuX_Seeds::beam_width      = 1.5
-
-FakeRates::eta_nue			= 0.0
-FakeRates::eta_nua			= 0.0
-FakeRates::eta_nux			= 0.0
-FakeRates::kappa_scat_nue		= 0.0
-FakeRates::kappa_scat_nua		= 0.0
-FakeRates::kappa_scat_nux		= 0.0
-FakeRates::kappa_abs_nue		= 1.0
-FakeRates::kappa_abs_nua		= 1.0
