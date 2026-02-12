@@ -213,7 +213,6 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
 {
     LANG: C
     WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere) 
-    WRITES: opacs(everywhere) nueave(everywhere)
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
