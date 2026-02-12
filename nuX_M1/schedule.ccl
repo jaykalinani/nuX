@@ -65,6 +65,7 @@ SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
 
     WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
     WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
+    WRITES: opacs(everywhere) nueave(everywhere)
 } "Initialize everything to zero"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup 
@@ -208,16 +209,15 @@ SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
 } "A single substep in the evolution"
 #------------------------------------------------------------------------------
 
-SCHEDULE nuX_M1_InitFluxesRHSOpacs IN nuX_M1_TimeStep
+SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
 {
     LANG: C
     WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere) 
-    WRITES: opacs(everywhere) nueave(everywhere)
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
 # Ensure conserved vars have valid ghost zones before closure/fluxes
-SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHSOpacs
+SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
 {
     LANG: C
     OPTIONS: SINGLEMAP
@@ -297,7 +297,7 @@ if (include_fluxes) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
-           nuX_M1_CalcClosure nuX_M1_InitFluxesRHSOpacs)
+           nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
     	LANG: C
 
@@ -325,7 +325,7 @@ if (include_fluxes) {
     } "Compute neutrino transport fluxes at cell centres"
 
     SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcFluxes nuX_M1_InitFluxesRHSOpacs)
+    AFTER (nuX_M1_CalcFluxes nuX_M1_InitFluxesRHS)
     {
     	LANG: C
 
@@ -357,7 +357,7 @@ if (include_fluxes) {
 
 if (include_GR_sources) {
     SCHEDULE nuX_M1_CalcGRSources IN nuX_M1_TimeStep \
-        AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcClosure nuX_M1_InitFluxesRHSOpacs)
+        AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
         BEFORE nuX_M1_CalcUpdate
     {
         LANG: C
