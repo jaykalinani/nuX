@@ -72,13 +72,11 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup
     AFTER (nuX_M1_Reset)
 {
     LANG: C
-    READS: ADMBaseX::metric(interior)
-    READS: AsterX::dens(interior)
-    READS: HydroBaseX::vel(interior)
-    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
-    WRITES: fidu_w_lorentz(interior)
-    SYNC: fidu_vel
-    SYNC: fidu_w_lorentz
+    READS: ADMBaseX::metric(everywhere)
+    READS: AsterX::dens(everywhere)
+    READS: HydroBaseX::vel(everywhere)
+    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+    WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
 
 
@@ -132,14 +130,12 @@ if (reset_to_equilibrium) {
         AFTER nuX_M1_Reset
     {
         LANG: C
-         READS: ADMBaseX::metric(interior)
-         READS: AsterX::dens(interior)
-         READS: HydroBaseX::vel(interior)
+         READS: ADMBaseX::metric(everywhere)
+         READS: AsterX::dens(everywhere)
+         READS: HydroBaseX::vel(everywhere)
 
          WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
          WRITES: fidu_w_lorentz(everywhere)
-         SYNC: fidu_vel
-         SYNC: fidu_w_lorentz
     } "Compute the fiducial velocity"
 
 #    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
@@ -229,14 +225,11 @@ SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
-    READS: ADMBaseX::metric(interior)
-    READS: AsterX::dens(interior)
-    READS: HydroBaseX::vel(interior) 
-    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
-    WRITES: fidu_w_lorentz(interior)
-    SYNC: fidu_vel
-    SYNC: fidu_w_lorentz
-    
+    READS: ADMBaseX::metric(everywhere)
+    READS: AsterX::dens(everywhere)
+    READS: HydroBaseX::vel(everywhere) 
+    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+    WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
 
 SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
@@ -459,14 +452,12 @@ if (add_to_Tmunu) {
     SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
     {
         LANG: C
-        READS: ADMBaseX::metric(interior)
-        READS: AsterX::dens(interior)
-        READS: HydroBaseX::vel(interior)  
-        READS: nuX_m1_mask(interior)
-        WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
-        WRITES: fidu_w_lorentz(interior)
-        SYNC: fidu_vel
-        SYNC: fidu_w_lorentz
+        READS: ADMBaseX::metric(everywhere)
+        READS: AsterX::dens(everywhere)
+        READS: HydroBaseX::vel(everywhere)  
+        READS: nuX_m1_mask(everywhere)
+        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+        WRITES: fidu_w_lorentz(everywhere)
     } "Compute the fiducial velocity"
 
     SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
