@@ -27,19 +27,32 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   // gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
 
   // Pick closure
-  closure_t closure_fun = nullptr;
+  closure_t closure_fun;
   if (CCTK_Equals(closure, "Eddington")) {
-    closure_fun = eddington;
+    closure_fun = closure_t::eddington_t;
   } else if (CCTK_Equals(closure, "Kershaw")) {
-    closure_fun = kershaw;
+    closure_fun = closure_t::kershaw_t;
   } else if (CCTK_Equals(closure, "Minerbo")) {
-    closure_fun = minerbo;
+    closure_fun = closure_t::minerbo_t;
   } else if (CCTK_Equals(closure, "thin")) {
-    closure_fun = thin;
+    closure_fun = closure_t::thin_t;
   } else {
-    CCTK_VINFO("Unknown closure \"%s\"", closure);
-    CCTK_ERROR("Unsupported closure");
+    CCTK_ERROR("Unkown closure type");
   }
+  // closure_t closure_fun = nullptr;
+  // if (CCTK_Equals(closure, "Eddington")) {
+  //   closure_fun = eddington;
+  // } else if (CCTK_Equals(closure, "Kershaw")) {
+  //   closure_fun = kershaw;
+  // } else if (CCTK_Equals(closure, "Minerbo")) {
+  //   closure_fun = minerbo;
+  // } else if (CCTK_Equals(closure, "thin")) {
+  //   closure_fun = thin;
+  // } else {
+  //   CCTK_VINFO("Unknown closure \"%s\"", closure);
+  //   CCTK_ERROR("Unsupported closure");
+  // }
+
   // Setup grid layout
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});

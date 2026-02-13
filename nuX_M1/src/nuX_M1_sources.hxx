@@ -37,6 +37,7 @@ using namespace Loop;
 using namespace std;
 
 struct Params {
+  CCTK_HOST CCTK_DEVICE
   Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
          int const _ig, closure_t _closure, CCTK_REAL _closure_epsilon,
          CCTK_INT _closure_maxiter, CCTK_REAL const _cdt, CCTK_REAL const _alp,
@@ -407,9 +408,11 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit,
     CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel) {
 
+  printf("src_update begin\n");
   Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter,
            cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u,
            proj_ud, W, Estar, Fstar_d, *chi, eta, kabs, kscat);
+  printf("src_update set params\n");
 
   // Old solution
   arith_vector qold{Eold, Fold_d(1), Fold_d(2), Fold_d(3)};
@@ -417,7 +420,9 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   // Non stiff limit, use explicit update
   if (cdt * kabs < 1 && cdt * kscat < 1) {
     prepare(qold, &p);
+    printf("src_update prepared\n");
     explicit_update(&p, Enew, Fnew_d);
+    printf("src_update explicit update done\n");
 
     arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
     prepare_closure(q, &p);
@@ -473,13 +478,13 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
 #endif
 
     // We are optically thick, suggest to retry with Eddington closure
-    if (closure_fun != eddington) {
+    if (closure_fun != closure_t::eddington_t) {
 #ifdef WARN_FOR_SRC_FIX
       printf("Eddington closure\n");
       // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
       int ierr = source_update(
-          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter, cdt,
+          cctkGH, i, j, k, ig, closure_t::eddington_t, closure_epsilon, closure_maxiter, cdt,
           alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W,
           Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
           source_thick_limit, source_scat_limit, source_maxiter, source_epsabs,

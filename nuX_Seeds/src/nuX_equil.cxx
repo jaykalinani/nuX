@@ -32,9 +32,9 @@ extern "C" void nuX_Seeds_SetupNeutTest_equil(CCTK_ARGUMENTS) {
       GF3D2<const CCTK_REAL8>(layout_cc, gyz),
       GF3D2<const CCTK_REAL8>(layout_cc, gzz)};
 
-  grid.loop_all_device<1, 1, 1>(
+  grid.loop_all<1, 1, 1>(
       grid.nghostzones,
-      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+      [=] (const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
         assert(ngroups == 1);
         assert(nspecies == 3);

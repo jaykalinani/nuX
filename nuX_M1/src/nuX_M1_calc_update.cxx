@@ -25,20 +25,20 @@ using namespace nuX_Utils;
 #endif
 
 // Map closure string → function pointer
-static inline closure_t pick_closure_fun(const char *name) {
-  if (CCTK_Equals(name, "Eddington"))
-    return eddington;
-  if (CCTK_Equals(name, "Kershaw"))
-    return kershaw;
-  if (CCTK_Equals(name, "Minerbo"))
-    return minerbo;
-  if (CCTK_Equals(name, "thin"))
-    return thin;
-  char msg[BUFSIZ];
-  snprintf(msg, BUFSIZ, "Unknown closure \"%s\"", name);
-  CCTK_ERROR(msg);
-  return eddington; // not reached
-}
+// static inline closure_t pick_closure_fun(const char *name) {
+//   if (CCTK_Equals(name, "Eddington"))
+//     return eddington;
+//   if (CCTK_Equals(name, "Kershaw"))
+//     return kershaw;
+//   if (CCTK_Equals(name, "Minerbo"))
+//     return minerbo;
+//   if (CCTK_Equals(name, "thin"))
+//     return thin;
+//   char msg[BUFSIZ];
+//   snprintf(msg, BUFSIZ, "Unknown closure \"%s\"", name);
+//   CCTK_ERROR(msg);
+//   return eddington; // not reached
+// }
 
 extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcUpdate;
@@ -48,7 +48,20 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CalcUpdate");
   }
 
-  closure_t const closure_fun = pick_closure_fun(closure);
+  // closure_t const closure_fun = pick_closure_fun(closure);
+
+  closure_t closure_fun;
+  if (CCTK_Equals(closure, "Eddington")) {
+    closure_fun = closure_t::eddington_t;
+  } else if (CCTK_Equals(closure, "Kershaw")) {
+    closure_fun = closure_t::kershaw_t;
+  } else if (CCTK_Equals(closure, "Minerbo")) {
+    closure_fun = closure_t::minerbo_t;
+  } else if (CCTK_Equals(closure, "thin")) {
+    closure_fun = closure_t::thin_t;
+  } else {
+    CCTK_ERROR("Unkown closure type");
+  }
 
   CCTK_REAL const dt =
       CCTK_DELTA_TIME / static_cast<CCTK_REAL>(*TimeIntegratorStage);
@@ -206,7 +219,6 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W_ijk, u_u, v_d, proj_ud, Estar, Fstar_d, &chi[i4D],
                        &P_dd, closure_epsilon, closure_maxiter);
-
           tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
           assemble_rT(n_d, Estar, Fstar_d, P_dd, &rT_dd);
 
@@ -230,6 +242,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST)
           CCTK_REAL const xi = (Jnew > rad_E_floor ? sqrt(H2) / Jnew : 0.0);
+          // FIXME: THIS WILL NOT WORK. FIX THIS IF YOU WANT TO USE SRC_BOOST
           chi[i4D] = closure_fun(xi);
 #else
           chi[i4D] = (CCTK_REAL)(1.0 / 3.0);
@@ -259,6 +272,13 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
               volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D], &chi[i4D],
               &Enew, &Fnew_d, source_thick_limit, source_scat_limit,
               source_maxiter, source_epsabs, source_epsrel);
+          // CCTK_INT src_code = source_update(
+          //     cctkGH, p.i, p.j, p.k, ig, closure_fun, closure_epsilon,
+          //     closure_maxiter, dt, alp_ijk, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+          //     u_u, v_d, v_u, proj_ud, W_ijk, Estar, Fstar_d, Estar, Fstar_d,
+          //     volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D], &chi[i4D],
+          //     &Enew, &Fnew_d, source_thick_limit, source_scat_limit,
+          //     source_maxiter, source_epsabs, source_epsrel);
 
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 

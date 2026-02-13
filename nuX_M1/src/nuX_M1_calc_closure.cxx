@@ -27,17 +27,15 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
 
   closure_t closure_fun;
   if (CCTK_Equals(closure, "Eddington")) {
-    closure_fun = eddington;
+    closure_fun = closure_t::eddington_t;
   } else if (CCTK_Equals(closure, "Kershaw")) {
-    closure_fun = kershaw;
+    closure_fun = closure_t::kershaw_t;
   } else if (CCTK_Equals(closure, "Minerbo")) {
-    closure_fun = minerbo;
+    closure_fun = closure_t::minerbo_t;
   } else if (CCTK_Equals(closure, "thin")) {
-    closure_fun = thin;
+    closure_fun = closure_t::thin_t;
   } else {
-    char msg[BUFSIZ];
-    snprintf(msg, BUFSIZ, "Unknown closure \"%s\"", closure);
-    CCTK_ERROR(msg);
+    CCTK_ERROR("Unkown closure type");
   }
 
   const GridDescBaseDevice grid(cctkGH);
@@ -56,6 +54,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        printf("entering loop macro\n");
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
         if (nuX_m1_mask[ijk]) {
           for (int ig = 0; ig < nspecies * ngroups; ++ig) {
@@ -104,6 +103,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
         tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
         tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
         geom.get_shift_vec(p, &beta_u);
+        printf("set THC tensors\n");
 
         for (int ig = 0; ig < nspecies * ngroups; ++ig) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
@@ -111,9 +111,11 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           pack_F_d(beta_u(1), beta_u(2), beta_u(3), rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
 
+          printf("before closure for ig = %d\n", ig);
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W, u_u, v_d, proj_ud, rE[i4D], F_d, &chi[i4D], &P_dd,
                        closure_epsilon, closure_maxiter);
+          printf("calculated closure for ig = %d\n", ig);
           unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
                       &rPyz[i4D], &rPzz[i4D]);
           assert(isfinite(rPxx[i4D]));

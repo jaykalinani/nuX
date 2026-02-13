@@ -25,21 +25,43 @@ using namespace nuX_Utils;
 using namespace Loop;
 using namespace std;
 
-typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
+// typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
+enum class closure_t { thin_t, eddington_t, minerbo_t, kershaw_t };
+
+// Closures
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+eddington(CCTK_REAL const xi) {
+  return 1.0 / 3.0;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+kershaw(CCTK_REAL const xi) {
+  return 1.0 / 3.0 + 2.0 / 3.0 * xi * xi;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+minerbo(CCTK_REAL const xi) {
+  return 1.0 / 3.0 + xi * xi * (6.0 - 2.0 * xi + 6.0 * xi * xi) / 15.0;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+thin(CCTK_REAL const xi) {
+  return 1.0;
+}
 
 struct Parameters {
   CCTK_HOST CCTK_DEVICE Parameters(
-      closure_t _closure, tensor::metric<4> const &_g_dd,
+      closure_t _closure_t, tensor::metric<4> const &_g_dd,
       tensor::inv_metric<4> const &_g_uu,
       tensor::generic<CCTK_REAL, 4, 1> const &_n_d, CCTK_REAL const _w_lorentz,
       tensor::generic<CCTK_REAL, 4, 1> const &_u_u,
       tensor::generic<CCTK_REAL, 4, 1> const &_v_d,
       tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _E,
       tensor::generic<CCTK_REAL, 4, 1> const &_F_d)
-      : closure(_closure), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d),
+      : closure_type(_closure_t), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d),
         w_lorentz(_w_lorentz), u_u(_u_u), v_d(_v_d), proj_ud(_proj_ud), E(_E),
         F_d(_F_d) {}
-  closure_t closure;
+  closure_t closure_type;
   tensor::metric<4> const &g_dd;
   tensor::inv_metric<4> const &g_uu;
   tensor::generic<CCTK_REAL, 4, 1> const &n_d;
@@ -49,6 +71,31 @@ struct Parameters {
   tensor::generic<CCTK_REAL, 4, 2> const &proj_ud;
   CCTK_REAL const E;
   tensor::generic<CCTK_REAL, 4, 1> const &F_d;
+
+  CCTK_HOST CCTK_DEVICE inline CCTK_REAL closure(const CCTK_REAL xi) {
+    CCTK_REAL chi;
+    switch (closure_type) {
+      case closure_t::thin_t: {
+        chi = thin(xi);
+        break;
+      }
+      case closure_t::eddington_t: {
+        chi = eddington(xi);
+        break;
+      }
+      case closure_t::minerbo_t: {
+        chi = minerbo(xi);
+        break;
+      }
+      case closure_t::kershaw_t: {
+        chi = kershaw(xi);
+        break;
+      }
+      default:
+        assert(0);
+    }
+    return chi;
+  }
 };
 
 enum ClosFlag : CCTK_INT {
@@ -308,27 +355,6 @@ flux_factor(tensor::inv_metric<4> const &g_uu, CCTK_REAL const J,
   return max(0.0, min(xi, 1.0));
 }
 
-// Closures
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-eddington(CCTK_REAL const xi) {
-  return 1.0 / 3.0;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-kershaw(CCTK_REAL const xi) {
-  return 1.0 / 3.0 + 2.0 / 3.0 * xi * xi;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-minerbo(CCTK_REAL const xi) {
-  return 1.0 / 3.0 + xi * xi * (6.0 - 2.0 * xi + 6.0 * xi * xi) / 15.0;
-}
-
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
-thin(CCTK_REAL const xi) {
-  return 1.0;
-}
-
 // Computes the closure in the lab frame given the Eddington factor chi
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 apply_closure(tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
@@ -341,7 +367,6 @@ apply_closure(tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
               CCTK_REAL const chi, tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd) {
   tensor::symmetric2<CCTK_REAL, 4, 2> Pthin_dd;
   tensor::symmetric2<CCTK_REAL, 4, 2> Pthick_dd;
-
   calc_Pthin(g_uu, E, F_d, &Pthin_dd);
   calc_Pthick(g_dd, g_uu, n_d, w_lorentz, v_d, E, F_d, &Pthick_dd);
 
@@ -514,19 +539,22 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
              tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd,
              CCTK_REAL closure_epsilon, CCTK_INT closure_maxiter) {
   // These are special cases for which no root finding is needed
-  if (closure_fun == eddington) {
+  if (closure_fun == closure_t::eddington_t) {
+    printf("In Edd branch. Why???\n");
     *chi = 1. / 3.;
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
     return;
   }
-  if (closure_fun == thin) {
+  if (closure_fun == closure_t::thin_t) {
+    printf("In Thin branch\n");
     *chi = 1.0;
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
     return;
   }
 
+  printf("In Minerbo. Why???\n");
   Parameters params(closure_fun, g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud,
                     E, F_d);
   // gsl_function F;
@@ -596,7 +624,29 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
     xi = (abs(fb) < abs(fa)) ? b_root : a_root;
   }
 
-  *chi = closure_fun(xi);
+  //*chi = closure_fun(xi);
+
+  switch (closure_fun) {
+    case closure_t::thin_t: {
+      *chi = thin(xi);
+      break;
+    }
+    case closure_t::eddington_t: {
+      *chi = eddington(xi);
+      break;
+    }
+    case closure_t::minerbo_t: {
+      *chi = minerbo(xi);
+      break;
+    }
+    case closure_t::kershaw_t: {
+      *chi = kershaw(xi);
+      break;
+    }
+    default:
+      assert(0);
+  }
+
   /*
     do {
       ++iter;
