@@ -8,6 +8,7 @@ ActiveThorns = "
    CarpetX
    Con2PrimFactory
    CoordinatesX
+   Cowling
    EOSX
    HydroBaseX
    IOUtil
@@ -25,9 +26,18 @@ ActiveThorns = "
 # Global variables
 # -----------------------------------------------------------------------------
 $nlevels = 1
-$ncells  = 96
-$xmin    = -5.0
-$xmax    = +5.0
+$ncells  = 32 #96
+
+# Base half-cell shift so that r=0 lies on a cell face (no cell center at r=0)
+$L   = 5.0
+$dx  = (2.0*$L)/$ncells
+$off = 0.5*$dx
+
+$xmin = -$L + $off
+$xmax = +$L + $off
+
+#$xmin    = -5.0
+#$xmax    = +5.0
 
 # -----------------------------------------------------------------------------
 # ADMBaseX / KerrSchildX
