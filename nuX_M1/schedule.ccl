@@ -213,14 +213,14 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
 } "Initialize explicit RHSs to zero"
 
 # Ensure conserved vars have valid ghost zones before closure/fluxes
-SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rN
-    SYNC: rE
-    SYNC: rF
-} "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
+# SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
+# {
+#     LANG: C
+#     OPTIONS: SINGLEMAP
+#     SYNC: rN
+#     SYNC: rE
+#     SYNC: rF
+# } "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
@@ -272,19 +272,19 @@ else {
 }
 
 # Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
-SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
-    BEFORE nuX_M1_CalcFluxes
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rP
-    SYNC: rJ
-    SYNC: rHt
-    SYNC: rH
-    SYNC: chi
-    SYNC: opacs
-} "Sync closure/opacities into ghost zones before flux divergence"
+# SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
+#     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
+#     BEFORE nuX_M1_CalcFluxes
+# {
+#     LANG: C
+#     OPTIONS: SINGLEMAP
+#     SYNC: rP
+#     SYNC: rJ
+#     SYNC: rHt
+#     SYNC: rH
+#     SYNC: chi
+#     SYNC: opacs
+# } "Sync closure/opacities into ghost zones before flux divergence"
 
 if (include_fluxes) {
 
@@ -389,7 +389,8 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    #SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    SYNC: rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
 
@@ -430,14 +431,14 @@ SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
 } "Apply boundary conditions during the evolution"
 # -----------------------------------------------------------------------------
 
-SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rN
-    SYNC: rE
-    SYNC: rF
-} "Select boundary conditions"
+# SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
+# {
+#     LANG: C
+#     OPTIONS: SINGLEMAP
+#     SYNC: rN
+#     SYNC: rE
+#     SYNC: rF
+# } "Select boundary conditions"
 
 SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
     AFTER nuX_M1_Sync
