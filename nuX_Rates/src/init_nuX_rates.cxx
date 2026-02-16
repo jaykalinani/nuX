@@ -18,7 +18,7 @@ extern "C" void nuX_Rates_Setup(CCTK_ARGUMENTS) {
   global_opac_flags.use_pair = use_pair_procs;
   global_opac_flags.use_iso = use_elastic;
   global_opac_flags.use_inelastic_scatt = use_inelastic;
-  
+
   // other flags
   global_opac_params.use_WM_ab = corr_WM_abs;
   global_opac_params.use_WM_sc = corr_WM_scat;
@@ -28,7 +28,6 @@ extern "C" void nuX_Rates_Setup(CCTK_ARGUMENTS) {
   global_opac_params.neglect_blocking = neglect_blocking;
   global_opac_params.use_decay = corr_decay;
   global_opac_params.use_BRT_brem = corr_BRT_brem;
-
 }
 
-} // namespace
+} // namespace nuX_Rates
