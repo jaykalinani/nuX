@@ -108,13 +108,14 @@ extern "C" void nuX_Seeds_SetupNeutTest_diff_limit_test(CCTK_ARGUMENTS) {
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
   const smat<GF3D2<const CCTK_REAL8>, 3> gf_g{
-      GF3D2<const CCTK_REAL8>(layout_cc, gxx),
-      GF3D2<const CCTK_REAL8>(layout_cc, gxy),
-      GF3D2<const CCTK_REAL8>(layout_cc, gxz),
-      GF3D2<const CCTK_REAL8>(layout_cc, gyy),
-      GF3D2<const CCTK_REAL8>(layout_cc, gyz),
-      GF3D2<const CCTK_REAL8>(layout_cc, gzz)};
+      GF3D2<const CCTK_REAL8>(layout_vc, gxx),
+      GF3D2<const CCTK_REAL8>(layout_vc, gxy),
+      GF3D2<const CCTK_REAL8>(layout_vc, gxz),
+      GF3D2<const CCTK_REAL8>(layout_vc, gyy),
+      GF3D2<const CCTK_REAL8>(layout_vc, gyz),
+      GF3D2<const CCTK_REAL8>(layout_vc, gzz)};
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
