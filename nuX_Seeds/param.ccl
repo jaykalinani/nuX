@@ -21,6 +21,7 @@ KEYWORD nuX_test_case "Perform simple tests"
     "equil"      :: "Thermal equilibrium test"
     "kerrschild" :: "Radiation beam in Kerr geometry"
     "none"       :: "No test is performed (production mode)"
+    "atmosphere" :: "Uniform atmosphere test"
     "shadow"     :: "Sphere shadow test"
     "sphere"     :: "Homogeneous sphere test"
 } "none"
@@ -76,7 +77,7 @@ CCTK_REAL beam_radius "Width of the beam"
     (0:* :: "Any positive number"
 } 1.0
 
-CCTK_REAL roi_radius "Radius of the region of interest, either the shadow or homog sphere"
+CCTK_REAL roi_radius "Radius of the region of interest, either the shadow or sphere"
 {
     (0:* :: "Any positive number"
 } 1.0

@@ -2,11 +2,14 @@
 
 # Source files in this directory
 SRCS = \
-nuX_adv_velocity_jump_test.cxx \
-nuX_diff_limit_test.cxx \
-nuX_shadow_test.cxx \
-nuX_atmosphere_test.cxx \
-nuX_homog_sphere_test.cxx 
+nuX_beam.cxx \
+nuX_equil.cxx \
+nuX_kerrschild.cxx \
+nuX_adv_velocity_jump.cxx \
+nuX_diff_limit.cxx \
+nuX_shadow.cxx \
+nuX_atmosphere.cxx \
+nuX_sphere.cxx
 
 
 #Subdirectories containing source files

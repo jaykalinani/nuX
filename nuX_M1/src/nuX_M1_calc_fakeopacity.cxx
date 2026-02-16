@@ -25,12 +25,14 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_fakerates.hxx"
+#include "nuX_utils.hxx"
 #include "setup_eos.hxx"
 
 namespace nuX_M1 {
 using namespace std;
 using namespace Loop;
 using namespace nuX_FakeRates;
+using namespace nuX_Utils;
 using namespace EOSX;
 
 #ifndef MAX_GROUPSPECIES
@@ -41,30 +43,60 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcFakeOpacity;
   DECLARE_CCTK_PARAMETERS;
 
-  // Opacities are constant throught the timestep
-  if (*TimeIntegratorStage != 2) {
-    return;
-  }
-
   if (verbose) {
     CCTK_INFO("nuX_M1_CalcFakeOpacity");
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
+  const GF3D2<const CCTK_REAL> gf_gxx(layout_vc, gxx);
+  const GF3D2<const CCTK_REAL> gf_gxy(layout_vc, gxy);
+  const GF3D2<const CCTK_REAL> gf_gxz(layout_vc, gxz);
+  const GF3D2<const CCTK_REAL> gf_gyy(layout_vc, gyy);
+  const GF3D2<const CCTK_REAL> gf_gyz(layout_vc, gyz);
+  const GF3D2<const CCTK_REAL> gf_gzz(layout_vc, gzz);
 
   CCTK_REAL const dt = CCTK_DELTA_TIME;
 
   FakeRatesDef *myfakerates = global_fakerates;
 
+  if (*TimeIntegratorStage != 2) {
+    // Keep opacities frozen across the substeps, matching THC_M1 behavior.
+    grid.loop_all_device<1, 1, 1>(
+        grid.nghostzones,
+        [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+          const int ijk = layout_cc.linear(p.i, p.j, p.k);
+
+          CCTK_REAL abs0L, abs1L, eta0L, eta1L, scat1L, nueaveL;
+          for (int ig = 0; ig < nspecies * ngroups; ++ig) {
+            int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
+            abs0L = abs_0[i4D];
+            abs1L = abs_1[i4D];
+            eta0L = eta_0[i4D];
+            eta1L = eta_1[i4D];
+            scat1L = scat_1[i4D];
+            nueaveL = nueave[i4D];
+
+            abs_0[i4D] = abs0L;
+            abs_1[i4D] = abs1L;
+            eta_0[i4D] = eta0L;
+            eta_1[i4D] = eta1L;
+            scat_1[i4D] = scat1L;
+            nueave[i4D] = nueaveL;
+          }
+        });
+    return;
+  }
+
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
 
         if (nuX_m1_mask[ijk]) {
           for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-            int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+            int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
             abs_0[i4D] = 0.0;
             abs_1[i4D] = 0.0;
             eta_0[i4D] = 0.0;
@@ -73,7 +105,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           }
           return;
         }
-
         assert(nspecies == 3);
         assert(ngroups == 1);
         const int ng = nspecies * ngroups;
@@ -89,11 +120,18 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
         M1Opacities coeffs = myfakerates->ComputeFakeOpacities(rhoL);
 
         // Convert M1 Data to nurates
-        CCTK_REAL volformL = volform[ijk];
+        CCTK_REAL const gxx_cc = tensor::interp_v2c(gf_gxx, p);
+        CCTK_REAL const gxy_cc = tensor::interp_v2c(gf_gxy, p);
+        CCTK_REAL const gxz_cc = tensor::interp_v2c(gf_gxz, p);
+        CCTK_REAL const gyy_cc = tensor::interp_v2c(gf_gyy, p);
+        CCTK_REAL const gyz_cc = tensor::interp_v2c(gf_gyz, p);
+        CCTK_REAL const gzz_cc = tensor::interp_v2c(gf_gzz, p);
+        CCTK_REAL volformL = sqrt(nuX_Utils::metric::spatial_det(
+            gxx_cc, gxy_cc, gxz_cc, gyy_cc, gyz_cc, gzz_cc));
         CCTK_REAL nudens_0[4],
             nudens_1[4]; // force this to be 4 b/c nurates expects 4
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
+          const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           const CCTK_REAL dup_fac =
               1.0 / ((1.0 + (ig > 1)) * (1.0 + (ng == 3)));
 
@@ -106,7 +144,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             nudens_1[3] = dup_fac * rJ[i4D] / volformL;
           }
         }
-
         // Convert emissivities, opacities from nurates
         CCTK_REAL kappa_0_loc[MAX_GROUPSPECIES], kappa_1_loc[MAX_GROUPSPECIES];
         CCTK_REAL abs_0_loc[MAX_GROUPSPECIES], abs_1_loc[MAX_GROUPSPECIES];
@@ -114,7 +151,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
         CCTK_REAL eta_0_loc[MAX_GROUPSPECIES], eta_1_loc[MAX_GROUPSPECIES];
 
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          const int i4D = layout2.linear(p.i, p.j, p.k, ig);
+          const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           const CCTK_REAL out_fac = (1.0 + (ig > 1)) * (1.0 + (ng == 3));
 
           abs_0_loc[ig] = coeffs.kappa_0_a[ig];
@@ -142,9 +179,8 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
 
           CCTK_REAL epsL = eps[ijk];
           CCTK_REAL etot = epsL;
-
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-            etot += rJ[layout2.linear(p.i, p.j, p.k, ig)];
+            etot += rJ[layout_cc.linear(p.i, p.j, p.k, ig)];
           }
 
           // TODO: Change BetaEq call to accept more lepton fractions if 4
@@ -177,7 +213,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           assert(isfinite(nudens_1_trap[1]));
           assert(isfinite(nudens_1_trap[2]));
         }
-
         // Compute the neutrino black body function assuming fixed temperature
         // and Y_e
         CCTK_REAL nudens_0_thin[3], nudens_1_thin[3];
@@ -193,10 +228,9 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           nudens_0_thin[3] = nudens_0_thin[2];
           nudens_1_thin[3] = nudens_1_thin[2];
         }
-
         // Correct cross-sections for incoming neutrino energy
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
           // Set the neutrino black body function
           CCTK_REAL nudens_0, nudens_1;
@@ -248,6 +282,12 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             eta_0[i4D] = abs_0[i4D] * nudens_0;
             eta_1[i4D] = abs_1[i4D] * nudens_1;
           }
+
+          assert(isfinite(abs_0[i4D]));
+          // printf("abs_0[i4D]: %16.8e \n", abs_0[i4D]);
+          assert(isfinite(abs_1[i4D]));
+          assert(isfinite(eta_0[i4D]));
+          assert(isfinite(eta_1[i4D]));
         }
       });
 }

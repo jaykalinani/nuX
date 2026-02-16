@@ -28,5 +28,4 @@ CCTK_HOST void FakeRatesDef::init() {
   et_anux = eta_anux;
   return;
 }
-} // namespace
-
+} // namespace nuX_FakeRates

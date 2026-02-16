@@ -65,18 +65,20 @@ CCTK_REAL rH[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
     rHx, rHy, rHz
 } "Radiation energy flux in the fluid frame"
 
+CCTK_REAL nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
+
 # === Private grid functions ===
 
 PRIVATE:
 
 ## neutrino fluxes in x–direction
-CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={vcc} TAGS='checkpoint="no"' "Neutrino flux components in the x–direction: 5 fields per (species,group)"
+CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the x–direction: 5 fields per (species,group)"
 
 # neutrino fluxes in y–direction
-CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={cvc} TAGS='checkpoint="no"' "Neutrino flux components in the y–direction: 5 fields per (species,group)"
+CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the y–direction: 5 fields per (species,group)"
 
 # neutrino fluxes in z–direction
-CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccv} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
+CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
 
 ## Diagnostics
 CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 
@@ -123,10 +125,4 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
     rFx_rhs, rFy_rhs, rFz_rhs
 } "RHS for the radiation energy fluxes"
 
-CCTK_REAL nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask points that should not be evolved"
-
-CCTK_INT TimeIntegratorStage CENTERING={ccc} TAGS='checkpoint="no"' "Current stage of the time integrator"
-
-CCTK_REAL M1_OriginalTime CENTERING={ccc} TAGS='checkpoint="no"' "Time at end of fluid integration"
-
-CCTK_REAL volform TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Sqrt of the determinant of the spatial metric"
+CCTK_INT TimeIntegratorStage TYPE=SCALAR TAGS='checkpoint="no"' "Current stage of the time integrator"

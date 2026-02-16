@@ -1,6 +1,7 @@
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
+#include <cmath>
 
 #include "nuX_M1_macro.hxx"
 #include "nuX_M1_closure.hxx"
@@ -39,20 +40,21 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
     CCTK_VINFO("Unknown closure \"%s\"", closure);
     CCTK_ERROR("Unsupported closure");
   }
-  tensor::slicing_geometry_const geom(alp, betax, betay, betaz, gxx, gxy, gxz,
-                                      gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz,
-                                      kzz, volform);
-  tensor::fluid_velocity_field_const fidu(alp, betax, betay, betaz,
-                                          fidu_w_lorentz, fidu_velx, fidu_vely,
-                                          fidu_velz);
   // Setup grid layout
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
+  tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
+                                      betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
+                                      kxy, kxz, kyy, kyz, kzz);
+  tensor::fluid_velocity_field_const fidu(layout_vc, layout_cc, alp, betax,
+                                          betay, betaz, fidu_w_lorentz,
+                                          fidu_velx, fidu_vely, fidu_velz);
 
   // Loop over all points
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
 
         if (nuX_m1_mask[ijk]) {
           return;
@@ -62,15 +64,15 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
         tensor::metric<4> g_dd;
         tensor::inv_metric<4> g_uu;
         tensor::generic<CCTK_REAL, 4, 1> n_d;
-        geom.get_metric(ijk, &g_dd);
-        geom.get_inv_metric(ijk, &g_uu);
-        geom.get_normal_form(ijk, &n_d);
+        geom.get_metric(p, &g_dd);
+        geom.get_inv_metric(p, &g_uu);
+        geom.get_normal_form(p, &n_d);
 
         CCTK_REAL const W = fidu_w_lorentz[ijk];
         tensor::generic<CCTK_REAL, 4, 1> u_u;
         tensor::generic<CCTK_REAL, 4, 1> u_d;
         tensor::generic<CCTK_REAL, 4, 2> proj_ud;
-        fidu.get(ijk, &u_u);
+        fidu.get(p, &u_u);
         tensor::contract(g_dd, u_u, &u_d);
         calc_proj(u_d, u_u, &proj_ud);
 
@@ -80,15 +82,20 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
         tensor::contract(g_dd, v_u, &v_d);
 
         tensor::generic<CCTK_REAL, 4, 1> F_d;
+        tensor::generic<CCTK_REAL, 4, 1> beta_u;
         tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
         tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
 
-        CCTK_REAL const iV = 1.0 / volform[ijk];
+        CCTK_REAL const volform_ijk = sqrt(
+            nuX_Utils::metric::spatial_det(g_dd(1, 1), g_dd(1, 2), g_dd(1, 3),
+                                           g_dd(2, 2), g_dd(2, 3), g_dd(3, 3)));
+        CCTK_REAL const iV = 1.0 / volform_ijk;
+        geom.get_shift_vec(p, &beta_u);
 
         for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
-          pack_F_d(betax[ijk], betay[ijk], betaz[ijk], rFx[i4D], rFy[i4D],
+          pack_F_d(beta_u(1), beta_u(2), beta_u(3), rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
 
           CCTK_REAL mychi = 0.5;

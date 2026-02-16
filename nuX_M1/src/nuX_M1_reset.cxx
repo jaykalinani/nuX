@@ -20,21 +20,34 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        const int ijk = layout2.linear(p.i, p.j, p.k);
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
         nuX_m1_mask[ijk] = 0.0;
 
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-          int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+          int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           rE[i4D] = rad_E_floor;
           rN[i4D] = rad_N_floor;
           rFx[i4D] = 0.0;
           rFy[i4D] = 0.0;
           rFz[i4D] = 0.0;
+
+          rE_p[i4D] = rad_E_floor;
+          rN_p[i4D] = rad_N_floor;
+          rFx_p[i4D] = 0.0;
+          rFy_p[i4D] = 0.0;
+          rFz_p[i4D] = 0.0;
+
+          abs_0[i4D] = 0.0;
+          abs_1[i4D] = 0.0;
+          eta_0[i4D] = 0.0;
+          eta_1[i4D] = 0.0;
+          scat_1[i4D] = 0.0;
+          nueave[i4D] = 0.0;
         }
       });
 }

@@ -64,9 +64,9 @@ enum ClosFlag : CCTK_INT {
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 print_stuff(cGH const *cctkGH, const PointDesc &p, int const ig, ostream &ss) {
   DECLARE_CCTK_ARGUMENTS;
-  const GF3D2layout layout2(cctkGH, {1, 1, 1});
-  int const ijk = layout2.linear(p.i, p.j, p.k);
-  int const i4D = layout2.linear(p.i, p.j, p.k, ig);
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  int const ijk = layout_cc.linear(p.i, p.j, p.k);
+  int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
   ss << "Iteration = " << cctkGH->cctk_iteration << endl;
   ss << "Reflevel = " << ilogb(cctkGH->cctk_levfac[0]) << endl;
@@ -538,9 +538,6 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
 
   // int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
 
-  CCTK_INT clos_flag_code = CLOS_OK; // Default closure flag to success
-  bool clos_flag_local = true;
-
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
   if (zFunction(x_lo, &params) * zFunction(x_hi, &params) >= 0) {
@@ -568,19 +565,37 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
 
   // Rootfinding
   int iter = 0;
-  const CCTK_REAL log2 = log(2.0);
-  const CCTK_INT minbits = int(abs(log(closure_epsilon)) / log2);
   CCTK_REAL a = x_lo;
   CCTK_REAL b = x_hi;
   auto fn = [&params](auto x) { return zFunction(x, &params); };
+
+  // Map an absolute interval tolerance to Algo::brent(min_bits, ...) on [0,1]
+  // so that (hi-lo) ~ 2^{-min_bits} roughly matches closure_epsilon.
+  int minbits;
+  if (!(closure_epsilon > 0)) {
+    minbits = 1;
+  } else {
+    CCTK_REAL const ce = closure_epsilon;
+    CCTK_REAL const inv = 1.0 / ce;
+    CCTK_REAL const lg = log2(inv);
+    minbits = static_cast<int>(ceil(lg));
+    minbits = max(1, min(minbits, std::numeric_limits<CCTK_REAL>::digits - 2));
+  }
 
   auto result = Algo::brent(fn, a, b, minbits, closure_maxiter, iter);
   // Bracket endpoints
   CCTK_REAL a_root = result.first;
   CCTK_REAL b_root = result.second;
 
-  // average approach:
   CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+
+  if (!isfinite(xi)) {
+    CCTK_REAL const fa = fn(a_root);
+    CCTK_REAL const fb = fn(b_root);
+
+    xi = (abs(fb) < abs(fa)) ? b_root : a_root;
+  }
+
   *chi = closure_fun(xi);
   /*
     do {
@@ -609,33 +624,6 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   #endif
 
   */
-  switch (clos_flag_code) {
-  case CLOS_OK:
-    // printf("Closure succeeded.\n");
-    break;
-  case CLOS_I:
-    printf("Initial value closure NaN or inf.\n");
-    // print_stuff(cctkGH, ig, &params, ss); // Won't work, only have point
-    // information during loop.
-    break;
-  case GSL_I:
-    printf("Initial GSL solver error.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  case CLOS_IT:
-    printf("Iteration closure NaN or inf.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  case GSL_IT:
-    printf("Iterative GSL solver error.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  case GSL_MAXIT:
-    printf("GSL solver reached max iterations.\n");
-    // print_stuff(cctkGH, ig, &params, ss);
-    break;
-  }
-
   // We are done, update the closure with the newly found chi
   apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                 P_dd);
