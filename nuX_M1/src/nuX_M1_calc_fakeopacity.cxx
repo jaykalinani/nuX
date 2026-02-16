@@ -85,7 +85,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
             scat_1[i4D] = scat1L;
             nueave[i4D] = nueaveL;
           }
-    });
+        });
     return;
   }
 

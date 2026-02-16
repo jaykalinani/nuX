@@ -32,16 +32,16 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
                                       betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
                                       kxy, kxz, kyy, kyz, kzz);
 
-  const GF3D2<const CCTK_REAL> gf_alp(layout_cc, alp);
-  const GF3D2<const CCTK_REAL> gf_betax(layout_cc, betax);
-  const GF3D2<const CCTK_REAL> gf_betay(layout_cc, betay);
-  const GF3D2<const CCTK_REAL> gf_betaz(layout_cc, betaz);
-  const GF3D2<const CCTK_REAL> gf_gxx(layout_cc, gxx);
-  const GF3D2<const CCTK_REAL> gf_gxy(layout_cc, gxy);
-  const GF3D2<const CCTK_REAL> gf_gxz(layout_cc, gxz);
-  const GF3D2<const CCTK_REAL> gf_gyy(layout_cc, gyy);
-  const GF3D2<const CCTK_REAL> gf_gyz(layout_cc, gyz);
-  const GF3D2<const CCTK_REAL> gf_gzz(layout_cc, gzz);
+  const GF3D2<const CCTK_REAL> gf_alp(layout_vc, alp);
+  const GF3D2<const CCTK_REAL> gf_betax(layout_vc, betax);
+  const GF3D2<const CCTK_REAL> gf_betay(layout_vc, betay);
+  const GF3D2<const CCTK_REAL> gf_betaz(layout_vc, betaz);
+  const GF3D2<const CCTK_REAL> gf_gxx(layout_vc, gxx);
+  const GF3D2<const CCTK_REAL> gf_gxy(layout_vc, gxy);
+  const GF3D2<const CCTK_REAL> gf_gxz(layout_vc, gxz);
+  const GF3D2<const CCTK_REAL> gf_gyy(layout_vc, gyy);
+  const GF3D2<const CCTK_REAL> gf_gyz(layout_vc, gyz);
+  const GF3D2<const CCTK_REAL> gf_gzz(layout_vc, gzz);
 
   grid.loop_int_device<1, 1, 1>(
       grid.nghostzones,

@@ -39,7 +39,7 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
   const CCTK_REAL dy = cctk_delta_space[1];
   const CCTK_REAL dz = cctk_delta_space[2];
   const CCTK_REAL dmin = fmin(dx, fmin(dy, dz));
-  const CCTK_REAL r_floor = 1.0e-12 * dmin;          // very small, but nonzero
+  const CCTK_REAL r_floor = 1.0e-12 * dmin; // very small, but nonzero
   const CCTK_REAL r_floor2 = r_floor * r_floor;
 
   grid.loop_all_device<1, 1, 1>(
@@ -135,4 +135,3 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
 }
 
 } // namespace nuX_M1
-

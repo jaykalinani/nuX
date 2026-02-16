@@ -24,7 +24,6 @@ extern "C" void nuX_M1_InitOpacs(CCTK_ARGUMENTS) {
           const int i4D = layout.linear(p.i, p.j, p.k, ig);
         }
       });
-
 }
 
 } // namespace nuX_M1
