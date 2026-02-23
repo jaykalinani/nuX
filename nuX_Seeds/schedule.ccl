@@ -33,11 +33,13 @@ if (CCTK_Equals(nuX_test_case, "kerrschild")) {
     READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
   } "Apply Kerr inflow boundary injection (shadow-style)."
-  SCHEDULE nuX_Seeds_KerrSchild_Mask IN nuX_M1_TimeStep BEFORE nuX_M1_InitFluxesRHS {
+  SCHEDULE nuX_Seeds_KerrSchild_Mask IN nuX_M1_EVOL \
+      AFTER nuX_M1_SetMask \
+      BEFORE nuX_M1_TimeStep {
     LANG: C
     WRITES: nuX_M1::nuX_m1_mask(everywhere)
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
-  } "Apply KerrSchild excision mask every substep."
+  } "Apply KerrSchild excision mask once per outer step."
 }
 
 if (CCTK_Equals(nuX_test_case, "adv_velocity_jump")) {
