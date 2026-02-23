@@ -2,7 +2,9 @@
 #define NUX_M1_CLOSURE_HXX
 
 #include <cassert>
+#include <cmath>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <loop_device.hxx>
@@ -262,7 +264,13 @@ calc_Pthin(tensor::inv_metric<4> const &g_uu, CCTK_REAL const E,
            tensor::generic<CCTK_REAL, 4, 1> const &F_d,
            tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd) {
   CCTK_REAL const F2 = tensor::dot(g_uu, F_d, F_d);
-  CCTK_REAL fac = (F2 > 0 ? E / F2 : 0);
+  CCTK_REAL fac = 0.0;
+  if (isfinite(E) && isfinite(F2) && F2 > 0.0) {
+    fac = E / F2;
+    if (!isfinite(fac)) {
+      fac = 0.0;
+    }
+  }
   for (int a = 0; a < 4; ++a)
     for (int b = a; b < 4; ++b) {
       P_dd->at(a, b) = fac * F_d(a) * F_d(b);
@@ -339,18 +347,30 @@ apply_closure(tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
               tensor::generic<CCTK_REAL, 4, 2> const &proj_ud,
               CCTK_REAL const E, tensor::generic<CCTK_REAL, 4, 1> const &F_d,
               CCTK_REAL const chi, tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd) {
+  CCTK_REAL const chi_phys =
+      max(CCTK_REAL(1.0 / 3.0), min(CCTK_REAL(1.0), chi));
+  CCTK_REAL const dthick = 3. * (1 - chi_phys) / 2.;
+  CCTK_REAL const dthin = 1. - dthick;
+  CCTK_REAL const coeff_eps =
+      CCTK_REAL(64.0) * std::numeric_limits<CCTK_REAL>::epsilon();
+  bool const use_thick = isfinite(dthick) && abs(dthick) > coeff_eps;
+  bool const use_thin = isfinite(dthin) && abs(dthin) > coeff_eps;
+
   tensor::symmetric2<CCTK_REAL, 4, 2> Pthin_dd;
   tensor::symmetric2<CCTK_REAL, 4, 2> Pthick_dd;
 
-  calc_Pthin(g_uu, E, F_d, &Pthin_dd);
-  calc_Pthick(g_dd, g_uu, n_d, w_lorentz, v_d, E, F_d, &Pthick_dd);
-
-  CCTK_REAL const dthick = 3. * (1 - chi) / 2.;
-  CCTK_REAL const dthin = 1. - dthick;
+  if (use_thin) {
+    calc_Pthin(g_uu, E, F_d, &Pthin_dd);
+  }
+  if (use_thick) {
+    calc_Pthick(g_dd, g_uu, n_d, w_lorentz, v_d, E, F_d, &Pthick_dd);
+  }
 
   for (int a = 0; a < 4; ++a)
     for (int b = a; b < 4; ++b) {
-      P_dd->at(a, b) = dthick * Pthick_dd(a, b) + dthin * Pthin_dd(a, b);
+      CCTK_REAL const thick_term = use_thick ? dthick * Pthick_dd(a, b) : 0.0;
+      CCTK_REAL const thin_term = use_thin ? dthin * Pthin_dd(a, b) : 0.0;
+      P_dd->at(a, b) = thick_term + thin_term;
     }
 }
 
@@ -502,17 +522,22 @@ zFunction(double xi, void *params) {
 
 // Computes the closure in the lab frame with a rootfinding procedure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
-             int const ig, closure_t closure_fun, tensor::metric<4> const &g_dd,
-             tensor::inv_metric<4> const &g_uu,
-             tensor::generic<CCTK_REAL, 4, 1> const &n_d,
-             CCTK_REAL const w_lorentz,
-             tensor::generic<CCTK_REAL, 4, 1> const &u_u,
-             tensor::generic<CCTK_REAL, 4, 1> const &v_d,
-             tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
-             tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
-             tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd,
-             CCTK_REAL closure_epsilon, CCTK_INT closure_maxiter) {
+closure_abort_if_no_fallback(bool use_fallback) {
+  assert(use_fallback && "nuX_M1 closure failed and use_fallback=no");
+}
+
+// Computes the closure in the lab frame with a rootfinding procedure
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
+    cGH const *cctkGH, int const i, int const j, int const k, int const ig,
+    closure_t closure_fun, tensor::metric<4> const &g_dd,
+    tensor::inv_metric<4> const &g_uu,
+    tensor::generic<CCTK_REAL, 4, 1> const &n_d, CCTK_REAL const w_lorentz,
+    tensor::generic<CCTK_REAL, 4, 1> const &u_u,
+    tensor::generic<CCTK_REAL, 4, 1> const &v_d,
+    tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
+    tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
+    tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
+    CCTK_INT closure_maxiter, bool use_fallback) {
   // These are special cases for which no root finding is needed
   if (closure_fun == eddington) {
     *chi = 1. / 3.;
@@ -532,22 +557,31 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   // gsl_function F;
   // F.function = &zFunction;
   // F.params = reinterpret_cast<void *>(&params);
+  auto fn = [&params](auto x) { return zFunction(x, &params); };
+  auto fallback_chi = [&]() {
+    CCTK_REAL const z_ed = fn(CCTK_REAL(1.0 / 3.0));
+    CCTK_REAL const z_th = fn(CCTK_REAL(1.0));
+    if (isfinite(z_th) && isfinite(z_ed)) {
+      return (abs(z_th) < abs(z_ed)) ? CCTK_REAL(1.0) : CCTK_REAL(1.0 / 3.0);
+    }
+    if (isfinite(z_th)) {
+      return CCTK_REAL(1.0);
+    }
+    return CCTK_REAL(1.0 / 3.0);
+  };
 
   double x_lo = 0.0;
   double x_hi = 1.0;
+  CCTK_REAL const f_lo = fn(x_lo);
+  CCTK_REAL const f_hi = fn(x_hi);
 
   // int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
 
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
-  if (zFunction(x_lo, &params) * zFunction(x_hi, &params) >= 0) {
-    double const z_ed = zFunction(1. / 3., &params);
-    double const z_th = zFunction(1., &params);
-    if (abs(z_th) < abs(z_ed)) {
-      *chi = 1.0;
-    } else {
-      *chi = 1.0 / 3.0;
-    }
+  if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi >= 0.0) {
+    closure_abort_if_no_fallback(use_fallback);
+    *chi = fallback_chi();
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
     return;
@@ -567,7 +601,6 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   int iter = 0;
   CCTK_REAL a = x_lo;
   CCTK_REAL b = x_hi;
-  auto fn = [&params](auto x) { return zFunction(x, &params); };
 
   // Map an absolute interval tolerance to Algo::brent(min_bits, ...) on [0,1]
   // so that (hi-lo) ~ 2^{-min_bits} roughly matches closure_epsilon.
@@ -586,17 +619,79 @@ calc_closure(cGH const *cctkGH, int const i, int const j, int const k,
   // Bracket endpoints
   CCTK_REAL a_root = result.first;
   CCTK_REAL b_root = result.second;
+  CCTK_REAL fa_root = fn(a_root);
+  CCTK_REAL fb_root = fn(b_root);
 
-  CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+  auto interval_is_valid = [](CCTK_REAL lo, CCTK_REAL hi, CCTK_REAL flo,
+                              CCTK_REAL fhi) {
+    return isfinite(lo) && isfinite(hi) && isfinite(flo) && isfinite(fhi) &&
+           lo <= hi && (flo == 0.0 || fhi == 0.0 || flo * fhi <= 0.0);
+  };
 
-  if (!isfinite(xi)) {
-    CCTK_REAL const fa = fn(a_root);
-    CCTK_REAL const fb = fn(b_root);
+  if (iter >= closure_maxiter ||
+      !interval_is_valid(a_root, b_root, fa_root, fb_root)) {
+    closure_abort_if_no_fallback(use_fallback);
 
-    xi = (abs(fb) < abs(fa)) ? b_root : a_root;
+    CCTK_REAL lo = x_lo;
+    CCTK_REAL hi = x_hi;
+    CCTK_REAL flo = f_lo;
+    CCTK_REAL fhi = f_hi;
+    const CCTK_REAL interval_tol =
+        (closure_epsilon > 0) ? closure_epsilon : CCTK_REAL(1.0e-12);
+    bool bisect_ok = true;
+    for (int ib = 0; ib < closure_maxiter; ++ib) {
+      CCTK_REAL const mid = CCTK_REAL(0.5) * (lo + hi);
+      CCTK_REAL const fmid = fn(mid);
+      if (!isfinite(fmid)) {
+        bisect_ok = false;
+        break;
+      }
+      if (fmid == 0.0) {
+        lo = mid;
+        hi = mid;
+        flo = 0.0;
+        fhi = 0.0;
+        break;
+      }
+      if (flo * fmid <= 0.0) {
+        hi = mid;
+        fhi = fmid;
+      } else {
+        lo = mid;
+        flo = fmid;
+      }
+      if (abs(hi - lo) <= interval_tol) {
+        break;
+      }
+    }
+
+    if (bisect_ok && interval_is_valid(lo, hi, flo, fhi)) {
+      a_root = lo;
+      b_root = hi;
+      fa_root = flo;
+      fb_root = fhi;
+    } else {
+      *chi = fallback_chi();
+      apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
+                    P_dd);
+      return;
+    }
   }
 
-  *chi = closure_fun(xi);
+  // Keep nominal behavior unchanged: use midpoint of the final bracket.
+  CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+  if (!isfinite(xi)) {
+    closure_abort_if_no_fallback(use_fallback);
+    *chi = fallback_chi();
+  } else {
+    CCTK_REAL const chi_try = closure_fun(xi);
+    if (!isfinite(chi_try)) {
+      closure_abort_if_no_fallback(use_fallback);
+      *chi = fallback_chi();
+    } else {
+      *chi = chi_try;
+    }
+  }
   /*
     do {
       ++iter;

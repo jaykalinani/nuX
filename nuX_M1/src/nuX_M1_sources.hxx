@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <loop_device.hxx>
 
 #include "nuX_M1_closure.hxx"
@@ -39,7 +40,8 @@ using namespace std;
 struct Params {
   Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
          int const _ig, closure_t _closure, CCTK_REAL _closure_epsilon,
-         CCTK_INT _closure_maxiter, CCTK_REAL const _cdt, CCTK_REAL const _alp,
+         CCTK_INT _closure_maxiter, bool _closure_use_fallback,
+         CCTK_REAL const _cdt, CCTK_REAL const _alp,
          tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
          tensor::generic<CCTK_REAL, 4, 1> const &_n_u,
@@ -54,10 +56,11 @@ struct Params {
          CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig), closure(_closure),
         closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
-        cdt(_cdt), alp(_alp), g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u),
-        gamma_ud(_gamma_ud), u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u),
-        proj_ud(_proj_ud), W(_W), Estar(_Estar), Fstar_d(_Fstar_d), chi(_chi),
-        eta(_eta), kabs(_kabs), kscat(_kscat) {}
+        closure_use_fallback(_closure_use_fallback), cdt(_cdt), alp(_alp),
+        g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u), gamma_ud(_gamma_ud),
+        u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u), proj_ud(_proj_ud), W(_W),
+        Estar(_Estar), Fstar_d(_Fstar_d), chi(_chi), eta(_eta), kabs(_kabs),
+        kscat(_kscat) {}
   cGH const *cctkGH;
   int const i;
   int const j;
@@ -66,6 +69,7 @@ struct Params {
   closure_t closure;
   CCTK_REAL closure_epsilon;
   CCTK_INT closure_maxiter;
+  bool closure_use_fallback;
   CCTK_REAL const cdt;
   CCTK_REAL const alp;
   tensor::metric<4> const &g_dd;
@@ -244,7 +248,8 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
 
   calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure, p->g_dd, p->g_uu,
                p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E, p->F_d, &p->chi,
-               &p->P_dd, p->closure_epsilon, p->closure_maxiter);
+               &p->P_dd, p->closure_epsilon, p->closure_maxiter,
+               p->closure_use_fallback);
 
   return GSL_SUCCESS;
 }
@@ -390,8 +395,8 @@ explicit_update(Params *p, CCTK_REAL *Enew,
 CCTK_HOST CCTK_DEVICE inline int source_update(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
     closure_t closure_fun, CCTK_REAL closure_epsilon, CCTK_INT closure_maxiter,
-    CCTK_REAL const cdt, CCTK_REAL const alp, tensor::metric<4> const &g_dd,
-    tensor::inv_metric<4> const &g_uu,
+    bool closure_use_fallback, CCTK_REAL const cdt, CCTK_REAL const alp,
+    tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
     tensor::generic<CCTK_REAL, 4, 1> const &n_d,
     tensor::generic<CCTK_REAL, 4, 1> const &n_u,
     tensor::generic<CCTK_REAL, 4, 2> const &gamma_ud,
@@ -408,19 +413,73 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel) {
 
   Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter,
-           cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u,
-           proj_ud, W, Estar, Fstar_d, *chi, eta, kabs, kscat);
+           closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+           u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta, kabs, kscat);
 
   // Old solution
   arith_vector qold{Eold, Fold_d(1), Fold_d(2), Fold_d(3)};
+
+  // Safety valve for rare solver pathologies:
+  // only allow a no-source fallback when source coupling is truly weak.
+  constexpr CCTK_REAL source_fail_tau_safe = CCTK_REAL(1.0e-3);
+  auto can_use_no_source_fallback = [&]() {
+    const CCTK_REAL tau_tot = cdt * (kabs + kscat);
+    const bool star_finite = isfinite(Estar) && isfinite(Fstar_d(1)) &&
+                             isfinite(Fstar_d(2)) && isfinite(Fstar_d(3));
+    return isfinite(tau_tot) && tau_tot <= source_fail_tau_safe && star_finite;
+  };
+  auto apply_no_source_fallback = [&]() {
+    *Enew = Estar;
+    *Fnew_d = Fstar_d;
+    *chi = CCTK_REAL(1.0 / 3.0);
+  };
 
   // Non stiff limit, use explicit update
   if (cdt * kabs < 1 && cdt * kscat < 1) {
     prepare(qold, &p);
     explicit_update(&p, Enew, Fnew_d);
 
+    const bool state_finite =
+        isfinite(*Enew) && isfinite(Fnew_d->at(0)) && isfinite(Fnew_d->at(1)) &&
+        isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
+    if (!state_finite) {
+      if (closure_fun != eddington) {
+        int ierr = source_update(
+            cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
+            closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+            u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
+            kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
+            source_maxiter, source_epsabs, source_epsrel);
+        if (ierr != NUX_M1_SOURCE_FAIL) {
+          return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
+        }
+      }
+      if (can_use_no_source_fallback()) {
+        apply_no_source_fallback();
+        return NUX_M1_SOURCE_EDDINGTON;
+      }
+      return NUX_M1_SOURCE_FAIL;
+    }
     arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
-    prepare_closure(q, &p);
+    int ierr_cl = prepare_closure(q, &p);
+    if (ierr_cl != GSL_SUCCESS || !isfinite(p.chi)) {
+      if (closure_fun != eddington) {
+        int ierr = source_update(
+            cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
+            closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+            u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
+            kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
+            source_maxiter, source_epsabs, source_epsrel);
+        if (ierr != NUX_M1_SOURCE_FAIL) {
+          return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
+        }
+      }
+      if (can_use_no_source_fallback()) {
+        apply_no_source_fallback();
+        return NUX_M1_SOURCE_EDDINGTON;
+      }
+      return NUX_M1_SOURCE_FAIL;
+    }
     *chi = p.chi;
 
     return NUX_M1_SOURCE_THIN;
@@ -466,6 +525,13 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
       fn_nd, q_initial_guess, arith_vector{0.0, -10.0, -10.0, -10.0},
       arith_vector{10.0, 10.0, 10.0, 10.0}, minbits, source_maxiter, iters,
       failed, source_epsabs, source_epsrel);
+  // Algo::newton_raphson_nd can report failed=false with non-finite iterate.
+  // Treat that as solver failure so we go through the same Eddington retry
+  // path.
+  if (!failed && !(isfinite(q_out(0)) && isfinite(q_out(1)) &&
+                   isfinite(q_out(2)) && isfinite(q_out(3)))) {
+    failed = true;
+  }
   if (failed) {
     // If we are here, then we are in trouble
 #ifdef WARN_FOR_SRC_FIX
@@ -479,11 +545,11 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
       // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
       int ierr = source_update(
-          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter, cdt,
-          alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W,
-          Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
-          source_thick_limit, source_scat_limit, source_maxiter, source_epsabs,
-          source_epsrel);
+          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
+          closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+          u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
+          kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
+          source_maxiter, source_epsabs, source_epsrel);
       if (ierr == NUX_M1_SOURCE_OK) {
         return NUX_M1_SOURCE_EDDINGTON;
       } else {
@@ -494,6 +560,10 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
       printf("using initial guess\n");
       // TODO: print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
+      if (can_use_no_source_fallback()) {
+        apply_no_source_fallback();
+        return NUX_M1_SOURCE_EDDINGTON;
+      }
       return NUX_M1_SOURCE_FAIL;
     }
   }
@@ -508,7 +578,47 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   Fnew_d->at(0) = -alp * n_u(1) * Fnew_d->at(1) - alp * n_u(2) * Fnew_d->at(2) -
                   alp * n_u(3) * Fnew_d->at(3);
 
-  prepare_closure(q_out, &p);
+  const bool state_finite = isfinite(*Enew) && isfinite(Fnew_d->at(0)) &&
+                            isfinite(Fnew_d->at(1)) &&
+                            isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
+  if (!state_finite) {
+    if (closure_fun != eddington) {
+      int ierr = source_update(
+          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
+          closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+          u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
+          kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
+          source_maxiter, source_epsabs, source_epsrel);
+      if (ierr != NUX_M1_SOURCE_FAIL) {
+        return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
+      }
+    }
+    if (can_use_no_source_fallback()) {
+      apply_no_source_fallback();
+      return NUX_M1_SOURCE_EDDINGTON;
+    }
+    return NUX_M1_SOURCE_FAIL;
+  }
+
+  int ierr_cl = prepare_closure(q_out, &p);
+  if (ierr_cl != GSL_SUCCESS || !isfinite(p.chi)) {
+    if (closure_fun != eddington) {
+      int ierr = source_update(
+          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
+          closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
+          u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
+          kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
+          source_maxiter, source_epsabs, source_epsrel);
+      if (ierr != NUX_M1_SOURCE_FAIL) {
+        return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
+      }
+    }
+    if (can_use_no_source_fallback()) {
+      apply_no_source_fallback();
+      return NUX_M1_SOURCE_EDDINGTON;
+    }
+    return NUX_M1_SOURCE_FAIL;
+  }
   *chi = p.chi;
 
   return NUX_M1_SOURCE_OK;

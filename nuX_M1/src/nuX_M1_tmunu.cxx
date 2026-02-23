@@ -104,7 +104,7 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
 
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W, u_u, v_d, proj_ud, rE[i4D], F_d, &mychi, &P_dd,
-                       closure_epsilon, closure_maxiter);
+                       closure_epsilon, closure_maxiter, use_fallback != 0);
 
           // gsl_root_fsolver_free(gsl_solver);
 

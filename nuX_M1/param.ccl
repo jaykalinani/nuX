@@ -51,6 +51,10 @@ INT closure_maxiter "Maximum number of iterations in the closure root finding" S
     (0:* :: "Any positive integer"
 } 64
 
+BOOLEAN use_fallback "Use closure fallback on root-solver failure; if no, abort" STEERABLE=ALWAYS
+{
+} "yes"
+
 KEYWORD fiducial_velocity "Decide which fiducial velocity to use" STEERABLE=ALWAYS
 {
     "fluid"  :: "fluid frame"

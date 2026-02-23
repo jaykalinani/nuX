@@ -151,6 +151,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           assert(isfinite(rN_p[i4D]));
           assert(isfinite(rE_p[i4D]));
           assert(isfinite(rFx_p[i4D]));
+          assert(isfinite(rN_rhs[i4D]));
+          assert(isfinite(rE_rhs[i4D]));
+          assert(isfinite(rFx_rhs[i4D]));
+          assert(isfinite(rFy_rhs[i4D]));
+          assert(isfinite(rFz_rhs[i4D]));
           assert(isfinite(rFy_p[i4D]));
           assert(isfinite(rFz_p[i4D]));
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_EXPL)
@@ -198,6 +203,10 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                    rFy_p[i4D] + dt * rFy_rhs[i4D],
                    rFz_p[i4D] + dt * rFz_rhs[i4D], &Fstar_d);
           apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
+          assert(isfinite(Estar));
+          assert(isfinite(Fstar_d(1)));
+          assert(isfinite(Fstar_d(2)));
+          assert(isfinite(Fstar_d(3)));
           CCTK_REAL Nstar = std::max(rN_p[i4D] + dt * rN_rhs[i4D], rad_N_floor);
           CCTK_REAL Enew = Estar;
           tensor::generic<CCTK_REAL, 4, 1> Fnew_d;
@@ -205,7 +214,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W_ijk, u_u, v_d, proj_ud, Estar, Fstar_d, &chi[i4D],
-                       &P_dd, closure_epsilon, closure_maxiter);
+                       &P_dd, closure_epsilon, closure_maxiter,
+                       use_fallback != 0);
 
           tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
           assemble_rT(n_d, Estar, Fstar_d, P_dd, &rT_dd);
@@ -252,15 +262,21 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
-          (void)source_update(
+          const int source_status = source_update(
               cctkGH, p.i, p.j, p.k, ig, closure_fun, closure_epsilon,
-              closure_maxiter, dt, alp_ijk, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-              u_u, v_d, v_u, proj_ud, W_ijk, Estar, Fstar_d, Estar, Fstar_d,
-              volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D], &chi[i4D],
-              &Enew, &Fnew_d, source_thick_limit, source_scat_limit,
+              closure_maxiter, use_fallback != 0, dt, alp_ijk, g_dd, g_uu, n_d,
+              n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W_ijk, Estar, Fstar_d,
+              Estar, Fstar_d, volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D],
+              &chi[i4D], &Enew, &Fnew_d, source_thick_limit, source_scat_limit,
               source_maxiter, source_epsabs, source_epsrel);
+          (void)source_status;
 
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
+          assert(isfinite(Enew));
+          assert(isfinite(Fnew_d(1)));
+          assert(isfinite(Fnew_d(2)));
+          assert(isfinite(Fnew_d(3)));
+          assert(isfinite(chi[i4D]));
 
           apply_closure(g_dd, g_uu, n_d, W_ijk, u_u, v_d, proj_ud, Enew, Fnew_d,
                         chi[i4D], &P_dd);
@@ -268,6 +284,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           tensor::symmetric2<CCTK_REAL, 4, 2> T_dd;
           assemble_rT(n_d, Enew, Fnew_d, P_dd, &T_dd);
           Jnew = calc_J_from_rT(T_dd, u_u);
+          assert(isfinite(Jnew));
 #endif
 
           DrE[ig] = Enew - Estar;
@@ -277,6 +294,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
           CCTK_REAL Gamma = compute_Gamma(W_ijk, v_u, Jnew, Enew, Fnew_d,
                                           rad_E_floor, rad_eps);
+          assert(isfinite(Gamma));
 
           if (source_therm_limit < 0 || dt * abs_0[i4D] < source_therm_limit) {
             DrN[ig] = (Nstar + dt * alp_ijk * volform_ijk * eta_0[i4D]) /
@@ -286,6 +304,12 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
             DrN[ig] =
                 (nueave[i4D] > 0 ? (Gamma * Jnew) / nueave[i4D] - Nstar : 0.0);
           }
+
+          assert(isfinite(DrE[ig]));
+          assert(isfinite(DrFx[ig]));
+          assert(isfinite(DrFy[ig]));
+          assert(isfinite(DrFz[ig]));
+          assert(isfinite(DrN[ig]));
 
 #endif // NUX_M1_SRC_METHOD
         } // ig
@@ -334,6 +358,21 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         for (int ig = 0; ig < groupspec; ++ig) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
+          assert(isfinite(theta));
+          assert(isfinite(rE_p[i4D]));
+          assert(isfinite(rFx_p[i4D]));
+          assert(isfinite(rFy_p[i4D]));
+          assert(isfinite(rFz_p[i4D]));
+          assert(isfinite(rE_rhs[i4D]));
+          assert(isfinite(rFx_rhs[i4D]));
+          assert(isfinite(rFy_rhs[i4D]));
+          assert(isfinite(rFz_rhs[i4D]));
+          assert(isfinite(DrE[ig]));
+          assert(isfinite(DrFx[ig]));
+          assert(isfinite(DrFy[ig]));
+          assert(isfinite(DrFz[ig]));
+          assert(isfinite(DrN[ig]));
+
           CCTK_REAL E = rE_p[i4D] + dt * rE_rhs[i4D] + theta * DrE[ig];
           const CCTK_REAL Fx_new =
               rFx_p[i4D] + dt * rFx_rhs[i4D] + theta * DrFx[ig];
@@ -341,6 +380,12 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
               rFy_p[i4D] + dt * rFy_rhs[i4D] + theta * DrFy[ig];
           const CCTK_REAL Fz_new =
               rFz_p[i4D] + dt * rFz_rhs[i4D] + theta * DrFz[ig];
+
+          assert(isfinite(E));
+          assert(isfinite(Fx_new));
+          assert(isfinite(Fy_new));
+          assert(isfinite(Fz_new));
+
           tensor::generic<CCTK_REAL, 4, 1> F_d;
           pack_F_d(betax_ijk, betay_ijk, betaz_ijk, Fx_new, Fy_new, Fz_new,
                    &F_d);

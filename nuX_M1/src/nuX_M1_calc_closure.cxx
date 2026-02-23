@@ -111,9 +111,12 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           pack_F_d(beta_u(1), beta_u(2), beta_u(3), rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
 
+          CCTK_REAL E_closure = max(rE[i4D], rad_E_floor);
+          apply_floor(g_uu, &E_closure, &F_d, rad_E_floor, rad_eps);
+
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                       W, u_u, v_d, proj_ud, rE[i4D], F_d, &chi[i4D], &P_dd,
-                       closure_epsilon, closure_maxiter);
+                       W, u_u, v_d, proj_ud, E_closure, F_d, &chi[i4D], &P_dd,
+                       closure_epsilon, closure_maxiter, use_fallback != 0);
           unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
                       &rPyz[i4D], &rPzz[i4D]);
           assert(isfinite(rPxx[i4D]));
