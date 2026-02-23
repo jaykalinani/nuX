@@ -3,7 +3,7 @@
 
 #include "constants.hpp"
 
-CCTK_DEVICE CCTK_HOST NUX_ATTRIBUTE_NOINLINE
+CCTK_DEVICE CCTK_HOST CCTK_ATTRIBUTE_ALWAYS_INLINE inline
 CCTK_REAL AverageBaryonMass(CCTK_REAL mev_mass) {
   // This factor sets rho / m_b to units of fm^-3, which is used for number density throughout the code
   const CCTK_REAL inv_ndens_CU_to_fm_m3 = nuX_ndens_conv / nuX_CUndens_conv;
