@@ -344,7 +344,7 @@ if (include_fluxes) {
     	READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     	WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
 
-   	SYNC: rN_rhs rE_rhs rF_rhs
+   	# SYNC: rN_rhs rE_rhs rF_rhs
     } "Add limited flux divergence to the neutrino RHS"
 }
 
@@ -390,7 +390,7 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: rN(interior) rE(interior) rF(interior)
      
     #SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
-    SYNC: rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    SYNC: rN rE rF AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
 
@@ -470,7 +470,7 @@ if (add_to_Tmunu) {
         READS: rE(everywhere) rF(everywhere)
         READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
-        SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
+        # SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
     } "Adds the contribution of radiation to the global stress-energy tensor"
 }
 
