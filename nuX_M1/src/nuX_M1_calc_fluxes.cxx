@@ -212,7 +212,6 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   constexpr vect<int, dim> face_centered = {!(dir == 0), !(dir == 1),
                                               !(dir == 2)};
 
-
   tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
                                       betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
                                       kxy, kxz, kyy, kyz, kzz);
