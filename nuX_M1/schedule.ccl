@@ -212,16 +212,6 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
-# Ensure conserved vars have valid ghost zones before closure/fluxes
-# SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
-# {
-#     LANG: C
-#     OPTIONS: SINGLEMAP
-#     SYNC: rN
-#     SYNC: rE
-#     SYNC: rF
-# } "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
-
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
@@ -271,21 +261,6 @@ else {
   } "Compute the opacities"
 }
 
-# Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
-# SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
-#     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
-#     BEFORE nuX_M1_CalcFluxes
-# {
-#     LANG: C
-#     OPTIONS: SINGLEMAP
-#     SYNC: rP
-#     SYNC: rJ
-#     SYNC: rHt
-#     SYNC: rH
-#     SYNC: chi
-#     SYNC: opacs
-# } "Sync closure/opacities into ghost zones before flux divergence"
-
 if (include_fluxes) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
@@ -314,7 +289,6 @@ if (include_fluxes) {
 
 
         WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
-    	SYNC: nu_flux_x nu_flux_y nu_flux_z
     } "Compute neutrino transport fluxes at cell centres"
 
     SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
@@ -344,7 +318,6 @@ if (include_fluxes) {
     	READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     	WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
 
-   	# SYNC: rN_rhs rE_rhs rF_rhs
     } "Add limited flux divergence to the neutrino RHS"
 }
 
@@ -389,7 +362,6 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    #SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
     SYNC: rN rE rF AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
@@ -470,7 +442,6 @@ if (add_to_Tmunu) {
         READS: rE(everywhere) rF(everywhere)
         READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
-        # SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
     } "Adds the contribution of radiation to the global stress-energy tensor"
 }
 

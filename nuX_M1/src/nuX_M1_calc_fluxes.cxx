@@ -78,6 +78,9 @@ CCTK_DEVICE CCTK_HOST void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
   CCTK_REAL *restrict nu_flux_dir =
       (dir == 0 ? nu_flux_x : (dir == 1 ? nu_flux_y : nu_flux_z));
 
+  constexpr vect<int, dim> face_centered = {!(dir == 0), !(dir == 1),
+                                              !(dir == 2)};
+
   tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
                                       betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
                                       kxy, kxz, kyy, kyz, kzz);
@@ -89,14 +92,15 @@ CCTK_DEVICE CCTK_HOST void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
   const int groupspec = ngroups * nspecies;
 
   //--------------------------------------------------------------------
-  // GPU loop over all cells (INCLUDING ghost zones)
+  // GPU loop over all cells (INCLUDING ghost zones) in flux direction,
+  // interior in other directions.
   //
   // This matches THC's "1st pass compute the fluxes", which computes
   // fluxes over the full 1D line including ghosts so that the subsequent
   // RHS update can safely reference fluxes near the interior boundary.
   //--------------------------------------------------------------------
-  grid.loop_all_device<1, 1, 1>(
-      grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+  grid.loop_mixcc_device<1, 1, 1>(
+      grid.nghostzones, face_centered, grid.nghostzones[dir], [=] CCTK_DEVICE(const PointDesc &p) {
         const int i = p.i;
         const int j = p.j;
         const int k = p.k;
@@ -205,6 +209,10 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   const CCTK_REAL *nu_flux_dir =
       (dir == 0 ? nu_flux_x : (dir == 1 ? nu_flux_y : nu_flux_z));
 
+  constexpr vect<int, dim> face_centered = {!(dir == 0), !(dir == 1),
+                                              !(dir == 2)};
+
+
   tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
                                       betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
                                       kxy, kxz, kyy, kyz, kzz);
@@ -212,8 +220,9 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   // THC needs at least 2 ghost zones along each direction
   assert(cctk_nghostzones[dir] >= 2);
 
-  grid.loop_int_device<1, 1, 1>(
-      grid.nghostzones,
+  // Loop over interior + 1, as flux gridfunctions are physically face-centered but defined as cell-centered
+  grid.loop_mixcc_device<1, 1, 1>(
+      grid.nghostzones, face_centered, 1,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int i = p.i;
         const int j = p.j;
