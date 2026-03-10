@@ -72,13 +72,11 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup
     AFTER (nuX_M1_Reset)
 {
     LANG: C
-    READS: ADMBaseX::metric(interior)
-    READS: AsterX::dens(interior)
-    READS: HydroBaseX::vel(interior)
-    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
-    WRITES: fidu_w_lorentz(interior)
-    SYNC: fidu_vel
-    SYNC: fidu_w_lorentz
+    READS: ADMBaseX::metric(everywhere)
+    READS: AsterX::dens(everywhere)
+    READS: HydroBaseX::vel(everywhere)
+    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+    WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
 
 
@@ -132,14 +130,12 @@ if (reset_to_equilibrium) {
         AFTER nuX_M1_Reset
     {
         LANG: C
-         READS: ADMBaseX::metric(interior)
-         READS: AsterX::dens(interior)
-         READS: HydroBaseX::vel(interior)
+         READS: ADMBaseX::metric(everywhere)
+         READS: AsterX::dens(everywhere)
+         READS: HydroBaseX::vel(everywhere)
 
          WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
          WRITES: fidu_w_lorentz(everywhere)
-         SYNC: fidu_vel
-         SYNC: fidu_w_lorentz
     } "Compute the fiducial velocity"
 
 #    SCHEDULE nuX_M1_SetToEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
@@ -216,27 +212,14 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
     WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere) 
 } "Initialize explicit RHSs to zero"
 
-# Ensure conserved vars have valid ghost zones before closure/fluxes
-SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rN
-    SYNC: rE
-    SYNC: rF
-} "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
-
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
 {
     LANG: C
-    READS: ADMBaseX::metric(interior)
-    READS: AsterX::dens(interior)
-    READS: HydroBaseX::vel(interior) 
-    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
-    WRITES: fidu_w_lorentz(interior)
-    SYNC: fidu_vel
-    SYNC: fidu_w_lorentz
-    
+    READS: ADMBaseX::metric(everywhere)
+    READS: AsterX::dens(everywhere)
+    READS: HydroBaseX::vel(everywhere) 
+    WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+    WRITES: fidu_w_lorentz(everywhere)
 } "Compute the fiducial velocity"
 
 SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
@@ -278,21 +261,6 @@ else {
   } "Compute the opacities"
 }
 
-# Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
-SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
-    BEFORE nuX_M1_CalcFluxes
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rP
-    SYNC: rJ
-    SYNC: rHt
-    SYNC: rH
-    SYNC: chi
-    SYNC: opacs
-} "Sync closure/opacities into ghost zones before flux divergence"
-
 if (include_fluxes) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
@@ -321,7 +289,6 @@ if (include_fluxes) {
 
 
         WRITES: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
-    	SYNC: nu_flux_x nu_flux_y nu_flux_z
     } "Compute neutrino transport fluxes at cell centres"
 
     SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
@@ -351,7 +318,6 @@ if (include_fluxes) {
     	READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     	WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
 
-   	SYNC: rN_rhs rE_rhs rF_rhs
     } "Add limited flux divergence to the neutrino RHS"
 }
 
@@ -396,7 +362,7 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    SYNC: rN rE rF AsterX::mom AsterX::tau AsterX::DYe 
 
 } "Semi-implicit update of radiation and matter fields"
 
@@ -437,14 +403,14 @@ SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
 } "Apply boundary conditions during the evolution"
 # -----------------------------------------------------------------------------
 
-SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
-{
-    LANG: C
-    OPTIONS: SINGLEMAP
-    SYNC: rN
-    SYNC: rE
-    SYNC: rF
-} "Select boundary conditions"
+# SCHEDULE nuX_M1_Sync IN nuX_M1_BoundaryConditions
+# {
+#     LANG: C
+#     OPTIONS: SINGLEMAP
+#     SYNC: rN
+#     SYNC: rE
+#     SYNC: rF
+# } "Select boundary conditions"
 
 SCHEDULE GROUP ApplyBCs AS nuX_M1_ApplyBCs IN nuX_M1_BoundaryConditions \
     AFTER nuX_M1_Sync
@@ -459,14 +425,12 @@ if (add_to_Tmunu) {
     SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
     {
         LANG: C
-        READS: ADMBaseX::metric(interior)
-        READS: AsterX::dens(interior)
-        READS: HydroBaseX::vel(interior)  
-        READS: nuX_m1_mask(interior)
-        WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
-        WRITES: fidu_w_lorentz(interior)
-        SYNC: fidu_vel
-        SYNC: fidu_w_lorentz
+        READS: ADMBaseX::metric(everywhere)
+        READS: AsterX::dens(everywhere)
+        READS: HydroBaseX::vel(everywhere)  
+        READS: nuX_m1_mask(everywhere)
+        WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
+        WRITES: fidu_w_lorentz(everywhere)
     } "Compute the fiducial velocity"
 
     SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
@@ -478,7 +442,6 @@ if (add_to_Tmunu) {
         READS: rE(everywhere) rF(everywhere)
         READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
         WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
-        SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
     } "Adds the contribution of radiation to the global stress-energy tensor"
 }
 

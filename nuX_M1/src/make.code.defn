@@ -18,7 +18,6 @@ nuX_M1_init_fluxes_rhs.cxx \
 nuX_M1_param_check.cxx \
 nuX_M1_reset.cxx \
 nuX_M1_setmask.cxx \
-nuX_M1_sync.cxx \
 nuX_M1_time_integrator.cxx \
 nuX_M1_tmunu.cxx \
 nuX_M1_calc_update.cxx \
