@@ -19,15 +19,15 @@
 #define NUX_M1_SOURCE_SCAT 4
 #define NUX_M1_SOURCE_FAIL 5
 
-// TODO: replace GSL_SUCCESS, GSL_EBADFUNC with alternative error flags
-#define GSL_SUCCESS 0
-#define GSL_EBADFUNC 5
+enum : int {
+  ROOTS_SUCCESS = static_cast<int>(nuX_Utils::roots::status::success),
+  ROOTS_CONTINUE = static_cast<int>(nuX_Utils::roots::status::continue_iter),
+  ROOTS_EBADFUNC = static_cast<int>(nuX_Utils::roots::status::ebadfunc),
+  ROOTS_ENOPROG = static_cast<int>(nuX_Utils::roots::status::enoprog),
+  ROOTS_ENOPROGJ = static_cast<int>(nuX_Utils::roots::status::enoprogj),
+};
 
-// TODO: may need to move this to a different file
-// Define a simple name for a 4D CCTK_REAL Arith::vec vector
-// to replace gsl_vector
-// and a 4x4 CCTK_REAL Arith::mat matrix
-// to replace gsl_matrix
+// Fixed-size vector/matrix aliases for the implicit 4D root solve.
 typedef Arith::vec<CCTK_REAL, 4> arith_vector;
 typedef Arith::mat<CCTK_REAL, 4> arith_matrix;
 
@@ -237,10 +237,10 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
     }
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
+CCTK_HOST CCTK_DEVICE int prepare_closure(const arith_vector &q, Params *p) {
   p->E = max(q(0), 0.0);
   if (p->E < 0) {
-    return GSL_EBADFUNC;
+    return ROOTS_EBADFUNC;
   }
   pack_F_d(-p->alp * p->n_u(1), -p->alp * p->n_u(2), -p->alp * p->n_u(3), q(1),
            q(2), q(3), &p->F_d);
@@ -251,10 +251,10 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
                &p->P_dd, p->closure_epsilon, p->closure_maxiter,
                p->closure_use_fallback);
 
-  return GSL_SUCCESS;
+  return ROOTS_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_sources(arith_vector &q, Params *p) {
+CCTK_HOST CCTK_DEVICE int prepare_sources(const arith_vector &q, Params *p) {
   assemble_rT(p->n_d, p->E, p->F_d, p->P_dd, &p->T_dd);
 
   p->J = calc_J_from_rT(p->T_dd, p->u_u);
@@ -265,29 +265,29 @@ CCTK_HOST CCTK_DEVICE int prepare_sources(arith_vector &q, Params *p) {
   p->Edot = calc_rE_source(p->alp, p->n_u, p->S_d);
   calc_rF_source(p->alp, p->gamma_ud, p->S_d, &p->tS_d);
 
-  return GSL_SUCCESS;
+  return ROOTS_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare(arith_vector &q, Params *p) {
+CCTK_HOST CCTK_DEVICE int prepare(const arith_vector &q, Params *p) {
   int ierr = prepare_closure(q, p);
-  if (ierr != GSL_SUCCESS) {
+  if (ierr != ROOTS_SUCCESS) {
     return ierr;
   }
 
   ierr = prepare_sources(q, p);
-  if (ierr != GSL_SUCCESS) {
+  if (ierr != ROOTS_SUCCESS) {
     return ierr;
   }
 
-  return GSL_SUCCESS;
+  return ROOTS_SUCCESS;
 }
 
 // Function to rootfind for
 //    f(q) = q - q^* - dt S[q]
-CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector &q, Params *p,
+CCTK_HOST CCTK_DEVICE int impl_func_val(const arith_vector &q, Params *p,
                                         arith_vector &f) {
   int ierr = prepare(q, p);
-  if (ierr != GSL_SUCCESS) {
+  if (ierr != ROOTS_SUCCESS) {
     return ierr;
   }
 
@@ -299,15 +299,14 @@ CCTK_HOST CCTK_DEVICE int impl_func_val(arith_vector &q, Params *p,
 
   EVALUATE_ZFUNC
 
-  return GSL_SUCCESS;
+  return ROOTS_SUCCESS;
 }
 
 // Jacobian of the implicit function
-CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector &q, void *params,
+CCTK_HOST CCTK_DEVICE int impl_func_jac(const arith_vector &q, Params *p,
                                         arith_matrix &J) {
-  Params *p = reinterpret_cast<Params *>(params);
   int ierr = prepare(q, p);
-  if (ierr != GSL_SUCCESS) {
+  if (ierr != ROOTS_SUCCESS) {
     return ierr;
   }
 
@@ -330,21 +329,21 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(arith_vector &q, void *params,
 
   EVALUATE_ZJAC
 
-  return GSL_SUCCESS;
+  return ROOTS_SUCCESS;
 }
 
 // Function and Jacobian evaluation
-CCTK_HOST CCTK_DEVICE int impl_func_val_jac(arith_vector &q, Params *p,
+CCTK_HOST CCTK_DEVICE int impl_func_val_jac(const arith_vector &q, Params *p,
                                             arith_vector &f, arith_matrix &J) {
   int ierr = prepare(q, p);
-  if (ierr != 0) {
+  if (ierr != ROOTS_SUCCESS) {
     return ierr;
   }
 
   EVALUATE_ZFUNC
   EVALUATE_ZJAC
 
-  return GSL_SUCCESS;
+  return ROOTS_SUCCESS;
 }
 
 #undef EVALUATE_ZFUNC
@@ -462,7 +461,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     }
     arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
     int ierr_cl = prepare_closure(q, &p);
-    if (ierr_cl != GSL_SUCCESS || !isfinite(p.chi)) {
+    if (ierr_cl != ROOTS_SUCCESS || !isfinite(p.chi)) {
       if (closure_fun != eddington) {
         int ierr = source_update(
             cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
@@ -501,48 +500,64 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   arith_vector q_initial_guess{*Enew, Fnew_d->at(1), Fnew_d->at(2),
                                Fnew_d->at(3)};
 
-  // Now we are going to do the ND Newton-Raphson solve
-  // First define the function that we will input to Algo::newton_raphson_nd
-  // it needs to only take a arith_vector as an input and return
-  // std::pair< arith_vector f, arith_matrix jac >
-  auto fn_nd = [&p](arith_vector q) -> std::pair<arith_vector, arith_matrix> {
-    arith_vector f;
-    arith_matrix J;
-    // compute the function output and the jacobian
-    impl_func_val_jac(q, &p, f, J);
-    return {f, J};
+  auto fn_nd_val = [&p](arith_vector q, arith_vector &f) -> int {
+    return impl_func_val(q, &p, f);
+  };
+  auto fn_nd_jac = [&p](arith_vector q, arith_matrix &J) -> int {
+    return impl_func_jac(q, &p, J);
+  };
+  auto fn_nd_val_jac =
+      [&p](arith_vector q, arith_vector &f, arith_matrix &J) -> int {
+    return impl_func_val_jac(q, &p, f, J);
   };
 
-  // then do the ND newton-raphson
-  int iters;
-  bool failed;
-  const int minbits =
-      static_cast<int>(0.6 * std::numeric_limits<CCTK_REAL>::digits);
-  // Keep E non-negative, but allow signed fluxes.
-  // In diffusion/advection problems the implicit solve needs negative F
-  // (e.g. on the up-gradient side); clamping F >= 0 biases transport speed.
-  auto q_out = Algo::newton_raphson_nd(
-      fn_nd, q_initial_guess, arith_vector{0.0, -10.0, -10.0, -10.0},
-      arith_vector{10.0, 10.0, 10.0, 10.0}, minbits, source_maxiter, iters,
-      failed, source_epsabs, source_epsrel);
-  // Algo::newton_raphson_nd can report failed=false with non-finite iterate.
-  // Treat that as solver failure so we go through the same Eddington retry
-  // path.
-  if (!failed && !(isfinite(q_out(0)) && isfinite(q_out(1)) &&
-                   isfinite(q_out(2)) && isfinite(q_out(3)))) {
+  nuX_Utils::roots::hybridsj_solver<CCTK_REAL, 4> solver{};
+  int ierr =
+      nuX_Utils::roots::hybridsj_set(&solver, fn_nd_val_jac, q_initial_guess);
+  int iter = 0;
+  bool failed = false;
+
+  if (ierr != ROOTS_SUCCESS) {
     failed = true;
+  } else {
+    do {
+      if (iter < source_maxiter) {
+        ierr = nuX_Utils::roots::hybridsj_iterate(&solver, fn_nd_val, fn_nd_jac);
+        iter++;
+      }
+
+      if (ierr == ROOTS_ENOPROG || ierr == ROOTS_ENOPROGJ ||
+          ierr == ROOTS_EBADFUNC || iter >= source_maxiter) {
+        failed = true;
+        break;
+      } else if (ierr != ROOTS_SUCCESS) {
+        char msg[BUFSIZ];
+        snprintf(msg, BUFSIZ,
+                 "Unexpected error in hybridsj_iterate, error code \"%d\"",
+                 ierr);
+        CCTK_ERROR(msg);
+      }
+
+      ierr = nuX_Utils::roots::test_delta(solver.dx, solver.x, source_epsabs,
+                                          source_epsrel);
+    } while (ierr == ROOTS_CONTINUE);
+
+    if (!failed && ierr != ROOTS_SUCCESS) {
+      char msg[BUFSIZ];
+      snprintf(msg, BUFSIZ,
+               "Unexpected error in roots::test_delta, error code \"%d\"",
+               ierr);
+      CCTK_ERROR(msg);
+    }
   }
   if (failed) {
-    // If we are here, then we are in trouble
 #ifdef WARN_FOR_SRC_FIX
-    printf("newton_raphson_nd failed in the implicit solve!\n");
+    printf("hybridsj failed in the implicit solve!\n");
 #endif
 
-    // We are optically thick, suggest to retry with Eddington closure
     if (closure_fun != eddington) {
 #ifdef WARN_FOR_SRC_FIX
       printf("Eddington closure\n");
-      // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
       int ierr = source_update(
           cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
@@ -558,7 +573,6 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     } else {
 #ifdef WARN_FOR_SRC_FIX
       printf("using initial guess\n");
-      // TODO: print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
       if (can_use_no_source_fallback()) {
         apply_no_source_fallback();
@@ -568,7 +582,9 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     }
   }
 
-  // assign the output of the ND Newton-Raphson solver to the "new" variables
+  arith_vector const q_out = solver.x;
+
+  // Assign the output of the multiroot solve to the updated state.
   *Enew = q_out(0);
   Fnew_d->at(1) = q_out(1);
   Fnew_d->at(2) = q_out(2);
@@ -601,7 +617,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   }
 
   int ierr_cl = prepare_closure(q_out, &p);
-  if (ierr_cl != GSL_SUCCESS || !isfinite(p.chi)) {
+  if (ierr_cl != ROOTS_SUCCESS || !isfinite(p.chi)) {
     if (closure_fun != eddington) {
       int ierr = source_update(
           cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
