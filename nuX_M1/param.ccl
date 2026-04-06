@@ -75,6 +75,12 @@ BOOLEAN include_GR_sources "Add GR sources to the radiation RHS" STEERABLE=ALWAY
 {
 } "yes"
 
+INT grsource_spatial_order "Finite-difference order for spacetime derivatives in GR source terms" STEERABLE=ALWAYS
+{
+    2 :: "Second order; matches THC_M1"
+    4 :: "Fourth order on cell-centered geometry"
+} 2
+
 INT ngroups "Number of radiation energy groups" STEERABLE=ALWAYS
 {
     1 :: "Only 1 is supported at the moment"

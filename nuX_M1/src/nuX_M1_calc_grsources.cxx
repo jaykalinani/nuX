@@ -8,23 +8,38 @@
 #include "aster_utils.hxx"
 #include "nuX_utils.hxx"
 
-#define FDORDER 2
-
 namespace nuX_M1 {
 
 using namespace AsterUtils; // calc_fd_v2c<>
 using namespace nuX_Utils;  // tensor helpers
 using namespace Loop;
 
-// NOTE: unlike the rest of M1, spatial indices run over 0,1,2 here
-extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcGRSources;
-  DECLARE_CCTK_PARAMETERS;
+namespace {
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
-    CCTK_INFO("nuX_M1_CalcGRSources");
+template <int FDORDER, typename T>
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline T
+fd_cc_from_vc(const GF3D2<const T> &gf, const PointDesc &p, const int dir) {
+  const int oi = (dir == 0) ? 1 : 0;
+  const int oj = (dir == 1) ? 1 : 0;
+  const int ok = (dir == 2) ? 1 : 0;
+
+  if (FDORDER == 2) {
+    const T fp = tensor::interp_v2c(gf, p, +oi, +oj, +ok);
+    const T fm = tensor::interp_v2c(gf, p, -oi, -oj, -ok);
+    return (fp - fm) * (0.5 / p.DX[dir]);
   }
 
+  const T fp2 = tensor::interp_v2c(gf, p, +2 * oi, +2 * oj, +2 * ok);
+  const T fp1 = tensor::interp_v2c(gf, p, +oi, +oj, +ok);
+  const T fm1 = tensor::interp_v2c(gf, p, -oi, -oj, -ok);
+  const T fm2 = tensor::interp_v2c(gf, p, -2 * oi, -2 * oj, -2 * ok);
+  return (-fp2 + 8.0 * fp1 - 8.0 * fm1 + fm2) * (1.0 / (12.0 * p.DX[dir]));
+}
+
+template <int FDORDER>
+CCTK_HOST CCTK_DEVICE void CalcGRSourcesImpl(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcGRSources;
+  DECLARE_CCTK_PARAMETERS;
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
@@ -59,24 +74,24 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
 
         tensor::generic<CCTK_REAL, 3, 1> dalp_d;
         for (int a = 0; a < 3; ++a) {
-          dalp_d(a) = calc_fd_v2c<FDORDER>(gf_alp, p, a);
+          dalp_d(a) = fd_cc_from_vc<FDORDER>(gf_alp, p, a);
         }
 
         tensor::generic<CCTK_REAL, 3, 2> dbeta_du;
         for (int a = 0; a < 3; ++a) {
-          dbeta_du(a, 0) = calc_fd_v2c<FDORDER>(gf_betax, p, a);
-          dbeta_du(a, 1) = calc_fd_v2c<FDORDER>(gf_betay, p, a);
-          dbeta_du(a, 2) = calc_fd_v2c<FDORDER>(gf_betaz, p, a);
+          dbeta_du(a, 0) = fd_cc_from_vc<FDORDER>(gf_betax, p, a);
+          dbeta_du(a, 1) = fd_cc_from_vc<FDORDER>(gf_betay, p, a);
+          dbeta_du(a, 2) = fd_cc_from_vc<FDORDER>(gf_betaz, p, a);
         }
 
         tensor::symmetric2<CCTK_REAL, 3, 3> dg_ddd;
         for (int a = 0; a < 3; ++a) {
-          dg_ddd(a, 0, 0) = calc_fd_v2c<FDORDER>(gf_gxx, p, a);
-          dg_ddd(a, 0, 1) = calc_fd_v2c<FDORDER>(gf_gxy, p, a);
-          dg_ddd(a, 0, 2) = calc_fd_v2c<FDORDER>(gf_gxz, p, a);
-          dg_ddd(a, 1, 1) = calc_fd_v2c<FDORDER>(gf_gyy, p, a);
-          dg_ddd(a, 1, 2) = calc_fd_v2c<FDORDER>(gf_gyz, p, a);
-          dg_ddd(a, 2, 2) = calc_fd_v2c<FDORDER>(gf_gzz, p, a);
+          dg_ddd(a, 0, 0) = fd_cc_from_vc<FDORDER>(gf_gxx, p, a);
+          dg_ddd(a, 0, 1) = fd_cc_from_vc<FDORDER>(gf_gxy, p, a);
+          dg_ddd(a, 0, 2) = fd_cc_from_vc<FDORDER>(gf_gxz, p, a);
+          dg_ddd(a, 1, 1) = fd_cc_from_vc<FDORDER>(gf_gyy, p, a);
+          dg_ddd(a, 1, 2) = fd_cc_from_vc<FDORDER>(gf_gyz, p, a);
+          dg_ddd(a, 2, 2) = fd_cc_from_vc<FDORDER>(gf_gzz, p, a);
         }
 
         // ------------------------------------------------------------------
@@ -126,6 +141,36 @@ extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
           rFz_rhs[i4D] = rF_rhs_local[2];
         }
       }); // end loop_all_device
-} // nuX_M1_CalcGRSources
+}
+
+} // namespace
+
+// NOTE: unlike the rest of M1, spatial indices run over 0,1,2 here
+extern "C" void nuX_M1_CalcGRSources(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcGRSources;
+  DECLARE_CCTK_PARAMETERS;
+
+  if (verbose) {
+    CCTK_INFO("nuX_M1_CalcGRSources");
+  }
+
+  if (grsource_spatial_order == 4 &&
+      (cctk_nghostzones[0] < 3 || cctk_nghostzones[1] < 3 ||
+       cctk_nghostzones[2] < 3)) {
+    CCTK_VERROR(
+        "nuX_M1::grsource_spatial_order=4 requires at least 3 ghost zones");
+  }
+
+  switch (grsource_spatial_order) {
+  case 2:
+    CalcGRSourcesImpl<2>(CCTK_PASS_CTOC);
+    break;
+  case 4:
+    CalcGRSourcesImpl<4>(CCTK_PASS_CTOC);
+    break;
+  default:
+    CCTK_VERROR("nuX_M1::grsource_spatial_order must be 2 or 4");
+  }
+}
 
 } // namespace nuX_M1

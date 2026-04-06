@@ -9,6 +9,7 @@
 #include "nuX_metric.hxx"
 #include "nuX_pow.hxx"
 #include "nuX_sph_grid.hxx"
+#include "nuX_roots.hxx"
 #include "nuX_tensor.hxx"
 #include "nuX_valencia.hxx"
 
