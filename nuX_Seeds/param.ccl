@@ -26,6 +26,12 @@ KEYWORD nuX_test_case "Perform simple tests"
     "sphere"     :: "Homogeneous sphere test"
 } "none"
 
+KEYWORD nuX_m0_test_case "Perform M0-specific seed tests"
+{
+    "none"               :: "No M0 seed test"
+    "homogeneous_sphere" :: "Hydro setup for the M0 homogeneous sphere test"
+} "none"
+
 CCTK_REAL static_rho "Initial rest mass density"
 {
     (0:) :: "Any positive number"
@@ -60,6 +66,26 @@ CCTK_REAL static_ye "Initial electron fraction"
 {
     [0:1] :: "Any number between 0 and 1"
 } 0.5
+
+CCTK_REAL m0_static_rho "Initial rest-mass density for M0 seed tests"
+{
+    (0:) :: "Any positive number"
+} 1.0
+
+CCTK_REAL m0_static_eps "Initial specific internal energy for M0 seed tests"
+{
+    (0:) :: "Any positive number"
+} 1.0
+
+CCTK_REAL m0_static_ye "Initial electron fraction for M0 seed tests"
+{
+    [0:1] :: "Any number between 0 and 1"
+} 0.5
+
+CCTK_REAL m0_test_radius "Radius of the M0 homogeneous sphere"
+{
+    (0:* :: "Any positive number"
+} 1.0
 
 
 CCTK_REAL test_nvec[3] "Direction of propagation for the initial packet"

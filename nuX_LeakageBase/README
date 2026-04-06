@@ -1,0 +1,5 @@
+nuX_LeakageBase is the in-repo porting target for the shared THC leakage
+infrastructure. The thorn now has a first-pass microphysics path wired to
+`nuX_Rates`/`EOSX` for leakage opacities and free/effective emission rates,
+while the remaining source-application and spherical initialization work is
+still pending.

@@ -90,6 +90,22 @@ extern "C" void nuX_RatesToy_Calc(CCTK_ARGUMENTS) {
   // Init EOS
   auto eos_3p = global_eos_3p_tab3d;
 
+  if (debug_ratestoy && CCTK_MyProc(cctkGH) == 0) {
+    printf("beta = %i\n", opacity_flags.use_abs_em);
+    printf("pair = %i\n", opacity_flags.use_pair);
+    printf("brems = %i\n", opacity_flags.use_brem);
+    printf("inelastic = %i\n", opacity_flags.use_inelastic_scatt);
+    printf("elastic = %i\n", opacity_flags.use_iso);
+    printf("dU = %i\n", opacity_pars.use_dU);
+    printf("dmeff = %i\n", opacity_pars.use_dm_eff);
+    printf("WMab = %i\n", opacity_pars.use_WM_ab);
+    printf("WMsc = %i\n", opacity_pars.use_WM_sc);
+    printf("decay = %i\n", opacity_pars.use_decay);
+    printf("BRT brem = %i\n", opacity_pars.use_BRT_brem);
+    printf("NN medium = %i\n", opacity_pars.use_NN_medium_corr);
+    printf("neglect block = %i\n", opacity_pars.neglect_blocking);
+  }
+
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
@@ -98,33 +114,9 @@ extern "C" void nuX_RatesToy_Calc(CCTK_ARGUMENTS) {
 
         // Neutrino reactions
         my_grey_opacity_params.opacity_flags = opacity_flags;
-        if (debug_ratestoy) {
-          printf("beta = %i\n",
-                 my_grey_opacity_params.opacity_flags.use_abs_em);
-          printf("pair = %i\n", my_grey_opacity_params.opacity_flags.use_pair);
-          printf("brems = %i\n", my_grey_opacity_params.opacity_flags.use_brem);
-          printf("inelastic = %i\n",
-                 my_grey_opacity_params.opacity_flags.use_inelastic_scatt);
-          printf("elastic = %i\n",
-                 my_grey_opacity_params.opacity_flags.use_iso);
-        }
 
         // Opacity parameters
         my_grey_opacity_params.opacity_pars = opacity_pars;
-        if (debug_ratestoy) {
-          printf("dU = %i\n", my_grey_opacity_params.opacity_pars.use_dU);
-          printf("dmeff = %i\n",
-                 my_grey_opacity_params.opacity_pars.use_dm_eff);
-          printf("WMab = %i\n", my_grey_opacity_params.opacity_pars.use_WM_ab);
-          printf("WMsc = %i\n", my_grey_opacity_params.opacity_pars.use_WM_sc);
-          printf("decay = %i\n", my_grey_opacity_params.opacity_pars.use_decay);
-          printf("BRT brem = %i\n",
-                 my_grey_opacity_params.opacity_pars.use_BRT_brem);
-          printf("NN medium = %i\n",
-                 my_grey_opacity_params.opacity_pars.use_NN_medium_corr);
-          printf("neglect block = %i\n",
-                 my_grey_opacity_params.opacity_pars.neglect_blocking);
-        }
 
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
 

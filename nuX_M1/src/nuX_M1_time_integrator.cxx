@@ -8,7 +8,7 @@ extern "C" void nuX_M1_InitTimeIntegrator(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_InitTimeIntegrator;
   DECLARE_CCTK_PARAMETERS
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_InitTimeIntegrator");
   }
 
@@ -25,7 +25,7 @@ extern "C" void nuX_M1_FinalizeTimeIntegrator(CCTK_ARGUMENTS) {
                 (int)*TimeIntegratorStage);
   }
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_FinalizeTimeIntegrator");
   }
 }

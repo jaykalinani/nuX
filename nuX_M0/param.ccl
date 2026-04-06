@@ -1,0 +1,70 @@
+# Parameter definitions for thorn nuX_M0
+
+SHARES: HydroBaseX
+EXTENDS KEYWORD initial_hydro "Hydro initial data"
+{
+    "nuX_M0" :: "Homogeneous sphere test initial data"
+}
+
+SHARES: EOSX
+USES CCTK_REAL particle_mass
+
+SHARES: nuX_LeakageBase
+EXTENDS KEYWORD neu_abs_type "Method used to compute neutrino absorption rates"
+{
+    "nuX_M0" :: "Use the M0 transport layer"
+}
+
+RESTRICTED:
+
+BOOLEAN verbose "Emit informational messages"
+{
+} "no"
+
+CCTK_REAL rmax "Maximum radius of the spherical ray grid"
+{
+    (0:* :: "Any positive number"
+} 100.0
+
+CCTK_INT nrad "Number of radial points on the spherical ray grid"
+{
+    2:* :: "Any positive integer"
+} 128
+
+CCTK_INT nray "Number of rays on the spherical ray grid"
+{
+    18:* :: "Should equal 2*ntheta*ntheta"
+} 2048
+
+CCTK_INT compute_every "Run the transport step every N iterations"
+{
+    1:* :: "Any positive integer"
+} 1
+
+BOOLEAN reset_on_recovery "Reset the M0 state after recovery"
+{
+} "no"
+
+CCTK_REAL wait_until_time "Do not activate M0 before this time"
+{
+    -1.0 :: "Ignore this condition"
+    (0:* :: "Activate after this time"
+} -1.0
+
+CCTK_REAL bns_sep_threshold "Activate M0 once the BNS separation is below this threshold"
+{
+    -1.0 :: "Always active once allowed by time"
+    (0:* :: "Activate below this separation"
+} -1.0
+
+BOOLEAN use_reduced_opacity "Reserved for the THC opacity reduction option"
+{
+} "no"
+
+BOOLEAN use_enedep_opacity "Reserved for the THC energy-dependent opacity option"
+{
+} "no"
+
+BOOLEAN excision "Reserved for the THC excision path"
+{
+} "no"

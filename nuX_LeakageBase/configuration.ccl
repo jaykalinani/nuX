@@ -1,0 +1,7 @@
+# Configuration definitions for thorn nuX_LeakageBase
+
+REQUIRES EOSX Loop HDF5
+
+PROVIDES nuX_LeakageBase
+{
+}

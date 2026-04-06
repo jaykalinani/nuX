@@ -25,9 +25,6 @@ extern "C" void nuX_Seeds_SetupHydroTest_diff_limit_test(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_diff_limit_test;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupHydroTest_diff_limit_test");
-
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
     CCTK_VERROR("Invalid evolution EOS type '%s'. Please, set "
@@ -93,9 +90,6 @@ extern "C" void nuX_Seeds_SetupHydroTest_diff_limit_test(CCTK_ARGUMENTS) {
 extern "C" void nuX_Seeds_SetupNeutTest_diff_limit_test(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_diff_limit_test;
   DECLARE_CCTK_PARAMETERS;
-
-  if (verbose)
-    CCTK_INFO("nuX_Seeds_SetupNeutTest_diff_limit_test");
 
   test_case tc;
   if CCTK_EQUALS (nuX_test_case, "diff_limit_gaussian") {

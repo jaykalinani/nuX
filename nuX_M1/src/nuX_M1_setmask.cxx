@@ -15,7 +15,7 @@ extern "C" void nuX_M1_SetMask(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS
   DECLARE_CCTK_PARAMETERS
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_SetMask");
   }
 

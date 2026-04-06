@@ -9,7 +9,8 @@ nuX_adv_velocity_jump.cxx \
 nuX_diff_limit.cxx \
 nuX_shadow.cxx \
 nuX_atmosphere.cxx \
-nuX_sphere.cxx
+nuX_sphere.cxx \
+nuX_m0_homogeneous_sphere.cxx
 
 
 #Subdirectories containing source files

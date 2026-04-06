@@ -1,0 +1,13 @@
+# Main make.code.defn file for thorn nuX_LeakageBase
+
+SRCS = \
+nuX_LeakageBase_calc_opacity.cxx \
+nuX_LeakageBase_calc_rates.cxx \
+nuX_LeakageBase_init.cxx \
+nuX_LeakageBase_init_data.cxx \
+nuX_LeakageBase_init_optd.cxx \
+nuX_LeakageBase_param_check.cxx \
+nuX_LeakageBase_select_bc.cxx \
+nuX_LeakageBase_update_optd.cxx \
+
+SUBDIRS =

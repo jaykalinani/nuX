@@ -1,0 +1,145 @@
+# Schedule definitions for thorn nuX_LeakageBase
+
+STORAGE: nuX_leakage_optd[3]
+STORAGE: nuX_leakage_opacity
+STORAGE: nuX_leakage_free_rates
+STORAGE: nuX_leakage_eff_rates
+STORAGE: nuX_leakage_abs
+STORAGE: nuX_leakage_luminosity
+
+SCHEDULE nuX_LeakageBase_Init AT CCTK_STARTUP
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register banner"
+
+SCHEDULE nuX_LeakageBase_ParamCheck AT CCTK_PARAMCHECK
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Check leakage parameters"
+
+SCHEDULE GROUP nuX_LeakageBase_InitialGroup AT CCTK_INITIAL IN ODESolvers_Initial \
+    AFTER AsterX_InitialGroup
+{
+} "Initialize leakage state"
+
+SCHEDULE nuX_LeakageBase_InitData IN nuX_LeakageBase_InitialGroup
+{
+    LANG: C
+    WRITES: nuX_leakage_optd(everywhere)
+    WRITES: optd_0_nue_p(everywhere) optd_0_nua_p(everywhere) optd_0_nux_p(everywhere)
+    WRITES: optd_1_nue_p(everywhere) optd_1_nua_p(everywhere) optd_1_nux_p(everywhere)
+    WRITES: optd_0_nue_p_p(everywhere) optd_0_nua_p_p(everywhere) optd_0_nux_p_p(everywhere)
+    WRITES: optd_1_nue_p_p(everywhere) optd_1_nua_p_p(everywhere) optd_1_nux_p_p(everywhere)
+    WRITES: nuX_leakage_opacity(everywhere)
+    WRITES: nuX_leakage_free_rates(everywhere)
+    WRITES: nuX_leakage_eff_rates(everywhere)
+    WRITES: nuX_leakage_abs(everywhere)
+    WRITES: nuX_leakage_luminosity(everywhere)
+} "Zero the leakage state"
+
+if (CCTK_Equals(init_method, "simple")) {
+    SCHEDULE nuX_LeakageBase_InitOpticalDepthSimple IN nuX_LeakageBase_InitialGroup \
+        AFTER nuX_LeakageBase_InitData
+    {
+        LANG: C
+        READS: HydroBaseX::rho(interior)
+        WRITES: nuX_leakage_optd(interior)
+        WRITES: optd_0_nue_p(interior) optd_0_nua_p(interior) optd_0_nux_p(interior)
+        WRITES: optd_1_nue_p(interior) optd_1_nua_p(interior) optd_1_nux_p(interior)
+        WRITES: optd_0_nue_p_p(interior) optd_0_nua_p_p(interior) optd_0_nux_p_p(interior)
+        WRITES: optd_1_nue_p_p(interior) optd_1_nua_p_p(interior) optd_1_nux_p_p(interior)
+        SYNC: nuX_leakage_optd
+    } "Initialize the optical depth using the atmosphere density"
+
+    SCHEDULE nuX_LeakageBase_InitOpticalDepthSimple AT postregrid \
+        AFTER ODESolvers_PostStep
+    {
+        LANG: C
+        READS: HydroBaseX::rho(interior)
+        WRITES: nuX_leakage_optd(interior)
+        WRITES: optd_0_nue_p(interior) optd_0_nua_p(interior) optd_0_nux_p(interior)
+        WRITES: optd_1_nue_p(interior) optd_1_nua_p(interior) optd_1_nux_p(interior)
+        WRITES: optd_0_nue_p_p(interior) optd_0_nua_p_p(interior) optd_0_nux_p_p(interior)
+        WRITES: optd_1_nue_p_p(interior) optd_1_nua_p_p(interior) optd_1_nux_p_p(interior)
+        SYNC: nuX_leakage_optd
+    } "Rebuild the simple optical depth after regridding"
+}
+
+if (reset_on_recovery) {
+    SCHEDULE nuX_LeakageBase_InitData AT CCTK_POST_RECOVER_VARIABLES
+    {
+        LANG: C
+        WRITES: nuX_leakage_optd(everywhere)
+        WRITES: optd_0_nue_p(everywhere) optd_0_nua_p(everywhere) optd_0_nux_p(everywhere)
+        WRITES: optd_1_nue_p(everywhere) optd_1_nua_p(everywhere) optd_1_nux_p(everywhere)
+        WRITES: optd_0_nue_p_p(everywhere) optd_0_nua_p_p(everywhere) optd_0_nux_p_p(everywhere)
+        WRITES: optd_1_nue_p_p(everywhere) optd_1_nua_p_p(everywhere) optd_1_nux_p_p(everywhere)
+        WRITES: nuX_leakage_opacity(everywhere)
+        WRITES: nuX_leakage_free_rates(everywhere)
+        WRITES: nuX_leakage_eff_rates(everywhere)
+        WRITES: nuX_leakage_abs(everywhere)
+        WRITES: nuX_leakage_luminosity(everywhere)
+    } "Reset the leakage state after recovery"
+
+    if (CCTK_Equals(init_method, "simple")) {
+        SCHEDULE nuX_LeakageBase_InitOpticalDepthSimple AT CCTK_POST_RECOVER_VARIABLES \
+            AFTER nuX_LeakageBase_InitData
+        {
+            LANG: C
+            READS: HydroBaseX::rho(interior)
+            WRITES: nuX_leakage_optd(interior)
+            WRITES: optd_0_nue_p(interior) optd_0_nua_p(interior) optd_0_nux_p(interior)
+            WRITES: optd_1_nue_p(interior) optd_1_nua_p(interior) optd_1_nux_p(interior)
+            WRITES: optd_0_nue_p_p(interior) optd_0_nua_p_p(interior) optd_0_nux_p_p(interior)
+            WRITES: optd_1_nue_p_p(interior) optd_1_nua_p_p(interior) optd_1_nux_p_p(interior)
+            SYNC: nuX_leakage_optd
+        } "Rebuild the simple optical depth after recovery"
+    }
+}
+
+SCHEDULE GROUP nuX_LeakageBase_Main AT CCTK_EVOL AFTER ODESolvers_PostStep
+{
+} "Leakage update wrapper"
+
+SCHEDULE nuX_LeakageBase_CalcOpacity IN nuX_LeakageBase_Main
+{
+    LANG: C
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+    WRITES: nuX_leakage_opacity(everywhere)
+} "Update the leakage opacities from nuX_Rates"
+
+SCHEDULE nuX_LeakageBase_UpdateOpticalDepth IN nuX_LeakageBase_Main AFTER nuX_LeakageBase_CalcOpacity
+{
+    LANG: C
+    READS: ADMBaseX::metric(everywhere)
+    READS: nuX_leakage_opacity(everywhere)
+    READS: optd_0_nue_p(everywhere) optd_0_nua_p(everywhere) optd_0_nux_p(everywhere)
+    READS: optd_1_nue_p(everywhere) optd_1_nua_p(everywhere) optd_1_nux_p(everywhere)
+    WRITES: nuX_leakage_optd(interior)
+} "Update the optical depth"
+
+SCHEDULE nuX_LeakageBase_SelectBC IN nuX_LeakageBase_Main AFTER nuX_LeakageBase_UpdateOpticalDepth
+{
+    LANG: C
+    OPTIONS: SINGLEMAP
+    SYNC: nuX_leakage_optd
+} "Synchronize the optical depth"
+
+SCHEDULE nuX_LeakageBase_Rates IN nuX_LeakageBase_Main AFTER nuX_LeakageBase_SelectBC
+{
+    LANG: C
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+    READS: nuX_leakage_opacity(everywhere) nuX_leakage_optd(everywhere)
+    WRITES: nuX_leakage_free_rates(everywhere)
+    WRITES: nuX_leakage_eff_rates(everywhere)
+} "Update free and effective leakage rates from nuX_Rates"
+
+if (CCTK_Equals(neu_abs_type, "None")) {
+    SCHEDULE nuX_LeakageBase_NoAbsorption IN nuX_LeakageBase_Main AFTER nuX_LeakageBase_Rates
+    {
+        LANG: C
+        WRITES: nuX_leakage_abs(everywhere)
+    } "Keep absorption source terms at zero"
+}

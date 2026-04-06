@@ -1,0 +1,215 @@
+# -----------------------------------------------------------------------------
+# nuX_M0 homogeneous-sphere startup test with zero optical-depth initialization
+#
+# This is the same startup-only smoke test as the simple-init case, but it
+# leaves the leakage optical depth at zero so the zero-init path is covered.
+# The toy microphysics path uses nuX_FakeRates, matching the current nuX_M1
+# sphere test.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Active thorns
+# -----------------------------------------------------------------------------
+ActiveThorns = "
+   ADMBaseX
+   AsterMasks
+   AsterX
+   CarpetX
+   Con2PrimFactory
+   EOSX
+   HydroBaseX
+   IOUtil
+   nuX_FakeRates
+   nuX_LeakageBase
+   nuX_M1
+   nuX_M0
+   nuX_Seeds
+   nuX_Utils
+   ODESolvers
+   TimerReport
+   TmunuBaseX
+   "
+
+# -----------------------------------------------------------------------------
+# Global variables
+# -----------------------------------------------------------------------------
+$nlevels = 1
+$ncells = 80
+
+# -----------------------------------------------------------------------------
+# ADMBaseX
+# -----------------------------------------------------------------------------
+ADMBaseX::initial_data  = "Cartesian Minkowski"
+ADMBaseX::initial_lapse = "one"
+ADMBaseX::initial_shift = "zero"
+ADMBaseX::initial_dtlapse = "none"
+ADMBaseX::initial_dtshift = "none"
+
+# -----------------------------------------------------------------------------
+# AsterX
+# -----------------------------------------------------------------------------
+AsterX::debug_mode = "yes"
+AsterX::flux_type = "LxF"
+AsterX::update_tmunu = "no"
+
+# -----------------------------------------------------------------------------
+# Cactus
+# -----------------------------------------------------------------------------
+Cactus::cctk_show_schedule = yes
+Cactus::presync_mode = "mixed-error"
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 1.0
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::verbose = no
+
+CarpetX::xmin = -4.0
+CarpetX::ymin = -4.0
+CarpetX::zmin = -4.0
+
+CarpetX::xmax = 4.0
+CarpetX::ymax = 4.0
+CarpetX::zmax = 4.0
+
+CarpetX::boundary_x = "linear extrapolation"
+CarpetX::boundary_y = "linear extrapolation"
+CarpetX::boundary_z = "linear extrapolation"
+
+CarpetX::boundary_upper_x = "linear extrapolation"
+CarpetX::boundary_upper_y = "linear extrapolation"
+CarpetX::boundary_upper_z = "linear extrapolation"
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::max_grid_size_x = 20
+CarpetX::max_grid_size_y = 20
+CarpetX::max_grid_size_z = 20
+CarpetX::max_tile_size_x = 100000000
+CarpetX::max_tile_size_y = 100000000
+CarpetX::max_tile_size_z = 100000000
+CarpetX::refine_grid_layout = "no"
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 100000
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
+CarpetX::regrid_error_threshold = 0.01
+
+CarpetX::prolongation_type = "ddf"
+CarpetX::ghost_size = 3
+CarpetX::dtfac = 0.30
+
+CarpetX::out_tsv_vars = "
+    HydroBaseX::rho
+    HydroBaseX::eps
+    HydroBaseX::press
+    HydroBaseX::temperature
+    HydroBaseX::entropy
+    HydroBaseX::Ye
+    nuX_LeakageBase::optd_0_nue
+    nuX_LeakageBase::optd_0_nua
+    nuX_LeakageBase::optd_0_nux
+    nuX_LeakageBase::optd_1_nue
+    nuX_LeakageBase::optd_1_nua
+    nuX_LeakageBase::optd_1_nux
+"
+
+# -----------------------------------------------------------------------------
+# Con2PrimFactory
+# -----------------------------------------------------------------------------
+Con2PrimFactory::c2p_prime = "Noble"
+Con2PrimFactory::c2p_second = "Palenzuela"
+Con2PrimFactory::c2p_tol = 1e-8
+Con2PrimFactory::max_iter = 100
+Con2PrimFactory::rho_abs_min = 1e-8
+Con2PrimFactory::unit_test = "yes"
+Con2PrimFactory::B_lim = 1e8
+Con2PrimFactory::vw_lim = 1e8
+Con2PrimFactory::Ye_lenient = "yes"
+
+# -----------------------------------------------------------------------------
+# EOSX
+# -----------------------------------------------------------------------------
+EOSX::evolution_eos = "IdealGas"
+EOSX::gl_gamma = 2.0
+EOSX::poly_gamma = 2.0
+EOSX::rho_max = 1e8
+EOSX::eps_max = 1e8
+
+# -----------------------------------------------------------------------------
+# nuX_FakeRates
+# -----------------------------------------------------------------------------
+nuX_FakeRates::eta_nue = 1.0e1
+nuX_FakeRates::eta_nua = 1.0e1
+nuX_FakeRates::eta_nux = 1.0e1
+nuX_FakeRates::kappa_scat_nue = 0.0
+nuX_FakeRates::kappa_scat_nua = 0.0
+nuX_FakeRates::kappa_scat_nux = 0.0
+nuX_FakeRates::kappa_abs_nue = 1.0e1
+nuX_FakeRates::kappa_abs_nua = 1.0e1
+
+# -----------------------------------------------------------------------------
+# HydroBaseX
+# -----------------------------------------------------------------------------
+HydroBaseX::initial_hydro = "nuX_M0"
+
+# -----------------------------------------------------------------------------
+# IO
+# -----------------------------------------------------------------------------
+IO::out_dir = $parfile
+IO::out_every = 1
+
+# -----------------------------------------------------------------------------
+# ODESolvers
+# -----------------------------------------------------------------------------
+ODESolvers::method = "RK4"
+
+# -----------------------------------------------------------------------------
+# TimerReport
+# -----------------------------------------------------------------------------
+TimerReport::out_every = 1
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers_together = yes
+TimerReport::output_all_timers_readable = yes
+TimerReport::n_top_timers = 50
+
+# -----------------------------------------------------------------------------
+# nuX_LeakageBase
+# -----------------------------------------------------------------------------
+nuX_LeakageBase::verbose = "no"
+nuX_LeakageBase::use_fakerates = "yes"
+nuX_LeakageBase::neu_abs_type = "nuX_M0"
+nuX_LeakageBase::init_method = "zero"
+nuX_LeakageBase::atmo_rho = 1.0e-12
+nuX_LeakageBase::density_cutoff = 0.0
+nuX_LeakageBase::DiffFact = 6.0
+nuX_LeakageBase::store_free_rates = "yes"
+nuX_LeakageBase::store_neu_luminosity = "yes"
+
+# -----------------------------------------------------------------------------
+# nuX_M0
+# -----------------------------------------------------------------------------
+nuX_M0::verbose = "yes"
+nuX_M0::rmax = 6.0
+nuX_M0::nrad = 96
+nuX_M0::nray = 2048
+nuX_M0::compute_every = 1
+nuX_M0::wait_until_time = -1.0
+nuX_M0::bns_sep_threshold = -1.0
+nuX_M0::reset_on_recovery = "no"
+nuX_M0::excision = "no"
+
+# -----------------------------------------------------------------------------
+# nuX_Seeds
+# -----------------------------------------------------------------------------
+nuX_Seeds::verbose = "yes"
+nuX_Seeds::nuX_m0_test_case = "homogeneous_sphere"
+nuX_Seeds::m0_static_rho = 1.0
+nuX_Seeds::m0_static_eps = 1.0e-2
+nuX_Seeds::m0_static_ye = 0.5
+nuX_Seeds::m0_test_radius = 1.0

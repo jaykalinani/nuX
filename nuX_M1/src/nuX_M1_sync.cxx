@@ -12,7 +12,7 @@ extern "C" void nuX_M1_SyncConserved(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_SyncConserved;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_SyncConserved");
   }
 
@@ -24,7 +24,7 @@ extern "C" void nuX_M1_SyncDerived(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_SyncDerived;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_SyncDerived");
   }
 
@@ -35,7 +35,7 @@ extern "C" void nuX_M1_Sync(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_Sync;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_Sync");
   }
 

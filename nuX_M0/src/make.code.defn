@@ -1,0 +1,12 @@
+# Main make.code.defn file for thorn nuX_M0
+
+SRCS = \
+nuX_M0_compute.cxx \
+nuX_M0_grid.cxx \
+nuX_M0_init.cxx \
+nuX_M0_init_data.cxx \
+nuX_M0_interp.cxx \
+nuX_M0_param_check.cxx \
+nuX_M0_switch.cxx \
+
+SUBDIRS =

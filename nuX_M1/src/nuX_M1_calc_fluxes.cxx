@@ -439,7 +439,7 @@ extern "C" void nuX_M1_CalcFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcFluxes;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_CalcFluxes");
   }
 
@@ -453,7 +453,7 @@ extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_UpdateRHSFromFluxes;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_UpdateRHSFromFluxes");
   }
 

@@ -1,0 +1,149 @@
+# Schedule definitions for thorn nuX_M0
+
+STORAGE: nuX_M0_is_on
+STORAGE: nuX_M0_flux
+STORAGE: nuX_M0_grid_vars
+STORAGE: nuX_M0_transport_vars
+STORAGE: nuX_M0_flux_fac
+STORAGE: nuX_M0_evol
+STORAGE: nuX_M0_evol_old
+STORAGE: nuX_M0_mask
+STORAGE: nuX_M0_time
+
+SCHEDULE nuX_M0_Init AT CCTK_STARTUP
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register banner"
+
+SCHEDULE nuX_M0_ParamCheck AT CCTK_PARAMCHECK
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Check M0 parameters"
+
+SCHEDULE GROUP nuX_M0_InitialGroup AT CCTK_INITIAL IN ODESolvers_Initial AFTER AsterX_InitialGroup
+{
+} "Initialize the M0 transport infrastructure"
+
+SCHEDULE nuX_M0_SetupGrid IN nuX_M0_InitialGroup
+{
+    LANG: C
+    OPTIONS: GLOBAL
+    WRITES: nuX_M0_grid_vars(everywhere)
+} "Setup the ray grid"
+
+SCHEDULE nuX_M0_InitData IN nuX_M0_InitialGroup AFTER nuX_M0_SetupGrid
+{
+    LANG: C
+    OPTIONS: GLOBAL
+    READS: nuX_M0_grid_vars(everywhere)
+    WRITES: nuX_M0_is_on
+    WRITES: nuX_M0_flux
+    WRITES: nuX_M0_grid_vars(everywhere)
+    WRITES: nuX_M0_transport_vars(everywhere)
+    WRITES: nuX_M0_flux_fac(everywhere)
+    WRITES: nuX_M0_evol(everywhere)
+    WRITES: nuX_M0_evol_old(everywhere)
+    WRITES: nuX_M0_mask(everywhere)
+    WRITES: nuX_M0_time
+} "Zero the M0 state"
+
+if (reset_on_recovery) {
+    SCHEDULE nuX_M0_SetupGrid AT CCTK_POST_RECOVER_VARIABLES
+    {
+        LANG: C
+        OPTIONS: GLOBAL
+        WRITES: nuX_M0_grid_vars(everywhere)
+    } "Rebuild the ray grid after recovery"
+
+    SCHEDULE nuX_M0_InitData AT CCTK_POST_RECOVER_VARIABLES AFTER nuX_M0_SetupGrid
+    {
+        LANG: C
+        OPTIONS: GLOBAL
+        READS: nuX_M0_grid_vars(everywhere)
+        WRITES: nuX_M0_is_on
+        WRITES: nuX_M0_flux
+        WRITES: nuX_M0_grid_vars(everywhere)
+        WRITES: nuX_M0_transport_vars(everywhere)
+        WRITES: nuX_M0_flux_fac(everywhere)
+        WRITES: nuX_M0_evol(everywhere)
+        WRITES: nuX_M0_evol_old(everywhere)
+        WRITES: nuX_M0_mask(everywhere)
+        WRITES: nuX_M0_time
+    } "Reset the M0 state after recovery"
+
+} else {
+    SCHEDULE nuX_M0_RecoverGrid AT CCTK_POST_RECOVER_VARIABLES
+    {
+        LANG: C
+        OPTIONS: GLOBAL
+    } "Rebuild the ray grid metadata after recovery"
+}
+
+SCHEDULE GROUP nuX_M0_CalcGroup AT CCTK_EVOL AFTER nuX_LeakageBase_Main
+{
+} "Run the M0 bookkeeping and transport pipeline"
+
+SCHEDULE nuX_M0_Switch IN nuX_M0_CalcGroup
+{
+    LANG: C
+    OPTIONS: GLOBAL-LATE
+    READS: nuX_M0_is_on
+    READS: nuX_M0_time
+    WRITES: nuX_M0_is_on
+    WRITES: nuX_M0_flux
+    WRITES: nuX_M0_grid_vars(everywhere)
+    WRITES: nuX_M0_transport_vars(everywhere)
+    WRITES: nuX_M0_flux_fac(everywhere)
+    WRITES: nuX_M0_evol(everywhere)
+    WRITES: nuX_M0_evol_old(everywhere)
+    WRITES: nuX_M0_mask(everywhere)
+    WRITES: nuX_M0_time
+} "Activate or deactivate the M0 transport layer"
+
+SCHEDULE nuX_M0_InterpToSph IN nuX_M0_CalcGroup AFTER nuX_M0_Switch
+{
+    LANG: C
+    OPTIONS: GLOBAL-LATE
+    READS: nuX_M0_is_on
+    READS: ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::metric(everywhere)
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+    READS: AsterX::zvec(everywhere)
+    READS: nuX_LeakageBase::nuX_leakage_opacity(everywhere) nuX_LeakageBase::nuX_leakage_optd(everywhere)
+    READS: nuX_LeakageBase::nuX_leakage_eff_rates(everywhere)
+    READS: nuX_M0_grid_vars(everywhere)
+    WRITES: nuX_M0_grid_vars(everywhere)
+} "Interpolate Cartesian leakage data onto the M0 ray grid"
+
+SCHEDULE nuX_M0_Compute IN nuX_M0_CalcGroup AFTER nuX_M0_InterpToSph
+{
+    LANG: C
+    OPTIONS: GLOBAL-LATE
+    READS: nuX_M0_is_on
+    READS: nuX_M0_grid_vars(everywhere)
+    READS: nuX_M0_evol(everywhere)
+    READS: nuX_M0_time
+    WRITES: nuX_M0_flux
+    WRITES: nuX_M0_transport_vars(everywhere)
+    WRITES: nuX_M0_flux_fac(everywhere)
+    WRITES: nuX_M0_evol(everywhere)
+    WRITES: nuX_M0_evol_old(everywhere)
+    WRITES: nuX_M0_mask(everywhere)
+    WRITES: nuX_M0_time
+} "Run the M0 transport solve on the ray grid"
+
+if (CCTK_Equals(neu_abs_type, "nuX_M0")) {
+    SCHEDULE nuX_M0_InterpToCart AT CCTK_EVOL AFTER nuX_M0_CalcGroup
+    {
+        LANG: C
+        READS: nuX_M0_is_on
+        READS: nuX_M0_transport_vars(everywhere)
+        WRITES: nuX_LeakageBase::nuX_leakage_abs(everywhere)
+    } "Interpolate M0 absorption/heating back to the Cartesian grid"
+}
+
+SCHEDULE nuX_M0_FreeGrid AT CCTK_TERMINATE BEFORE Driver_Terminate
+{
+    LANG: C
+} "Release the ray-grid metadata"

@@ -115,6 +115,15 @@ if (CCTK_Equals(nuX_test_case, "sphere")) {
   } "Setup sphere test Neutrino initial conditions."
 }
 
+if (CCTK_Equals(nuX_m0_test_case, "homogeneous_sphere")) {
+  SCHEDULE nuX_Seeds_SetupHydroTest_m0_homogeneous_sphere IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+    LANG: C
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::temperature(everywhere) HydroBaseX::entropy(everywhere) HydroBaseX::Ye(everywhere)
+    WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
+  } "Setup the M0 homogeneous-sphere hydro seed."
+}
+
 
 
 ###############################################################################

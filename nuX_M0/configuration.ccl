@@ -1,0 +1,7 @@
+# Configuration definitions for thorn nuX_M0
+
+REQUIRES Loop
+
+PROVIDES nuX_M0
+{
+}

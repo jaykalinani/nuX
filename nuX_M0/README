@@ -1,0 +1,4 @@
+nuX_M0 is the target port of THC_LeakageM0. This initial patch adds the thorn
+structure, shared spherical-grid plumbing, startup/grid/init bookkeeping, and
+placeholder transport hooks to keep the repository integration moving without
+pulling in the full THC transport solve yet.

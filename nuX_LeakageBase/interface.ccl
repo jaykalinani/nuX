@@ -1,0 +1,48 @@
+# Interface definition for thorn nuX_LeakageBase
+IMPLEMENTS: nuX_LeakageBase
+INHERITS: ADMBaseX AsterX HydroBaseX
+
+INCLUDES HEADER: nuX_LeakageBase_rates.hxx IN nuX_LeakageBase_rates.hxx
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: nuX_fakerates.hxx
+USES INCLUDE HEADER: nuX_utils.hxx
+USES INCLUDE HEADER: avg_baryon_mass.hpp
+USES INCLUDE HEADER: m1_opacities.hpp
+USES INCLUDE HEADER: setup_eos.hxx
+
+PUBLIC:
+
+CCTK_REAL nuX_leakage_optd TYPE=GF TIMELEVELS=3 CENTERING={ccc} TAGS='checkpoint="no" dirichlet_values={0.0 0.0 0.0 0.0 0.0 0.0}'
+{
+    optd_0_nue, optd_0_nua, optd_0_nux,
+    optd_1_nue, optd_1_nua, optd_1_nux
+} "Optical depth"
+
+CCTK_REAL nuX_leakage_opacity TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    kappa_0_nue, kappa_0_nua, kappa_0_nux,
+    kappa_1_nue, kappa_1_nua, kappa_1_nux
+} "Leakage opacities on the Cartesian grid"
+
+CCTK_REAL nuX_leakage_free_rates TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    R_free_nue, R_free_nua, R_free_nux,
+    Q_free_nue, Q_free_nua, Q_free_nux
+} "Free neutrino emission rates"
+
+CCTK_REAL nuX_leakage_eff_rates TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    R_eff_nue, R_eff_nua, R_eff_nux,
+    Q_eff_nue, Q_eff_nua, Q_eff_nux
+} "Effective neutrino emission rates"
+
+CCTK_REAL nuX_leakage_abs TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    abs_number, abs_energy
+} "Effective absorption/heating returned to the Cartesian grid"
+
+CCTK_REAL nuX_leakage_luminosity TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    luminosity_nue, luminosity_nua, luminosity_nux
+} "Volume luminosity diagnostic"

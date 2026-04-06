@@ -1,0 +1,98 @@
+# Parameter definitions for thorn nuX_LeakageBase
+
+SHARES: EOSX
+USES CCTK_REAL particle_mass
+
+RESTRICTED:
+
+BOOLEAN verbose "Emit informational messages"
+{
+} "no"
+
+BOOLEAN use_fakerates "Use nuX_FakeRates instead of nuX_Rates for toy tests"
+{
+} "no"
+
+KEYWORD neu_abs_type "Method used to compute neutrino absorption rates"
+{
+    "None" :: "No absorption"
+} "None"
+
+KEYWORD init_method "Method used to initialize the optical depth"
+{
+    "simple"    :: "Set the optical depth from rho/atmo_rho"
+    "zero"      :: "Initialize the optical depth to zero"
+    "spherical" :: "Reserved for the THC-style spherical initialization"
+} "simple"
+
+CCTK_REAL atmo_rho "Atmosphere density used by the simple optical-depth initialization"
+{
+    0:* :: "Any non-negative number"
+} 1.0e-12
+
+CCTK_REAL density_cutoff "Density cut-off for leakage source terms"
+{
+    0:* :: "Any non-negative number"
+} 0.0
+
+CCTK_REAL DiffFact "Diffusion factor used in the effective-rate estimate"
+{
+    (0:* :: "Any positive number"
+} 6.0
+
+CCTK_INT num_sph_grids "Number of spherical grids reserved for future optical-depth initialization"
+{
+    1:2 :: "One or two spherical grids"
+} 1
+
+CCTK_REAL center_grid1[3] "Center of the first spherical optical-depth grid"
+{
+    *:* :: "Any number"
+} 0.0
+
+CCTK_REAL center_grid2[3] "Center of the second spherical optical-depth grid"
+{
+    *:* :: "Any number"
+} 0.0
+
+CCTK_REAL rmax "Maximum radius used by the THC-style spherical optical-depth initialization"
+{
+    (0:* :: "Any positive number"
+} 20.0
+
+CCTK_INT nrad "Number of radial points reserved for future spherical optical-depth initialization"
+{
+    2:* :: "Any positive integer"
+} 200
+
+CCTK_INT ntheta "Number of theta points reserved for future spherical optical-depth initialization"
+{
+    3:* :: "At least 3"
+} 32
+
+CCTK_INT nphi "Number of phi points reserved for future spherical optical-depth initialization"
+{
+    2:* :: "At least 2"
+} 64
+
+STRING interpolator "Interpolator reserved for future spherical-grid transfers"
+{
+  "" :: "must be a registered interpolator"
+} "Lagrange polynomial interpolation"
+
+STRING interpolator_options "Interpolator options reserved for future spherical-grid transfers"
+{
+  "" :: "must be a valid options specification"
+} "order=1"
+
+BOOLEAN store_free_rates "Keep the free emission rates in grid functions"
+{
+} "yes"
+
+BOOLEAN store_neu_luminosity "Keep the leakage luminosity diagnostic in grid functions"
+{
+} "yes"
+
+BOOLEAN reset_on_recovery "Reset the leakage state after recovery"
+{
+} "no"

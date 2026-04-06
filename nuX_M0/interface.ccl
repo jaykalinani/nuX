@@ -1,0 +1,64 @@
+# Interface definition for thorn nuX_M0
+IMPLEMENTS: nuX_M0
+INHERITS: ADMBaseX AsterX HydroBaseX nuX_LeakageBase
+
+INCLUDES HEADER: nuX_M0_kernel.hxx IN nuX_M0_kernel.hxx
+
+USES INCLUDE HEADER: loop_device.hxx
+USES INCLUDE HEADER: nuX_sph_grid.hxx
+
+CCTK_INT nuX_M0_is_on TYPE=SCALAR TAGS='checkpoint="yes"' "Whether the M0 transport step is active"
+
+CCTK_REAL nuX_M0_flux TYPE=SCALAR TAGS='checkpoint="yes"'
+{
+    nuX_M0_nue_num_flux, nuX_M0_nua_num_flux, nuX_M0_nux_num_flux,
+    nuX_M0_nue_ene_flux, nuX_M0_nua_ene_flux, nuX_M0_nux_ene_flux
+} "Outer-boundary flux diagnostics"
+
+PRIVATE:
+
+CCTK_REAL nuX_M0_grid_vars TYPE=ARRAY DIM=2 SIZE=nrad,nray \
+    DISTRIB=CONSTANT TAGS='checkpoint="yes"'
+{
+    nuX_M0_x, nuX_M0_y, nuX_M0_z,
+    nuX_M0_alp, nuX_M0_betax, nuX_M0_betay, nuX_M0_betaz,
+    nuX_M0_gxx, nuX_M0_gxy, nuX_M0_gxz, nuX_M0_gyy, nuX_M0_gyz, nuX_M0_gzz,
+    nuX_M0_rho, nuX_M0_zvecx, nuX_M0_zvecy, nuX_M0_zvecz, nuX_M0_temp, nuX_M0_Ye,
+    nuX_M0_kappa_0_nue, nuX_M0_kappa_0_nua, nuX_M0_kappa_0_nux,
+    nuX_M0_optd_0_nue, nuX_M0_optd_0_nua, nuX_M0_optd_0_nux,
+    nuX_M0_optd_1_nue, nuX_M0_optd_1_nua, nuX_M0_optd_1_nux,
+    nuX_M0_R_nue, nuX_M0_R_nua, nuX_M0_R_nux,
+    nuX_M0_Q_nue, nuX_M0_Q_nua, nuX_M0_Q_nux
+} "Cartesian quantities interpolated onto the ray grid"
+
+CCTK_REAL nuX_M0_transport_vars TYPE=ARRAY DIM=2 SIZE=nrad,nray \
+    DISTRIB=CONSTANT TAGS='checkpoint="yes"'
+{
+    nuX_M0_kt, nuX_M0_chi, nuX_M0_sdetg,
+    nuX_M0_abs_nue, nuX_M0_abs_nua,
+    nuX_M0_ndens_nue, nuX_M0_ndens_nua, nuX_M0_ndens_nux,
+    nuX_M0_eave_nue, nuX_M0_eave_nua, nuX_M0_eave_nux,
+    nuX_M0_abs_number, nuX_M0_abs_energy
+} "M0 transport support variables"
+
+CCTK_REAL nuX_M0_flux_fac TYPE=ARRAY DIM=2 SIZE=nrad,nray \
+    DISTRIB=CONSTANT TAGS='checkpoint="no"' "Flux factor kr/kt"
+
+CCTK_REAL nuX_M0_evol TYPE=ARRAY DIM=2 SIZE=nrad,nray \
+    DISTRIB=CONSTANT TAGS='checkpoint="yes"'
+{
+    nuX_M0_N_nue, nuX_M0_N_nua, nuX_M0_N_nux,
+    nuX_M0_E_nue, nuX_M0_E_nua, nuX_M0_E_nux
+} "Current M0 evolved variables"
+
+CCTK_REAL nuX_M0_evol_old TYPE=ARRAY DIM=2 SIZE=nrad,nray \
+    DISTRIB=CONSTANT TAGS='checkpoint="yes"'
+{
+    nuX_M0_N_nue_old, nuX_M0_N_nua_old, nuX_M0_N_nux_old,
+    nuX_M0_E_nue_old, nuX_M0_E_nua_old, nuX_M0_E_nux_old
+} "Previous M0 evolved variables"
+
+CCTK_INT nuX_M0_mask TYPE=ARRAY DIM=2 SIZE=nrad,nray \
+    DISTRIB=CONSTANT TAGS='checkpoint="yes"' "M0 excision mask"
+
+CCTK_REAL nuX_M0_time TYPE=SCALAR TAGS='checkpoint="yes"' "Current physical time used by the M0 transport step"

@@ -535,13 +535,17 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   if (failed) {
     // If we are here, then we are in trouble
 #ifdef WARN_FOR_SRC_FIX
-    printf("newton_raphson_nd failed in the implicit solve!\n");
+    if (CCTK_MyProc(cctkGH) == 0) {
+      printf("newton_raphson_nd failed in the implicit solve!\n");
+    }
 #endif
 
     // We are optically thick, suggest to retry with Eddington closure
     if (closure_fun != eddington) {
 #ifdef WARN_FOR_SRC_FIX
-      printf("Eddington closure\n");
+      if (CCTK_MyProc(cctkGH) == 0) {
+        printf("Eddington closure\n");
+      }
       // print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
       int ierr = source_update(
@@ -557,7 +561,9 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
       }
     } else {
 #ifdef WARN_FOR_SRC_FIX
-      printf("using initial guess\n");
+      if (CCTK_MyProc(cctkGH) == 0) {
+        printf("using initial guess\n");
+      }
       // TODO: print_stuff(cctkGH, i, j, k, ig, &p, ss);
 #endif
       if (can_use_no_source_fallback()) {

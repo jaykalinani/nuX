@@ -21,7 +21,7 @@ extern "C" void nuX_M1_InitVolform(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTSX_nuX_M1_InitVolform;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose) {
+  if (verbose && CCTK_MyProc(cctkGH) == 0) {
     CCTK_INFO("nuX_M1_InitVolform");
   }
 
