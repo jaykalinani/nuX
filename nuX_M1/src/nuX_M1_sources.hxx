@@ -53,14 +53,15 @@ struct Params {
          tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _W,
          CCTK_REAL const _Estar,
          tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d, CCTK_REAL const _chi,
-         CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
+         CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat,
+         CCTK_REAL *_closure_status = nullptr)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig), closure(_closure),
         closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
         closure_use_fallback(_closure_use_fallback), cdt(_cdt), alp(_alp),
         g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u), gamma_ud(_gamma_ud),
         u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u), proj_ud(_proj_ud), W(_W),
         Estar(_Estar), Fstar_d(_Fstar_d), chi(_chi), eta(_eta), kabs(_kabs),
-        kscat(_kscat) {}
+        kscat(_kscat), closure_status(_closure_status) {}
   cGH const *cctkGH;
   int const i;
   int const j;
@@ -89,6 +90,7 @@ struct Params {
   CCTK_REAL const eta;
   CCTK_REAL const kabs;
   CCTK_REAL const kscat;
+  CCTK_REAL *closure_status;
 
   CCTK_REAL E;
   tensor::generic<CCTK_REAL, 4, 1> F_d;
@@ -249,7 +251,7 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(arith_vector &q, Params *p) {
   calc_closure(p->cctkGH, p->i, p->j, p->k, p->ig, p->closure, p->g_dd, p->g_uu,
                p->n_d, p->W, p->u_u, p->v_d, p->proj_ud, p->E, p->F_d, &p->chi,
                &p->P_dd, p->closure_epsilon, p->closure_maxiter,
-               p->closure_use_fallback);
+               p->closure_use_fallback, p->closure_status);
 
   return GSL_SUCCESS;
 }
@@ -350,29 +352,24 @@ CCTK_HOST CCTK_DEVICE int impl_func_val_jac(arith_vector &q, Params *p,
 #undef EVALUATE_ZFUNC
 #undef EVALUATE_ZJAC
 
-#if 0
-void scattering_limit(
-        Params * p,
-        CCTK_REAL J,
-        CCTK_REAL * Enew,
-        tensor::generic<CCTK_REAL, 4, 1> * Fnew_d) {
-    tensor::symmetric2<CCTK_REAL, 4, 2> T_dd;
-    for (int a = 0; a < 4; ++a)
+CCTK_HOST CCTK_DEVICE inline void
+scattering_limit(Params *p, CCTK_REAL J, CCTK_REAL *Enew,
+                 tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
+  tensor::symmetric2<CCTK_REAL, 4, 2> T_dd;
+  for (int a = 0; a < 4; ++a)
     for (int b = a; b < 4; ++b) {
-        T_dd(a,b) = (4./3.) * J * p->u_d(a) * p->u_d(b) +
-                    (1./3.) * J * p->g_dd(a,b);
+      T_dd(a, b) = (CCTK_REAL(4.0 / 3.0)) * J * p->u_d(a) * p->u_d(b) +
+                   (CCTK_REAL(1.0 / 3.0)) * J * p->g_dd(a, b);
     }
-    *Enew = calc_J_from_rT(T_dd, p->n_u);
-    calc_H_from_rT(T_dd, p->n_u, p->gamma_ud, Fnew_d);
+  *Enew = calc_J_from_rT(T_dd, p->n_u);
+  calc_H_from_rT(T_dd, p->n_u, p->gamma_ud, Fnew_d);
 }
 
-void thermal_equilibrium(
-        Params * p,
-        CCTK_REAL * Enew,
-        tensor::generic<CCTK_REAL, 4, 1> * Fnew_d) {
-    scattering_limit(p, (p->kabs > 0 ? p->eta/p->kabs : 0), Enew, Fnew_d);
+CCTK_HOST CCTK_DEVICE inline void
+thermal_equilibrium(Params *p, CCTK_REAL *Enew,
+                    tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
+  scattering_limit(p, (p->kabs > 0 ? p->eta / p->kabs : 0), Enew, Fnew_d);
 }
-#endif
 
 CCTK_HOST CCTK_DEVICE void
 explicit_update(Params *p, CCTK_REAL *Enew,
@@ -410,11 +407,13 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     CCTK_REAL const eta, CCTK_REAL const kabs, CCTK_REAL const kscat,
     CCTK_REAL *chi, CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
     CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit,
-    CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel) {
+    CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel,
+    CCTK_REAL *closure_status = nullptr) {
 
   Params p(cctkGH, i, j, k, ig, closure_fun, closure_epsilon, closure_maxiter,
            closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-           u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta, kabs, kscat);
+           u_u, v_d, v_u, proj_ud, W, Estar, Fstar_d, *chi, eta, kabs, kscat,
+           closure_status);
 
   // Old solution
   arith_vector qold{Eold, Fold_d(1), Fold_d(2), Fold_d(3)};
@@ -433,6 +432,11 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     *Fnew_d = Fstar_d;
     *chi = CCTK_REAL(1.0 / 3.0);
   };
+  auto updated_state_finite = [&]() {
+    return isfinite(*Enew) && isfinite(Fnew_d->at(0)) &&
+           isfinite(Fnew_d->at(1)) && isfinite(Fnew_d->at(2)) &&
+           isfinite(Fnew_d->at(3));
+  };
 
   // Non stiff limit, use explicit update
   if (cdt * kabs < 1 && cdt * kscat < 1) {
@@ -449,7 +453,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
             closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
             u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
             kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-            source_maxiter, source_epsabs, source_epsrel);
+            source_maxiter, source_epsabs, source_epsrel, closure_status);
         if (ierr != NUX_M1_SOURCE_FAIL) {
           return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
         }
@@ -458,6 +462,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         apply_no_source_fallback();
         return NUX_M1_SOURCE_EDDINGTON;
       }
+      apply_no_source_fallback();
       return NUX_M1_SOURCE_FAIL;
     }
     arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
@@ -469,7 +474,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
             closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
             u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
             kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-            source_maxiter, source_epsabs, source_epsrel);
+            source_maxiter, source_epsabs, source_epsrel, closure_status);
         if (ierr != NUX_M1_SOURCE_FAIL) {
           return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
         }
@@ -478,6 +483,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         apply_no_source_fallback();
         return NUX_M1_SOURCE_EDDINGTON;
       }
+      apply_no_source_fallback();
       return NUX_M1_SOURCE_FAIL;
     }
     *chi = p.chi;
@@ -489,11 +495,35 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
   // directly to the equilibrium
   if (source_thick_limit > 0 &&
       SQ(cdt) * (kabs * (kabs + kscat)) > SQ(source_thick_limit)) {
+    arith_vector qstar{Estar, Fstar_d(1), Fstar_d(2), Fstar_d(3)};
+    int ierr = prepare(qstar, &p);
+    if (ierr != ROOTS_SUCCESS) {
+      apply_no_source_fallback();
+      return NUX_M1_SOURCE_FAIL;
+    }
+    thermal_equilibrium(&p, Enew, Fnew_d);
+    *chi = CCTK_REAL(1.0 / 3.0);
+    if (!updated_state_finite()) {
+      apply_no_source_fallback();
+      return NUX_M1_SOURCE_FAIL;
+    }
     return NUX_M1_SOURCE_EQUIL;
   }
 
   // This handles the scattering dominated limit
   if (source_scat_limit > 0 && cdt * kscat > source_scat_limit) {
+    arith_vector qstar{Estar, Fstar_d(1), Fstar_d(2), Fstar_d(3)};
+    int ierr = prepare(qstar, &p);
+    if (ierr != ROOTS_SUCCESS) {
+      apply_no_source_fallback();
+      return NUX_M1_SOURCE_FAIL;
+    }
+    scattering_limit(&p, p.J, Enew, Fnew_d);
+    *chi = CCTK_REAL(1.0 / 3.0);
+    if (!updated_state_finite()) {
+      apply_no_source_fallback();
+      return NUX_M1_SOURCE_FAIL;
+    }
     return NUX_M1_SOURCE_SCAT;
   }
 
@@ -549,7 +579,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
           closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
           u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
           kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-          source_maxiter, source_epsabs, source_epsrel);
+          source_maxiter, source_epsabs, source_epsrel, closure_status);
       if (ierr == NUX_M1_SOURCE_OK) {
         return NUX_M1_SOURCE_EDDINGTON;
       } else {
@@ -564,6 +594,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         apply_no_source_fallback();
         return NUX_M1_SOURCE_EDDINGTON;
       }
+      apply_no_source_fallback();
       return NUX_M1_SOURCE_FAIL;
     }
   }
@@ -588,7 +619,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
           closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
           u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
           kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-          source_maxiter, source_epsabs, source_epsrel);
+          source_maxiter, source_epsabs, source_epsrel, closure_status);
       if (ierr != NUX_M1_SOURCE_FAIL) {
         return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
       }
@@ -597,6 +628,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
       apply_no_source_fallback();
       return NUX_M1_SOURCE_EDDINGTON;
     }
+    apply_no_source_fallback();
     return NUX_M1_SOURCE_FAIL;
   }
 
@@ -608,7 +640,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
           closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
           u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
           kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-          source_maxiter, source_epsabs, source_epsrel);
+          source_maxiter, source_epsabs, source_epsrel, closure_status);
       if (ierr != NUX_M1_SOURCE_FAIL) {
         return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
       }
@@ -617,6 +649,7 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
       apply_no_source_fallback();
       return NUX_M1_SOURCE_EDDINGTON;
     }
+    apply_no_source_fallback();
     return NUX_M1_SOURCE_FAIL;
   }
   *chi = p.chi;

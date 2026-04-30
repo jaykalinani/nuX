@@ -71,6 +71,10 @@ BOOLEAN include_fluxes "Include radiation advection"
 {
 } "yes"
 
+BOOLEAN transport_flux_diagnostics "Store per-direction transport diagnostics (cmax, A, interface fluxes, divergence) for debugging" STEERABLE=ALWAYS
+{
+} "no"
+
 BOOLEAN include_GR_sources "Add GR sources to the radiation RHS" STEERABLE=ALWAYS
 {
 } "yes"

@@ -27,6 +27,7 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
         nuX_m1_mask[ijk] = 0.0;
+        source_limiter_theta[ijk] = 1.0;
 
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
@@ -48,6 +49,12 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
           eta_1[i4D] = 0.0;
           scat_1[i4D] = 0.0;
           nueave[i4D] = 0.0;
+          source_update_status[i4D] = 0.0;
+          source_tau_abs[i4D] = 0.0;
+          source_tau_scat[i4D] = 0.0;
+          source_tau_tot[i4D] = 0.0;
+          closure_status[i4D] = 0.0;
+          closure_update_status[i4D] = 0.0;
         }
       });
 }

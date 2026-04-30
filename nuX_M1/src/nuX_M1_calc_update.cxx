@@ -89,9 +89,20 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
+        int const groupspec = ngroups * nspecies;
         netabs[ijk] = 0;
         netheat[ijk] = 0;
+        source_limiter_theta[ijk] = 1.0;
         if (nuX_m1_mask[ijk]) {
+          source_limiter_theta[ijk] = 0.0;
+          for (int ig = 0; ig < groupspec; ++ig) {
+            int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
+            source_update_status[i4D] = -1.0;
+            closure_update_status[i4D] = -1.0;
+            source_tau_abs[i4D] = 0.0;
+            source_tau_scat[i4D] = 0.0;
+            source_tau_tot[i4D] = 0.0;
+          }
           return;
         }
         tensor::generic<CCTK_REAL, 4, 1> beta_u;
@@ -129,8 +140,6 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         tensor::contract(g_dd, v_u, &v_d);
 
         // Per-(group×species) accumulators
-        int const groupspec = ngroups * nspecies;
-
         // Source RHS are stored here
         // TODO: to use ngroups * nspecies instead of MAX_GROUPSPECIES
         CCTK_REAL DrE[MAX_GROUPSPECIES];
@@ -143,6 +152,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         // --------------------------
         for (int ig = 0; ig < groupspec; ++ig) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
+          source_update_status[i4D] = -2.0;
+          closure_update_status[i4D] = -2.0;
+          source_tau_abs[i4D] = dt * abs_1[i4D];
+          source_tau_scat[i4D] = dt * scat_1[i4D];
+          source_tau_tot[i4D] = dt * (abs_1[i4D] + scat_1[i4D]);
           assert(isfinite(rN[i4D]));
           assert(isfinite(rE[i4D]));
           assert(isfinite(rFx[i4D]));
@@ -215,7 +229,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W_ijk, u_u, v_d, proj_ud, Estar, Fstar_d, &chi[i4D],
                        &P_dd, closure_epsilon, closure_maxiter,
-                       use_fallback != 0);
+                       use_fallback != 0, &closure_update_status[i4D]);
 
           tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
           assemble_rT(n_d, Estar, Fstar_d, P_dd, &rT_dd);
@@ -262,14 +276,15 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_IMPL)
-          const int source_status = source_update(
+          const int src_status = source_update(
               cctkGH, p.i, p.j, p.k, ig, closure_fun, closure_epsilon,
               closure_maxiter, use_fallback != 0, dt, alp_ijk, g_dd, g_uu, n_d,
               n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W_ijk, Estar, Fstar_d,
               Estar, Fstar_d, volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D],
               &chi[i4D], &Enew, &Fnew_d, source_thick_limit, source_scat_limit,
-              source_maxiter, source_epsabs, source_epsrel);
-          (void)source_status;
+              source_maxiter, source_epsabs, source_epsrel,
+              &closure_update_status[i4D]);
+          source_update_status[i4D] = src_status;
 
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
           assert(isfinite(Enew));
@@ -351,6 +366,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           }
           theta = max((CCTK_REAL)0.0, theta);
         }
+        source_limiter_theta[ijk] = theta;
 
         // --------------------------
         // Step 3 — apply updates

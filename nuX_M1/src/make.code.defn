@@ -15,6 +15,8 @@ nuX_M1_fiducial_velocity.cxx \
 nuX_M1_init.cxx \
 nuX_M1_initial_copy.cxx \
 nuX_M1_init_fluxes_rhs.cxx \
+nuX_M1_store_state_snapshots.cxx \
+nuX_M1_store_transport_rhs.cxx \
 nuX_M1_param_check.cxx \
 nuX_M1_reset.cxx \
 nuX_M1_setmask.cxx \

@@ -9,17 +9,11 @@
 #include <string>
 #include <loop_device.hxx>
 
-// #include <gsl/gsl_errno.h>
-// #include <gsl/gsl_math.h>
-// #include <gsl/gsl_roots.h>
-
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
 #include "nuX_utils.hxx"
 #include "nuX_M1_macro.hxx"
-
-#include "roots.hxx"
 
 namespace nuX_M1 {
 
@@ -28,6 +22,15 @@ using namespace Loop;
 using namespace std;
 
 typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
+
+enum : int {
+  NUX_M1_CLOSURE_OK = 0,
+  NUX_M1_CLOSURE_NO_BRACKET = 1,
+  NUX_M1_CLOSURE_SETUP_FAIL = 2,
+  NUX_M1_CLOSURE_SOLVER_FAIL = 3,
+  NUX_M1_CLOSURE_NONFINITE_ROOT = 4,
+  NUX_M1_CLOSURE_NONFINITE_CHI = 5,
+};
 
 struct Parameters {
   CCTK_HOST CCTK_DEVICE Parameters(
@@ -56,10 +59,10 @@ struct Parameters {
 enum ClosFlag : CCTK_INT {
   CLOS_OK = 0,   // closure success
   CLOS_I = 1,    // initial value closure NaN or inf
-  GSL_I = 2,     // initial set GSL solver error
+  ROOT_I = 2,    // initial root solver error
   CLOS_IT = 3,   // iteration closure NaN or inf
-  GSL_IT = 4,    // iterative GSL solver error
-  GSL_MAXIT = 5, // GSL solver reached max iterations
+  ROOT_IT = 4,   // iterative root solver error
+  ROOT_MAXIT = 5 // root solver reached max iterations
 };
 
 /*
@@ -526,6 +529,13 @@ closure_abort_if_no_fallback(bool use_fallback) {
   assert(use_fallback && "nuX_M1 closure failed and use_fallback=no");
 }
 
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
+closure_set_status(CCTK_REAL *status, int value) {
+  if (status != nullptr) {
+    *status = static_cast<CCTK_REAL>(value);
+  }
+}
+
 // Computes the closure in the lab frame with a rootfinding procedure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
@@ -537,7 +547,10 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
     tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
     tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
-    CCTK_INT closure_maxiter, bool use_fallback) {
+    CCTK_INT closure_maxiter, bool use_fallback,
+    CCTK_REAL *closure_status = nullptr) {
+  closure_set_status(closure_status, NUX_M1_CLOSURE_OK);
+
   // These are special cases for which no root finding is needed
   if (closure_fun == eddington) {
     *chi = 1. / 3.;
@@ -554,9 +567,6 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
 
   Parameters params(closure_fun, g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud,
                     E, F_d);
-  // gsl_function F;
-  // F.function = &zFunction;
-  // F.params = reinterpret_cast<void *>(&params);
   auto fn = [&params](auto x) { return zFunction(x, &params); };
   auto fallback_chi = [&]() {
     CCTK_REAL const z_ed = fn(CCTK_REAL(1.0 / 3.0));
@@ -575,11 +585,10 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
   CCTK_REAL const f_lo = fn(x_lo);
   CCTK_REAL const f_hi = fn(x_hi);
 
-  // int ierr = gsl_root_fsolver_set(fsolver, &F, x_lo, x_hi);
-
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
   if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi >= 0.0) {
+    closure_set_status(closure_status, NUX_M1_CLOSURE_NO_BRACKET);
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
@@ -587,138 +596,71 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     return;
   }
 
-  /*
-  else if (ierr == GSL_EBADFUNC) {
-    clos_flag_code = CLOS_I;
-    clos_flag_local = false;
-  } else if (ierr != 0) {
-    clos_flag_code = GSL_I;
-    clos_flag_local = false;
-  }
-  */
+  nuX_Utils::roots::brent_solver<CCTK_REAL> solver{};
+  int ierr = nuX_Utils::roots::solver_set(&solver, fn, x_lo, x_hi);
 
-  // Rootfinding
-  int iter = 0;
-  CCTK_REAL a = x_lo;
-  CCTK_REAL b = x_hi;
-
-  // Map an absolute interval tolerance to Algo::brent(min_bits, ...) on [0,1]
-  // so that (hi-lo) ~ 2^{-min_bits} roughly matches closure_epsilon.
-  int minbits;
-  if (!(closure_epsilon > 0)) {
-    minbits = 1;
-  } else {
-    CCTK_REAL const ce = closure_epsilon;
-    CCTK_REAL const inv = 1.0 / ce;
-    CCTK_REAL const lg = log2(inv);
-    minbits = static_cast<int>(ceil(lg));
-    minbits = max(1, min(minbits, std::numeric_limits<CCTK_REAL>::digits - 2));
-  }
-
-  auto result = Algo::brent(fn, a, b, minbits, closure_maxiter, iter);
-  // Bracket endpoints
-  CCTK_REAL a_root = result.first;
-  CCTK_REAL b_root = result.second;
-  CCTK_REAL fa_root = fn(a_root);
-  CCTK_REAL fb_root = fn(b_root);
-
-  auto interval_is_valid = [](CCTK_REAL lo, CCTK_REAL hi, CCTK_REAL flo,
-                              CCTK_REAL fhi) {
-    return isfinite(lo) && isfinite(hi) && isfinite(flo) && isfinite(fhi) &&
-           lo <= hi && (flo == 0.0 || fhi == 0.0 || flo * fhi <= 0.0);
-  };
-
-  if (iter >= closure_maxiter ||
-      !interval_is_valid(a_root, b_root, fa_root, fb_root)) {
+  if (ierr != nuX_Utils::roots::code(nuX_Utils::roots::status::success)) {
+    closure_set_status(closure_status, NUX_M1_CLOSURE_SETUP_FAIL);
     closure_abort_if_no_fallback(use_fallback);
-
-    CCTK_REAL lo = x_lo;
-    CCTK_REAL hi = x_hi;
-    CCTK_REAL flo = f_lo;
-    CCTK_REAL fhi = f_hi;
-    const CCTK_REAL interval_tol =
-        (closure_epsilon > 0) ? closure_epsilon : CCTK_REAL(1.0e-12);
-    bool bisect_ok = true;
-    for (int ib = 0; ib < closure_maxiter; ++ib) {
-      CCTK_REAL const mid = CCTK_REAL(0.5) * (lo + hi);
-      CCTK_REAL const fmid = fn(mid);
-      if (!isfinite(fmid)) {
-        bisect_ok = false;
-        break;
-      }
-      if (fmid == 0.0) {
-        lo = mid;
-        hi = mid;
-        flo = 0.0;
-        fhi = 0.0;
-        break;
-      }
-      if (flo * fmid <= 0.0) {
-        hi = mid;
-        fhi = fmid;
-      } else {
-        lo = mid;
-        flo = fmid;
-      }
-      if (abs(hi - lo) <= interval_tol) {
-        break;
-      }
-    }
-
-    if (bisect_ok && interval_is_valid(lo, hi, flo, fhi)) {
-      a_root = lo;
-      b_root = hi;
-      fa_root = flo;
-      fb_root = fhi;
-    } else {
-      *chi = fallback_chi();
-      apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
-                    P_dd);
-      return;
-    }
+    *chi = fallback_chi();
+    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
+                  P_dd);
+    return;
   }
 
-  // Keep nominal behavior unchanged: use midpoint of the final bracket.
-  CCTK_REAL xi = CCTK_REAL(0.5) * (a_root + b_root);
+  int iter = 0;
+  int test_status =
+      nuX_Utils::roots::code(nuX_Utils::roots::status::continue_iter);
+  bool solver_failed = false;
+
+  do {
+    ++iter;
+    ierr = nuX_Utils::roots::solver_iterate(&solver, fn);
+    if (ierr != nuX_Utils::roots::code(nuX_Utils::roots::status::success)) {
+      solver_failed = true;
+      break;
+    }
+
+    test_status = nuX_Utils::roots::test_interval(
+        nuX_Utils::roots::solver_x_lower(&solver),
+        nuX_Utils::roots::solver_x_upper(&solver), closure_epsilon,
+        CCTK_REAL(0.0));
+
+    if (test_status !=
+            nuX_Utils::roots::code(nuX_Utils::roots::status::success) &&
+        test_status !=
+            nuX_Utils::roots::code(nuX_Utils::roots::status::continue_iter)) {
+      solver_failed = true;
+      break;
+    }
+  } while (test_status ==
+               nuX_Utils::roots::code(nuX_Utils::roots::status::continue_iter) &&
+           iter < closure_maxiter);
+
+  if (solver_failed) {
+    closure_set_status(closure_status, NUX_M1_CLOSURE_SOLVER_FAIL);
+    closure_abort_if_no_fallback(use_fallback);
+    *chi = fallback_chi();
+    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
+                  P_dd);
+    return;
+  }
+
+  CCTK_REAL const xi = nuX_Utils::roots::solver_root(&solver);
   if (!isfinite(xi)) {
+    closure_set_status(closure_status, NUX_M1_CLOSURE_NONFINITE_ROOT);
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
   } else {
     CCTK_REAL const chi_try = closure_fun(xi);
     if (!isfinite(chi_try)) {
+      closure_set_status(closure_status, NUX_M1_CLOSURE_NONFINITE_CHI);
       closure_abort_if_no_fallback(use_fallback);
       *chi = fallback_chi();
     } else {
       *chi = chi_try;
     }
   }
-  /*
-    do {
-      ++iter;
-      ierr = gsl_root_fsolver_iterate(fsolver);
-      // Some nans in the evaluation. This should not happen.
-      if (ierr == GSL_EBADFUNC) {
-        clos_flag_code = CLOS_IT;
-        clos_flag_local = false;
-      } else if (ierr != 0) {
-        clos_flag_code = GSL_IT;
-        clos_flag_local = false;
-      }
-      *chi = closure_fun(gsl_root_fsolver_root(fsolver));
-      x_lo = gsl_root_fsolver_x_lower(fsolver);
-      x_hi = gsl_root_fsolver_x_upper(fsolver);
-      ierr = gsl_root_test_interval(x_lo, x_hi, closure_epsilon, 0);
-    } while (ierr == GSL_CONTINUE && iter < closure_maxiter);
-
-
-  #ifdef WARN_FOR_MAXITER
-    if (ierr != GSL_SUCCESS) {
-      clos_flag_code = GSL_MAXIT;
-      clos_flag_local = false;
-    }
-  #endif
-
-  */
   // We are done, update the closure with the newly found chi
   apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                 P_dd);

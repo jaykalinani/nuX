@@ -113,6 +113,12 @@ CCTK_REAL kerr_mask_radius "Excision radius for the Kerr Schild test"
     0:* :: "Any non-negative number"
 } 2.0
 
+KEYWORD kerr_axis_permutation "Axis permutation for the Kerr inflow setup"
+{
+    "xyz" :: "Original orientation"
+    "yzx" :: "Cyclic permutation: x->y, y->z, z->x"
+} "xyz"
+
 
 # parameters for setting initializing atmosphere as initial data
 

@@ -80,6 +80,15 @@ CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint
 # neutrino fluxes in z–direction
 CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
 
+# characteristic speeds in x–direction
+CCTK_REAL nu_cmax_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the x–direction for each (species,group)"
+
+# characteristic speeds in y–direction
+CCTK_REAL nu_cmax_y[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the y–direction for each (species,group)"
+
+# characteristic speeds in z–direction
+CCTK_REAL nu_cmax_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the z–direction for each (species,group)"
+
 ## Diagnostics
 CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 
 {
@@ -98,6 +107,19 @@ CCTK_REAL fluidsources TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     netabs, netheat
 } "Net number and energy absorption (for analysis only)"
+
+CCTK_REAL source_update_status[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Implicit source update status: -2 not called, -1 masked, 0 OK, 1 thin, 2 Eddington fallback, 3 equilibrium, 4 scattering, 5 fail"
+
+CCTK_REAL source_update_tau[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    source_tau_abs, source_tau_scat, source_tau_tot
+} "Per-substep source coupling strengths dt*kabs, dt*kscat, and dt*(kabs+kscat)"
+
+CCTK_REAL source_limiter_theta TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Limiter applied to the radiation-matter source update"
+
+CCTK_REAL closure_status[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Pre-transport closure status: 0 OK, 1 no bracket, 2 setup fail, 3 solver fail, 4 nonfinite root, 5 nonfinite chi"
+
+CCTK_REAL closure_update_status[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Update/source closure status: 0 OK, 1 no bracket, 2 setup fail, 3 solver fail, 4 nonfinite root, 5 nonfinite chi"
 
 CCTK_REAL neutrino_fractions TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 
 {
@@ -124,5 +146,225 @@ CCTK_REAL rF_rhs[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"
 {
     rFx_rhs, rFy_rhs, rFz_rhs
 } "RHS for the radiation energy fluxes"
+
+CCTK_REAL rN_rhs_transport[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Transport-only RHS snapshot for the radiation number density"
+
+CCTK_REAL rE_rhs_transport[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Transport-only RHS snapshot for the radiation energy density"
+
+CCTK_REAL rF_rhs_transport[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_rhs_transport, rFy_rhs_transport, rFz_rhs_transport
+} "Transport-only RHS snapshot for the radiation energy fluxes"
+
+PUBLIC:
+
+CCTK_REAL rN_bc_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot immediately after boundary conditions for the radiation number density"
+
+CCTK_REAL rE_bc_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot immediately after boundary conditions for the radiation energy density"
+
+CCTK_REAL rF_bc_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_bc_snapshot, rFy_bc_snapshot, rFz_bc_snapshot
+} "State snapshot immediately after boundary conditions for the radiation energy fluxes"
+
+CCTK_REAL rN_postupdate_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot immediately after CalcUpdate and before timestep boundary conditions"
+
+CCTK_REAL rE_postupdate_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot immediately after CalcUpdate and before timestep boundary conditions"
+
+CCTK_REAL rF_postupdate_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_postupdate_snapshot, rFy_postupdate_snapshot, rFz_postupdate_snapshot
+} "State snapshot immediately after CalcUpdate and before timestep boundary conditions"
+
+CCTK_REAL rN_prepostbc_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot in PostStep before the poststep boundary-condition group"
+
+CCTK_REAL rE_prepostbc_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot in PostStep before the poststep boundary-condition group"
+
+CCTK_REAL rF_prepostbc_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_prepostbc_snapshot, rFy_prepostbc_snapshot, rFz_prepostbc_snapshot
+} "State snapshot in PostStep before the poststep boundary-condition group"
+
+CCTK_REAL rN_preflux_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot immediately before CalcFluxes after conserved/derived sync"
+
+CCTK_REAL rE_preflux_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "State snapshot immediately before CalcFluxes after conserved/derived sync"
+
+CCTK_REAL rF_preflux_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_preflux_snapshot, rFy_preflux_snapshot, rFz_preflux_snapshot
+} "State snapshot immediately before CalcFluxes after conserved/derived sync"
+
+CCTK_REAL rP_preflux_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rPxx_preflux_snapshot, rPxy_preflux_snapshot, rPxz_preflux_snapshot,
+    rPyy_preflux_snapshot, rPyz_preflux_snapshot, rPzz_preflux_snapshot
+} "Closure pressure-tensor snapshot immediately before CalcFluxes after derived sync"
+
+CCTK_REAL chi_preflux_snapshot[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Closure coefficient snapshot immediately before CalcFluxes after derived sync"
+
+PRIVATE:
+
+CCTK_REAL rN_transport_input[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Stage-local conserved number density used by transport kernels"
+
+CCTK_REAL rE_transport_input[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Stage-local conserved energy density used by transport kernels"
+
+CCTK_REAL rF_transport_input[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_transport_input, rFy_transport_input, rFz_transport_input
+} "Stage-local conserved flux used by transport kernels"
+
+CCTK_REAL transport_cmax[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_cmax_Lx, transport_cmax_Ly, transport_cmax_Lz,
+    transport_cmax_Rx, transport_cmax_Ry, transport_cmax_Rz
+} "Per-direction left/right characteristic speeds used by the transport numerical flux"
+
+CCTK_REAL transport_A[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_A_Lx, transport_A_Ly, transport_A_Lz,
+    transport_A_Rx, transport_A_Ry, transport_A_Rz
+} "Per-direction left/right A-factors used by the transport numerical flux"
+
+CCTK_REAL transport_flux_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_FN_Lx, transport_FN_Ly, transport_FN_Lz,
+    transport_FN_Rx, transport_FN_Ry, transport_FN_Rz
+} "Per-direction left/right numerical fluxes for the radiation number density"
+
+CCTK_REAL transport_flux_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_FE_Lx, transport_FE_Ly, transport_FE_Lz,
+    transport_FE_Rx, transport_FE_Ry, transport_FE_Rz
+} "Per-direction left/right numerical fluxes for the radiation energy density"
+
+CCTK_REAL transport_physflux_N_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysN_Lx, transport_fphysN_Cx, transport_fphysN_Rx
+} "X-direction cell-centred physical fluxes entering the radiation number-density numerical flux"
+
+CCTK_REAL transport_physflux_N_y[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysN_Ly, transport_fphysN_Cy, transport_fphysN_Ry
+} "Y-direction cell-centred physical fluxes entering the radiation number-density numerical flux"
+
+CCTK_REAL transport_physflux_N_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysN_Lz, transport_fphysN_Cz, transport_fphysN_Rz
+} "Z-direction cell-centred physical fluxes entering the radiation number-density numerical flux"
+
+CCTK_REAL transport_physflux_E_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysE_Lx, transport_fphysE_Cx, transport_fphysE_Rx
+} "X-direction cell-centred physical fluxes entering the radiation energy-density numerical flux"
+
+CCTK_REAL transport_physflux_E_y[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysE_Ly, transport_fphysE_Cy, transport_fphysE_Ry
+} "Y-direction cell-centred physical fluxes entering the radiation energy-density numerical flux"
+
+CCTK_REAL transport_physflux_E_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysE_Lz, transport_fphysE_Cz, transport_fphysE_Rz
+} "Z-direction cell-centred physical fluxes entering the radiation energy-density numerical flux"
+
+CCTK_REAL transport_fluxavg_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_favgN_Lx, transport_favgN_Ly, transport_favgN_Lz,
+    transport_favgN_Rx, transport_favgN_Ry, transport_favgN_Rz
+} "Per-direction left/right average-physical-flux term in the low-order numerical flux for the radiation number density"
+
+CCTK_REAL transport_fluxavg_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_favgE_Lx, transport_favgE_Ly, transport_favgE_Lz,
+    transport_favgE_Rx, transport_favgE_Ry, transport_favgE_Rz
+} "Per-direction left/right average-physical-flux term in the low-order numerical flux for the radiation energy density"
+
+CCTK_REAL transport_fluxdiss_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fdissN_Lx, transport_fdissN_Ly, transport_fdissN_Lz,
+    transport_fdissN_Rx, transport_fdissN_Ry, transport_fdissN_Rz
+} "Per-direction left/right diffusive term 0.5*cmax*du in the low-order numerical flux for the radiation number density"
+
+CCTK_REAL transport_fluxdiss_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fdissE_Lx, transport_fdissE_Ly, transport_fdissE_Lz,
+    transport_fdissE_Rx, transport_fdissE_Ry, transport_fdissE_Rz
+} "Per-direction left/right diffusive term 0.5*cmax*du in the low-order numerical flux for the radiation energy density"
+
+CCTK_REAL transport_statejump_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_duN_Lx, transport_duN_Ly, transport_duN_Lz,
+    transport_duN_Rx, transport_duN_Ry, transport_duN_Rz
+} "Per-direction left/right state jumps entering the low-order numerical flux for the radiation number density"
+
+CCTK_REAL transport_statejump_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_duE_Lx, transport_duE_Ly, transport_duE_Lz,
+    transport_duE_Rx, transport_duE_Ry, transport_duE_Rz
+} "Per-direction left/right state jumps entering the low-order numerical flux for the radiation energy density"
+
+CCTK_REAL transport_fluxlow_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_flowN_Lx, transport_flowN_Ly, transport_flowN_Lz,
+    transport_flowN_Rx, transport_flowN_Ry, transport_flowN_Rz
+} "Per-direction left/right low-order interface fluxes for the radiation number density"
+
+CCTK_REAL transport_fluxlow_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_flowE_Lx, transport_flowE_Ly, transport_flowE_Lz,
+    transport_flowE_Rx, transport_flowE_Ry, transport_flowE_Rz
+} "Per-direction left/right low-order interface fluxes for the radiation energy density"
+
+CCTK_REAL transport_fluxhigh_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fhighN_Lx, transport_fhighN_Ly, transport_fhighN_Lz,
+    transport_fhighN_Rx, transport_fhighN_Ry, transport_fhighN_Rz
+} "Per-direction left/right high-order interface fluxes for the radiation number density"
+
+CCTK_REAL transport_fluxhigh_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fhighE_Lx, transport_fhighE_Ly, transport_fhighE_Lz,
+    transport_fhighE_Rx, transport_fhighE_Ry, transport_fhighE_Rz
+} "Per-direction left/right high-order interface fluxes for the radiation energy density"
+
+CCTK_REAL transport_limiter_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_phiN_Lx, transport_phiN_Ly, transport_phiN_Lz,
+    transport_phiN_Rx, transport_phiN_Ry, transport_phiN_Rz
+} "Per-direction left/right limiter phi values for the radiation number density"
+
+CCTK_REAL transport_limiter_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_phiE_Lx, transport_phiE_Ly, transport_phiE_Lz,
+    transport_phiE_Rx, transport_phiE_Ry, transport_phiE_Rz
+} "Per-direction left/right limiter phi values for the radiation energy density"
+
+CCTK_REAL transport_saw_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_sawN_Lx, transport_sawN_Ly, transport_sawN_Lz,
+    transport_sawN_Rx, transport_sawN_Ry, transport_sawN_Rz
+} "Per-direction left/right sawtooth flags for the radiation number density"
+
+CCTK_REAL transport_saw_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_sawE_Lx, transport_sawE_Ly, transport_sawE_Lz,
+    transport_sawE_Rx, transport_sawE_Ry, transport_sawE_Rz
+} "Per-direction left/right sawtooth flags for the radiation energy density"
+
+CCTK_REAL transport_rhsdiv_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_divN_x, transport_divN_y, transport_divN_z
+} "Per-direction transport divergence contribution to the radiation number-density RHS"
+
+CCTK_REAL transport_rhsdiv_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_divE_x, transport_divE_y, transport_divE_z
+} "Per-direction transport divergence contribution to the radiation energy-density RHS"
+
+CCTK_REAL transport_trace_Ez TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_uE_jm2_z, transport_uE_jm1_z, transport_uE_j_z, transport_uE_jp1_z, transport_uE_jp2_z,
+    transport_idxE_jm2_z, transport_idxE_jm1_z, transport_idxE_j_z, transport_idxE_jp1_z, transport_idxE_jp2_z
+} "Debug trace of the exact z-stencil values and linear indices used for the species-0 radiation-energy update"
 
 CCTK_INT TimeIntegratorStage TYPE=SCALAR TAGS='checkpoint="no"' "Current stage of the time integrator"
