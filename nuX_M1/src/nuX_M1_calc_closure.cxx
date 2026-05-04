@@ -22,9 +22,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CalcClosure");
   }
 
-  // Disable GSL error handler
-  // gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
-
   closure_t closure_fun;
   if (CCTK_Equals(closure, "Eddington")) {
     closure_fun = eddington;
@@ -49,9 +46,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
   tensor::fluid_velocity_field_const fidu(layout_vc, layout_cc, alp, betax,
                                           betay, betaz, fidu_w_lorentz,
                                           fidu_velx, fidu_vely, fidu_velz);
-
-  // gsl_root_fsolver *gsl_solver =
-  //     gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
@@ -112,8 +106,11 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           pack_F_d(beta_u(1), beta_u(2), beta_u(3), rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
 
+          CCTK_REAL E_closure = max(rE[i4D], rad_E_floor);
+          apply_floor(g_uu, &E_closure, &F_d, rad_E_floor, rad_eps);
+
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                       W, u_u, v_d, proj_ud, rE[i4D], F_d, &chi[i4D], &P_dd,
+                       W, u_u, v_d, proj_ud, E_closure, F_d, &chi[i4D], &P_dd,
                        closure_epsilon, closure_maxiter, use_fallback != 0,
                        &closure_status[i4D]);
           unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
@@ -146,10 +143,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           rnnu[i4D] = rN[i4D] / Gamma;
         }
       });
-  // gsl_root_fsolver_free(gsl_solver);
-
-  // Restore GSL error handler
-  // gsl_set_error_handler(gsl_err);
 }
 
 } // namespace nuX_M1

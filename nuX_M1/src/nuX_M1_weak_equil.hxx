@@ -60,31 +60,25 @@ eta_e_gradient(CCTK_REAL rho, CCTK_REAL T, CCTK_REAL *Y, CCTK_REAL eta,
 
   CCTK_REAL Y1[MAX_SPECIES] = {0.0};
   CCTK_REAL Y2[MAX_SPECIES] = {0.0};
-  CCTK_REAL const Ye0 = fmin(fmax(Y[0], min_Y), max_Y);
 
-  Y1[0] = fmax(Ye0 - Ye_delta, min_Y);
+  Y1[0] = fmax(Y[0] - Ye_delta, min_Y);
   CCTK_REAL mu_l1 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y1[0]);
   CCTK_REAL e1 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y1[0]);
 
-  Y2[0] = fmin(Ye0 + Ye_delta, max_Y);
+  Y2[0] = fmin(Y[0] + Ye_delta, max_Y);
   CCTK_REAL mu_l2 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y2[0]);
   CCTK_REAL e2 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y2[0]);
 
-  if (!(Y2[0] > Y1[0])) {
-    return ierr;
-  }
   CCTK_REAL dmu_l_dYe = (mu_l2 - mu_l1) / (Y2[0] - Y1[0]);
   de_dYe = (e2 - e1) / (Y2[0] - Y1[0]);
 
   CCTK_REAL T1 = fmax(T - T_delta, min_T);
+  mu_l1 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y1[0]);
+  e1 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y1[0]);
+
   CCTK_REAL T2 = fmin(T + T_delta, max_T);
-  if (!(T2 > T1)) {
-    return ierr;
-  }
-  mu_l1 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T1, Ye0);
-  e1 = tabeos->eps_from_valid_rho_temp_ye(rho, T1, Ye0);
-  mu_l2 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T2, Ye0);
-  e2 = tabeos->eps_from_valid_rho_temp_ye(rho, T2, Ye0);
+  mu_l2 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y2[0]);
+  e2 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y2[0]);
 
   CCTK_REAL dmu_l_dT = (mu_l2 - mu_l1) / (T2 - T1);
   de_dT = (e2 - e1) / (T2 - T1);

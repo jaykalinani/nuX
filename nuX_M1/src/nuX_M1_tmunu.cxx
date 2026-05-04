@@ -7,9 +7,6 @@
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
 
-// #include <gsl/gsl_errno.h>
-// #include <gsl/gsl_roots.h>
-
 namespace nuX_M1 {
 
 using namespace Loop;
@@ -22,9 +19,6 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   if (verbose) {
     CCTK_INFO("nuX_M1_AddToTmunu");
   }
-
-  // Disable GSL error handler
-  // gsl_error_handler_t *gsl_err = gsl_set_error_handler_off();
 
   // Pick closure
   closure_t closure_fun = nullptr;
@@ -99,14 +93,10 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
                    rFz[i4D], &F_d);
 
           CCTK_REAL mychi = 0.5;
-          // gsl_root_fsolver *gsl_solver =
-          //     gsl_root_fsolver_alloc(gsl_root_fsolver_brent);
 
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W, u_u, v_d, proj_ud, rE[i4D], F_d, &mychi, &P_dd,
                        closure_epsilon, closure_maxiter, use_fallback != 0);
-
-          // gsl_root_fsolver_free(gsl_solver);
 
           assemble_rT(n_d, rE[i4D], F_d, P_dd, &rT_dd);
 
@@ -123,8 +113,6 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
         }
       });
 
-  // Restore GSL error handler
-  // gsl_set_error_handler(gsl_err);
 }
 
 } // namespace nuX_M1

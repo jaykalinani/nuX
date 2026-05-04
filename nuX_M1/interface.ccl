@@ -71,23 +71,23 @@ CCTK_REAL nuX_m1_mask TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Mask point
 
 PRIVATE:
 
-## neutrino fluxes in x–direction
-CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the x–direction: 5 fields per (species,group)"
+## neutrino fluxes in x-direction
+CCTK_REAL nu_flux_x[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the x-direction: 5 fields per (species,group)"
 
-# neutrino fluxes in y–direction
-CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the y–direction: 5 fields per (species,group)"
+# neutrino fluxes in y-direction
+CCTK_REAL nu_flux_y[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the y-direction: 5 fields per (species,group)"
 
-# neutrino fluxes in z–direction
-CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the z–direction: 5 fields per (species,group)"
+# neutrino fluxes in z-direction
+CCTK_REAL nu_flux_z[nspecies*ngroups*5] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino flux components in the z-direction: 5 fields per (species,group)"
 
-# characteristic speeds in x–direction
-CCTK_REAL nu_cmax_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the x–direction for each (species,group)"
+# characteristic speeds in x-direction
+CCTK_REAL nu_cmax_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the x-direction for each (species,group)"
 
-# characteristic speeds in y–direction
-CCTK_REAL nu_cmax_y[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the y–direction for each (species,group)"
+# characteristic speeds in y-direction
+CCTK_REAL nu_cmax_y[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the y-direction for each (species,group)"
 
-# characteristic speeds in z–direction
-CCTK_REAL nu_cmax_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the z–direction for each (species,group)"
+# characteristic speeds in z-direction
+CCTK_REAL nu_cmax_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Maximum characteristic speed in the z-direction for each (species,group)"
 
 ## Diagnostics
 CCTK_REAL radial_fluxes[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' 

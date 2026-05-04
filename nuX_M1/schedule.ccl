@@ -76,7 +76,7 @@ SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
     WRITES: closure_status(everywhere) closure_update_status(everywhere)
 } "Initialize everything to zero"
 
-SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup 
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup \
     AFTER (nuX_M1_Reset)
 {
     LANG: C
@@ -309,7 +309,7 @@ else {
 
 # Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
 SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure) \
     BEFORE nuX_M1_CalcFluxes
 {
     LANG: C

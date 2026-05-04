@@ -49,12 +49,13 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
           eta_1[i4D] = 0.0;
           scat_1[i4D] = 0.0;
           nueave[i4D] = 0.0;
-          source_update_status[i4D] = 0.0;
+
+          source_update_status[i4D] = -2.0;
           source_tau_abs[i4D] = 0.0;
           source_tau_scat[i4D] = 0.0;
           source_tau_tot[i4D] = 0.0;
-          closure_status[i4D] = 0.0;
-          closure_update_status[i4D] = 0.0;
+          closure_status[i4D] = -2.0;
+          closure_update_status[i4D] = -2.0;
         }
       });
 }

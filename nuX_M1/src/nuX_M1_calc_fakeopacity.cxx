@@ -36,7 +36,7 @@ using namespace nuX_Utils;
 using namespace EOSX;
 
 #ifndef MAX_GROUPSPECIES
-#define MAX_GROUPSPECIES 4
+#define MAX_GROUPSPECIES 3
 #endif
 
 extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
@@ -45,11 +45,6 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
 
   if (verbose) {
     CCTK_INFO("nuX_M1_CalcFakeOpacity");
-  }
-  if (ngroups != 1 || (nspecies != 3 && nspecies != 4)) {
-    CCTK_VERROR("nuX_M1_CalcFakeOpacity supports grey transport with "
-                "nspecies=3 or 4 and ngroups=1, got nspecies=%d ngroups=%d",
-                int(nspecies), int(ngroups));
   }
 
   const GridDescBaseDevice grid(cctkGH);
@@ -110,7 +105,11 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           }
           return;
         }
+        assert(nspecies == 3);
+        assert(ngroups == 1);
         const int ng = nspecies * ngroups;
+        // TODO: currently use MAX_GROUPSPECIES instead of ng for array
+        // initialization
 
         CCTK_REAL rhoL = rho[ijk];
         CCTK_REAL tempL = temperature[ijk];
@@ -198,6 +197,8 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
               rhoL, nudens_0_trap[0], nudens_0_trap[1], nudens_0_trap[2],
               nudens_1_trap[0], nudens_1_trap[1], nudens_1_trap[2]);
 
+          // NOTE: the block below will never be run because ng is always
+          // assumed to be 3
           if (ng == 4) {
             nudens_0_trap[2] *= 0.5;
             nudens_1_trap[2] *= 0.5;
@@ -214,8 +215,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
         }
         // Compute the neutrino black body function assuming fixed temperature
         // and Y_e
-        CCTK_REAL nudens_0_thin[MAX_GROUPSPECIES],
-            nudens_1_thin[MAX_GROUPSPECIES];
+        CCTK_REAL nudens_0_thin[3], nudens_1_thin[3];
         myfakerates->FakeNeutrinoDens(rhoL, nudens_0_thin[0], nudens_0_thin[1],
                                       nudens_0_thin[2], nudens_1_thin[0],
                                       nudens_1_thin[1], nudens_1_thin[2]);
@@ -271,7 +271,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           //   changing the emissivities.
           // It would be better to have emissivities and absorptivities
           // that satisfy Kirchhoff's law.
-          if (ig >= 2) {
+          if (ig == 2) {
             eta_0[i4D] = corr_fac * eta_0_loc[ig];
             eta_1[i4D] = corr_fac * eta_1_loc[ig];
             abs_0[i4D] = (nudens_0 > rad_N_floor ? eta_0[i4D] / nudens_0 : 0);
