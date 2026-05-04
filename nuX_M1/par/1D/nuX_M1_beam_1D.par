@@ -8,6 +8,7 @@ ActiveThorns = "
    CarpetX
    Con2PrimFactory
    EOSX
+   Formaline
    HydroBaseX
    IOUtil
    ODESolvers
