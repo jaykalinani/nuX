@@ -37,6 +37,8 @@ enum : int {
   NUX_M1_CLOSURE_NONFINITE_CHI = 5,
 };
 
+#ifdef NUX_M1_CLOSURE_IMPLEMENTATION
+
 struct Parameters {
   CCTK_HOST CCTK_DEVICE Parameters(
       closure_t _closure, tensor::metric<4> const &_g_dd,
@@ -60,6 +62,8 @@ struct Parameters {
   CCTK_REAL const E;
   tensor::generic<CCTK_REAL, 4, 1> const &F_d;
 };
+
+#endif // NUX_M1_CLOSURE_IMPLEMENTATION
 
 enum ClosFlag : CCTK_INT {
   CLOS_OK = 0,   // closure success
@@ -532,6 +536,8 @@ calc_rF_source(CCTK_REAL const alp,
   }
 }
 
+#ifdef NUX_M1_CLOSURE_IMPLEMENTATION
+
 // Function to rootfind in order to determine the closure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline double
 zFunction(double xi, void *params) {
@@ -568,7 +574,7 @@ closure_set_status(CCTK_REAL *status, int value) {
 }
 
 // Computes the closure in the lab frame with a rootfinding procedure
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
     closure_t closure_fun, tensor::metric<4> const &g_dd,
     tensor::inv_metric<4> const &g_uu,
@@ -578,8 +584,7 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
     tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
     tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
-    CCTK_INT closure_maxiter, bool use_fallback,
-    CCTK_REAL *closure_status = nullptr) {
+    CCTK_INT closure_maxiter, bool use_fallback, CCTK_REAL *closure_status) {
   closure_set_status(closure_status, NUX_M1_CLOSURE_OK);
 
   // These are special cases for which no root finding is needed
@@ -696,6 +701,21 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
   apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                 P_dd);
 }
+
+#endif // NUX_M1_CLOSURE_IMPLEMENTATION
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
+    cGH const *cctkGH, int const i, int const j, int const k, int const ig,
+    closure_t closure_fun, tensor::metric<4> const &g_dd,
+    tensor::inv_metric<4> const &g_uu,
+    tensor::generic<CCTK_REAL, 4, 1> const &n_d,
+    CCTK_REAL const w_lorentz, tensor::generic<CCTK_REAL, 4, 1> const &u_u,
+    tensor::generic<CCTK_REAL, 4, 1> const &v_d,
+    tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
+    tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
+    tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
+    CCTK_INT closure_maxiter, bool use_fallback,
+    CCTK_REAL *closure_status = nullptr);
 
 // Enforce that E > rad_E_floor and F_a F^a < (1 - rad_eps) E^2
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void

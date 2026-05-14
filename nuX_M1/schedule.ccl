@@ -32,6 +32,9 @@ STORAGE: chi
 STORAGE: rN_rhs
 STORAGE: rE_rhs
 STORAGE: rF_rhs
+STORAGE: source_update_delta_N
+STORAGE: source_update_delta_E
+STORAGE: source_update_delta_F
 
 STORAGE: nuX_m1_mask
 
@@ -482,8 +485,9 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     WRITES: chi(interior)
     WRITES: fluidsources(interior)  
     WRITES: source_update_status(interior) source_update_tau(interior)
-    WRITES: source_limiter_theta(interior)
     WRITES: closure_update_status(interior)
+    WRITES: source_update_delta_N(interior) source_update_delta_E(interior)
+    WRITES: source_update_delta_F(interior) source_limiter_theta(interior)
     WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
