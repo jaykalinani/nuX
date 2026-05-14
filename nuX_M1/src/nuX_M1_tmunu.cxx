@@ -21,15 +21,15 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   }
 
   // Pick closure
-  closure_t closure_fun = nullptr;
+  closure_t closure_fun = CLOSURE_EDDINGTON;
   if (CCTK_Equals(closure, "Eddington")) {
-    closure_fun = eddington;
+    closure_fun = CLOSURE_EDDINGTON;
   } else if (CCTK_Equals(closure, "Kershaw")) {
-    closure_fun = kershaw;
+    closure_fun = CLOSURE_KERSHAW;
   } else if (CCTK_Equals(closure, "Minerbo")) {
-    closure_fun = minerbo;
+    closure_fun = CLOSURE_MINERBO;
   } else if (CCTK_Equals(closure, "thin")) {
-    closure_fun = thin;
+    closure_fun = CLOSURE_THIN;
   } else {
     CCTK_VINFO("Unknown closure \"%s\"", closure);
     CCTK_ERROR("Unsupported closure");

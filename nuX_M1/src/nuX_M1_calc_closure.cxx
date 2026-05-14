@@ -24,13 +24,13 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
 
   closure_t closure_fun;
   if (CCTK_Equals(closure, "Eddington")) {
-    closure_fun = eddington;
+    closure_fun = CLOSURE_EDDINGTON;
   } else if (CCTK_Equals(closure, "Kershaw")) {
-    closure_fun = kershaw;
+    closure_fun = CLOSURE_KERSHAW;
   } else if (CCTK_Equals(closure, "Minerbo")) {
-    closure_fun = minerbo;
+    closure_fun = CLOSURE_MINERBO;
   } else if (CCTK_Equals(closure, "thin")) {
-    closure_fun = thin;
+    closure_fun = CLOSURE_THIN;
   } else {
     char msg[BUFSIZ];
     snprintf(msg, BUFSIZ, "Unknown closure \"%s\"", closure);

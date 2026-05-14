@@ -1,4 +1,5 @@
 #include <cassert>
+#include <array>
 #include <cmath>
 
 #include <loop_device.hxx>
@@ -32,6 +33,10 @@ extern "C" void nuX_Seeds_SetupNeutTest_equil(CCTK_ARGUMENTS) {
       GF3D2<const CCTK_REAL8>(layout_vc, gyy),
       GF3D2<const CCTK_REAL8>(layout_vc, gyz),
       GF3D2<const CCTK_REAL8>(layout_vc, gzz)};
+  const std::array<CCTK_REAL, 3> equil_nudens_0_local{
+      equil_nudens_0[0], equil_nudens_0[1], equil_nudens_0[2]};
+  const std::array<CCTK_REAL, 3> equil_nudens_1_local{
+      equil_nudens_1[0], equil_nudens_1[1], equil_nudens_1[2]};
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
@@ -54,12 +59,12 @@ extern "C" void nuX_Seeds_SetupNeutTest_equil(CCTK_ARGUMENTS) {
         CCTK_REAL const W = calc_wlorentz(v_low, v_up);
         for (int is = 0; is < nspecies; ++is) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, is);
-          CCTK_REAL const Jnu = equil_nudens_1[is];
+          CCTK_REAL const Jnu = equil_nudens_1_local[is];
           rE[i4D] = (4.0 * W * W - 1.0) / 3.0 * Jnu;
           rFx[i4D] = 4.0 / 3.0 * W * W * velx[ijk] * Jnu;
           rFy[i4D] = 4.0 / 3.0 * W * W * vely[ijk] * Jnu;
           rFz[i4D] = 4.0 / 3.0 * W * W * velz[ijk] * Jnu;
-          rN[i4D] = equil_nudens_0[is] * W;
+          rN[i4D] = equil_nudens_0_local[is] * W;
         }
       });
 }

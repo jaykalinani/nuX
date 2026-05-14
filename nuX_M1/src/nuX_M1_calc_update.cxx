@@ -24,20 +24,20 @@ using namespace nuX_Utils;
 #define MAX_GROUPSPECIES 3
 #endif
 
-// Map closure string → function pointer
-static inline closure_t pick_closure_fun(const char *name) {
+// Map closure string to a device-safe closure selector.
+static inline closure_t pick_closure(const char *name) {
   if (CCTK_Equals(name, "Eddington"))
-    return eddington;
+    return CLOSURE_EDDINGTON;
   if (CCTK_Equals(name, "Kershaw"))
-    return kershaw;
+    return CLOSURE_KERSHAW;
   if (CCTK_Equals(name, "Minerbo"))
-    return minerbo;
+    return CLOSURE_MINERBO;
   if (CCTK_Equals(name, "thin"))
-    return thin;
+    return CLOSURE_THIN;
   char msg[BUFSIZ];
   snprintf(msg, BUFSIZ, "Unknown closure \"%s\"", name);
   CCTK_ERROR(msg);
-  return eddington; // not reached
+  return CLOSURE_EDDINGTON; // not reached
 }
 
 extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
@@ -48,7 +48,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CalcUpdate");
   }
 
-  closure_t const closure_fun = pick_closure_fun(closure);
+  closure_t const closure_fun = pick_closure(closure);
 
   CCTK_REAL const dt =
       CCTK_DELTA_TIME / static_cast<CCTK_REAL>(*TimeIntegratorStage);
@@ -254,7 +254,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_BOOST)
           CCTK_REAL const xi = (Jnew > rad_E_floor ? sqrt(H2) / Jnew : 0.0);
-          chi[i4D] = closure_fun(xi);
+          chi[i4D] = eval_closure(closure_fun, xi);
 #else
           chi[i4D] = (CCTK_REAL)(1.0 / 3.0);
 #endif

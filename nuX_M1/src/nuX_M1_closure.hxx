@@ -21,7 +21,12 @@ using namespace nuX_Utils;
 using namespace Loop;
 using namespace std;
 
-typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
+enum closure_t : int {
+  CLOSURE_EDDINGTON = 0,
+  CLOSURE_KERSHAW = 1,
+  CLOSURE_MINERBO = 2,
+  CLOSURE_THIN = 3,
+};
 
 enum : int {
   NUX_M1_CLOSURE_OK = 0,
@@ -340,6 +345,31 @@ thin(CCTK_REAL const xi) {
   return 1.0;
 }
 
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+closure_is_eddington(closure_t const closure) {
+  return closure == CLOSURE_EDDINGTON;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+closure_is_thin(closure_t const closure) {
+  return closure == CLOSURE_THIN;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+eval_closure(closure_t const closure, CCTK_REAL const xi) {
+  switch (closure) {
+  case CLOSURE_EDDINGTON:
+    return eddington(xi);
+  case CLOSURE_KERSHAW:
+    return kershaw(xi);
+  case CLOSURE_MINERBO:
+    return minerbo(xi);
+  case CLOSURE_THIN:
+    return thin(xi);
+  }
+  return eddington(xi);
+}
+
 // Computes the closure in the lab frame given the Eddington factor chi
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 apply_closure(tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
@@ -509,7 +539,8 @@ zFunction(double xi, void *params) {
 
   tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
   apply_closure(p->g_dd, p->g_uu, p->n_d, p->w_lorentz, p->u_u, p->v_d,
-                p->proj_ud, p->E, p->F_d, p->closure(xi), &P_dd);
+                p->proj_ud, p->E, p->F_d, eval_closure(p->closure, xi),
+                &P_dd);
 
   tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
   assemble_rT(p->n_d, p->E, p->F_d, P_dd, &rT_dd);
@@ -552,13 +583,13 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
   closure_set_status(closure_status, NUX_M1_CLOSURE_OK);
 
   // These are special cases for which no root finding is needed
-  if (closure_fun == eddington) {
+  if (closure_is_eddington(closure_fun)) {
     *chi = 1. / 3.;
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
     return;
   }
-  if (closure_fun == thin) {
+  if (closure_is_thin(closure_fun)) {
     *chi = 1.0;
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
@@ -652,7 +683,7 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
   } else {
-    CCTK_REAL const chi_try = closure_fun(xi);
+    CCTK_REAL const chi_try = eval_closure(closure_fun, xi);
     if (!isfinite(chi_try)) {
       closure_set_status(closure_status, NUX_M1_CLOSURE_NONFINITE_CHI);
       closure_abort_if_no_fallback(use_fallback);
