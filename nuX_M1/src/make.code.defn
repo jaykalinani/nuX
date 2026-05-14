@@ -21,6 +21,8 @@ nuX_M1_setmask.cxx \
 nuX_M1_sync.cxx \
 nuX_M1_time_integrator.cxx \
 nuX_M1_tmunu.cxx \
+nuX_M1_closure.cxx \
+nuX_M1_sources.cxx \
 nuX_M1_calc_update.cxx \
 
 # Subdirectories containing source files
