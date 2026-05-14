@@ -38,22 +38,23 @@ using namespace Loop;
 using namespace std;
 
 struct Params {
-  Params(cGH const *_cctkGH, int const _i, int const _j, int const _k,
-         int const _ig, closure_t _closure, CCTK_REAL _closure_epsilon,
-         CCTK_INT _closure_maxiter, bool _closure_use_fallback,
-         CCTK_REAL const _cdt, CCTK_REAL const _alp,
-         tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
-         tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
-         tensor::generic<CCTK_REAL, 4, 1> const &_n_u,
-         tensor::generic<CCTK_REAL, 4, 2> const &_gamma_ud,
-         tensor::generic<CCTK_REAL, 4, 1> const &_u_d,
-         tensor::generic<CCTK_REAL, 4, 1> const &_u_u,
-         tensor::generic<CCTK_REAL, 4, 1> const &_v_d,
-         tensor::generic<CCTK_REAL, 4, 1> const &_v_u,
-         tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _W,
-         CCTK_REAL const _Estar,
-         tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d, CCTK_REAL const _chi,
-         CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
+  CCTK_HOST CCTK_DEVICE Params(
+      cGH const *_cctkGH, int const _i, int const _j, int const _k,
+      int const _ig, closure_t _closure, CCTK_REAL _closure_epsilon,
+      CCTK_INT _closure_maxiter, bool _closure_use_fallback,
+      CCTK_REAL const _cdt, CCTK_REAL const _alp,
+      tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
+      tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
+      tensor::generic<CCTK_REAL, 4, 1> const &_n_u,
+      tensor::generic<CCTK_REAL, 4, 2> const &_gamma_ud,
+      tensor::generic<CCTK_REAL, 4, 1> const &_u_d,
+      tensor::generic<CCTK_REAL, 4, 1> const &_u_u,
+      tensor::generic<CCTK_REAL, 4, 1> const &_v_d,
+      tensor::generic<CCTK_REAL, 4, 1> const &_v_u,
+      tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _W,
+      CCTK_REAL const _Estar,
+      tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d, CCTK_REAL const _chi,
+      CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig), closure(_closure),
         closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
         closure_use_fallback(_closure_use_fallback), cdt(_cdt), alp(_alp),
@@ -442,13 +443,14 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         isfinite(*Enew) && isfinite(Fnew_d->at(0)) && isfinite(Fnew_d->at(1)) &&
         isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
     if (!state_finite) {
-      if (closure_fun != eddington) {
+      if (!closure_is_eddington(closure_fun)) {
         int ierr = source_update(
-            cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
-            closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-            u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
-            kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-            source_maxiter, source_epsabs, source_epsrel);
+            cctkGH, i, j, k, ig, CLOSURE_EDDINGTON,
+            closure_epsilon, closure_maxiter, closure_use_fallback, cdt, alp,
+            g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W,
+            Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
+            source_thick_limit, source_scat_limit, source_maxiter,
+            source_epsabs, source_epsrel);
         if (ierr != NUX_M1_SOURCE_FAIL) {
           return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
         }
@@ -462,13 +464,14 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     arith_vector q{*Enew, Fnew_d->at(1), Fnew_d->at(2), Fnew_d->at(3)};
     int ierr_cl = prepare_closure(q, &p);
     if (ierr_cl != ROOTS_SUCCESS || !isfinite(p.chi)) {
-      if (closure_fun != eddington) {
+      if (!closure_is_eddington(closure_fun)) {
         int ierr = source_update(
-            cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
-            closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-            u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
-            kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-            source_maxiter, source_epsabs, source_epsrel);
+            cctkGH, i, j, k, ig, CLOSURE_EDDINGTON,
+            closure_epsilon, closure_maxiter, closure_use_fallback, cdt, alp,
+            g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W,
+            Eold, Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
+            source_thick_limit, source_scat_limit, source_maxiter,
+            source_epsabs, source_epsrel);
         if (ierr != NUX_M1_SOURCE_FAIL) {
           return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
         }
@@ -531,11 +534,9 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
         failed = true;
         break;
       } else if (ierr != ROOTS_SUCCESS) {
-        char msg[BUFSIZ];
-        snprintf(msg, BUFSIZ,
-                 "Unexpected error in hybridsj_iterate, error code \"%d\"",
-                 ierr);
-        CCTK_ERROR(msg);
+        assert(false && "Unexpected error in hybridsj_iterate");
+        failed = true;
+        break;
       }
 
       ierr = nuX_Utils::roots::test_delta(solver.dx, solver.x, source_epsabs,
@@ -543,11 +544,8 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     } while (ierr == ROOTS_CONTINUE);
 
     if (!failed && ierr != ROOTS_SUCCESS) {
-      char msg[BUFSIZ];
-      snprintf(msg, BUFSIZ,
-               "Unexpected error in roots::test_delta, error code \"%d\"",
-               ierr);
-      CCTK_ERROR(msg);
+      assert(false && "Unexpected error in roots::test_delta");
+      failed = true;
     }
   }
   if (failed) {
@@ -555,16 +553,17 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
     printf("hybridsj failed in the implicit solve!\n");
 #endif
 
-    if (closure_fun != eddington) {
+    if (!closure_is_eddington(closure_fun)) {
 #ifdef WARN_FOR_SRC_FIX
       printf("Eddington closure\n");
 #endif
       int ierr = source_update(
-          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
-          closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-          u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
-          kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-          source_maxiter, source_epsabs, source_epsrel);
+          cctkGH, i, j, k, ig, CLOSURE_EDDINGTON,
+          closure_epsilon, closure_maxiter, closure_use_fallback, cdt, alp,
+          g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Eold,
+          Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
+          source_thick_limit, source_scat_limit, source_maxiter, source_epsabs,
+          source_epsrel);
       if (ierr == NUX_M1_SOURCE_OK) {
         return NUX_M1_SOURCE_EDDINGTON;
       } else {
@@ -598,13 +597,14 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
                             isfinite(Fnew_d->at(1)) &&
                             isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
   if (!state_finite) {
-    if (closure_fun != eddington) {
+    if (!closure_is_eddington(closure_fun)) {
       int ierr = source_update(
-          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
-          closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-          u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
-          kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-          source_maxiter, source_epsabs, source_epsrel);
+          cctkGH, i, j, k, ig, CLOSURE_EDDINGTON,
+          closure_epsilon, closure_maxiter, closure_use_fallback, cdt, alp,
+          g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Eold,
+          Fold_d, Estar, Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d,
+          source_thick_limit, source_scat_limit, source_maxiter, source_epsabs,
+          source_epsrel);
       if (ierr != NUX_M1_SOURCE_FAIL) {
         return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
       }
@@ -618,13 +618,13 @@ CCTK_HOST CCTK_DEVICE inline int source_update(
 
   int ierr_cl = prepare_closure(q_out, &p);
   if (ierr_cl != ROOTS_SUCCESS || !isfinite(p.chi)) {
-    if (closure_fun != eddington) {
+    if (!closure_is_eddington(closure_fun)) {
       int ierr = source_update(
-          cctkGH, i, j, k, ig, eddington, closure_epsilon, closure_maxiter,
-          closure_use_fallback, cdt, alp, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-          u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar, Fstar_d, eta, kabs,
-          kscat, chi, Enew, Fnew_d, source_thick_limit, source_scat_limit,
-          source_maxiter, source_epsabs, source_epsrel);
+          cctkGH, i, j, k, ig, CLOSURE_EDDINGTON, closure_epsilon,
+          closure_maxiter, closure_use_fallback, cdt, alp, g_dd, g_uu, n_d,
+          n_u, gamma_ud, u_d, u_u, v_d, v_u, proj_ud, W, Eold, Fold_d, Estar,
+          Fstar_d, eta, kabs, kscat, chi, Enew, Fnew_d, source_thick_limit,
+          source_scat_limit, source_maxiter, source_epsabs, source_epsrel);
       if (ierr != NUX_M1_SOURCE_FAIL) {
         return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
       }
