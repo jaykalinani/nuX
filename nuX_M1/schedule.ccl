@@ -55,6 +55,14 @@ SCHEDULE nuX_M1_ParamCheck AT CCTK_PARAMCHECK
     OPTIONS: GLOBAL
 } "Check parameters"
 
+if (unit_test) {
+    SCHEDULE nuX_M1_Test AT wragh
+    {
+        LANG: C
+        OPTIONS: meta
+    } "Run fast nuX_M1 unit tests"
+}
+
 SCHEDULE GROUP nuX_M1_InitialData AT CCTK_INITIAL IN ODESolvers_Initial \
     AFTER (ADMBase_InitialData ADMBase_InitialGauge HydroBase_Initial AsterX_InitialGroup) \
     BEFORE (ADMBase_PostInitial TmunuBaseX_SetTmunuVars)
@@ -66,6 +74,17 @@ SCHEDULE GROUP nuX_M1_InitialGroup AT CCTK_INITIAL IN ODESolvers_Initial \
     BEFORE (ADMBase_PostInitial TmunuBaseX_SetTmunuVars)
 {
 } "M1 initial group"
+
+if (unit_test_pipeline) {
+    SCHEDULE nuX_M1_TestPipelineSetup IN nuX_M1_InitialData
+    {
+        LANG: C
+        WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
+        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
+        WRITES: nuX_m1_mask(everywhere)
+        SYNC: rN rE rF
+    } "Set a uniform radiation state for the nuX_M1 pipeline test"
+}
 
 SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
 {
@@ -286,33 +305,46 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep \
     WRITES: closure_status(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
-if (use_fakerates) {
-  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
-  {
-      LANG: C
-      READS: TimeIntegratorStage
-      READS: ADMBaseX::metric(everywhere)
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
-      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
-      READS: opacs(everywhere) nueave(everywhere)
-      WRITES: opacs(everywhere) nueave(everywhere)
-  } "Compute fake opacities"
+if (unit_test_pipeline) {
+    SCHEDULE nuX_M1_TestPipelineZeroOpacity IN nuX_M1_TimeStep \
+        AFTER nuX_M1_CalcClosure \
+        BEFORE nuX_M1_SyncDerived
+    {
+        LANG: C
+        WRITES: opacs(everywhere) nueave(everywhere)
+        SYNC: opacs
+    } "Force zero opacities for the nuX_M1 pipeline test"
 }
 else {
-  SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
-  {
-      LANG: C
-      READS: TimeIntegratorStage
-      READS: ADMBaseX::metric(everywhere)
-      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
-      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
-      WRITES: opacs(everywhere) nueave(everywhere)
-  } "Compute the opacities"
+  if (use_fakerates) {
+    SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+    {
+        LANG: C
+        READS: TimeIntegratorStage
+        READS: ADMBaseX::metric(everywhere)
+        READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
+        READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+        READS: opacs(everywhere) nueave(everywhere)
+        WRITES: opacs(everywhere) nueave(everywhere)
+    } "Compute fake opacities"
+  }
+  else {
+    SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+    {
+        LANG: C
+        READS: TimeIntegratorStage
+        READS: ADMBaseX::metric(everywhere)
+        READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
+        READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
+        WRITES: opacs(everywhere) nueave(everywhere)
+    } "Compute the opacities"
+  }
 }
 
 # Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
 SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure) \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_TestPipelineZeroOpacity \
+           nuX_M1_CalcClosure) \
     BEFORE nuX_M1_CalcFluxes
 {
     LANG: C
@@ -383,6 +415,17 @@ if (include_fluxes) {
         SYNC: nu_cmax_x nu_cmax_y nu_cmax_z
     } "Compute neutrino transport fluxes at cell centres"
 
+    if (unit_test_pipeline) {
+        SCHEDULE nuX_M1_TestPipelineAfterCalcFluxes IN nuX_M1_TimeStep \
+            AFTER nuX_M1_CalcFluxes \
+            BEFORE nuX_M1_UpdateRHSFromFluxes
+        {
+            LANG: C
+            READS: nu_flux_x(everywhere) nu_flux_y(everywhere) nu_flux_z(everywhere)
+            READS: nu_cmax_x(everywhere) nu_cmax_y(everywhere) nu_cmax_z(everywhere)
+        } "Check CalcFluxes output for the nuX_M1 pipeline test"
+    }
+
     SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
     AFTER (nuX_M1_CalcFluxes nuX_M1_StoreTransportInputs \
            nuX_M1_InitFluxesRHS)
@@ -434,6 +477,16 @@ if (include_fluxes) {
         SYNC: transport_rhsdiv_N transport_rhsdiv_E
     } "Add limited flux divergence to the neutrino RHS"
 
+    if (unit_test_pipeline) {
+        SCHEDULE nuX_M1_TestPipelineAfterUpdateRHSFromFluxes IN nuX_M1_TimeStep \
+            AFTER nuX_M1_UpdateRHSFromFluxes \
+            BEFORE nuX_M1_StoreTransportRHS
+        {
+            LANG: C
+            READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+        } "Check UpdateRHSFromFluxes output for the nuX_M1 pipeline test"
+    }
+
     SCHEDULE nuX_M1_StoreTransportRHS IN nuX_M1_TimeStep \
     AFTER nuX_M1_UpdateRHSFromFluxes
     {
@@ -464,7 +517,8 @@ if (include_GR_sources) {
 
 SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
-           nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
+           nuX_M1_TestPipelineZeroOpacity nuX_M1_CalcFluxes \
+           nuX_M1_UpdateRHSFromFluxes)
 {
     LANG: C
     
@@ -496,6 +550,19 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     SYNC: closure_update_status
 
 } "Semi-implicit update of radiation and matter fields"
+
+if (unit_test_pipeline) {
+    SCHEDULE nuX_M1_TestPipelineAfterCalcUpdate IN nuX_M1_TimeStep \
+        AFTER nuX_M1_CalcUpdate \
+        BEFORE nuX_M1_StorePostUpdateState
+    {
+        LANG: C
+        READS: rN(interior) rE(interior) rF(interior)
+        READS: source_update_delta_N(interior) source_update_delta_E(interior)
+        READS: source_update_delta_F(interior)
+        READS: source_update_status(interior) closure_update_status(interior)
+    } "Check CalcUpdate output for the nuX_M1 pipeline test"
+}
 
 SCHEDULE nuX_M1_StorePostUpdateState IN nuX_M1_TimeStep \
     AFTER nuX_M1_CalcUpdate \
