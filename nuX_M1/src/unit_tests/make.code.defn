@@ -1,6 +1,0 @@
-# Source files in this directory
-SRCS = closure.cxx                    \
-       packing_and_flux_helpers.cxx   \
-       roots.cxx                      \
-       sources.cxx                    \
-       transport_pipeline.cxx

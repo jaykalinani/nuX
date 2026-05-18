@@ -71,10 +71,6 @@ BOOLEAN include_fluxes "Include radiation advection"
 {
 } "yes"
 
-BOOLEAN transport_flux_diagnostics "Store per-direction transport diagnostics (cmax, A, interface fluxes, divergence) for debugging" STEERABLE=ALWAYS
-{
-} "no"
-
 BOOLEAN include_GR_sources "Add GR sources to the radiation RHS" STEERABLE=ALWAYS
 {
 } "yes"
@@ -234,24 +230,6 @@ BOOLEAN verbose "Debug output" STEERABLE=always
 BOOLEAN use_fakerates "Whether to use fakerates for testing" STEERABLE=always
 {
 } "no"
-
-BOOLEAN unit_test "Run fast nuX_M1 unit tests and abort on failure" STEERABLE=always
-{
-} "no"
-
-CCTK_INT unit_test_repetitions "Number of randomized repetitions for nuX_M1 unit tests" STEERABLE=always
-{
-    0:* :: "Must be non-negative"
-} 8
-
-BOOLEAN unit_test_pipeline "Run grid-function pipeline tests for CalcFluxes, UpdateRHSFromFluxes, and CalcUpdate" STEERABLE=always
-{
-} "no"
-
-CCTK_REAL unit_test_pipeline_atol "Absolute tolerance for nuX_M1 pipeline tests" STEERABLE=always
-{
-    0:* :: "Must be non-negative"
-} 1.0e-12
 
 SHARES: EOSX
 USES CCTK_REAL particle_mass
