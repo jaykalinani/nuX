@@ -105,8 +105,14 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           pack_F_d(beta_u(1), beta_u(2), beta_u(3), rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
 
+          CCTK_REAL E_closure = rE[i4D];
+          if (E_closure <= rad_E_floor &&
+              tensor::dot(g_uu, F_d, F_d) == CCTK_REAL(0.0)) {
+            E_closure = CCTK_REAL(0.0);
+          }
+
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                       W, u_u, v_d, proj_ud, rE[i4D], F_d, &chi[i4D], &P_dd,
+                       W, u_u, v_d, proj_ud, E_closure, F_d, &chi[i4D], &P_dd,
                        closure_epsilon, closure_maxiter, use_fallback != 0);
           unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
                       &rPyz[i4D], &rPzz[i4D]);
