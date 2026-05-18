@@ -621,9 +621,21 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
   CCTK_REAL const f_lo = fn(x_lo);
   CCTK_REAL const f_hi = fn(x_hi);
 
+  if (isfinite(f_lo) && isfinite(f_hi) &&
+      (f_lo == CCTK_REAL(0.0) || f_hi == CCTK_REAL(0.0))) {
+    // Match GSL/THC endpoint-root handling. If both endpoints solve the
+    // degenerate equation, THC returns the upper endpoint for this test.
+    CCTK_REAL const xi =
+        (f_hi == CCTK_REAL(0.0)) ? CCTK_REAL(x_hi) : CCTK_REAL(x_lo);
+    *chi = eval_closure(closure_fun, xi);
+    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
+                  P_dd);
+    return;
+  }
+
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
-  if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi >= 0.0) {
+  if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi > 0.0) {
     closure_set_status(closure_status, NUX_M1_CLOSURE_NO_BRACKET);
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
