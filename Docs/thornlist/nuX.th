@@ -170,6 +170,7 @@ CarpetX/TmunuBaseX
 !TYPE     = git
 !URL      = https://github.com/jaykalinani/SpacetimeX.git
 !REPO_PATH= $2
+!REPO_BRANCH = nuX
 !CHECKOUT =
 SpacetimeX/AHFinderDirect
 SpacetimeX/AHFinderX
@@ -194,7 +195,7 @@ SpacetimeX/Z4c
 !TYPE     = git
 !URL      = https://github.com/jaykalinani/AsterX.git
 !REPO_PATH= $2
-!REPO_BRANCH = freeze
+!REPO_BRANCH = nuX
 !CHECKOUT =
 AsterX/AsterMasks
 AsterX/AsterSeeds
@@ -211,7 +212,7 @@ AsterX/TOVSolverX
 !TYPE     = git
 !URL      = https://github.com/jaykalinani/nuX.git
 !REPO_PATH= $2
-!REPO_BRANCH = development
+!REPO_BRANCH = dev
 !CHECKOUT =
 nuX/nuX_FakeRates
 nuX/nuX_M1
@@ -219,4 +220,3 @@ nuX/nuX_Rates
 nuX/nuX_RatesToy
 nuX/nuX_Seeds
 nuX/nuX_Utils
-
