@@ -62,23 +62,23 @@ eta_e_gradient(CCTK_REAL rho, CCTK_REAL T, CCTK_REAL *Y, CCTK_REAL eta,
   CCTK_REAL Y2[MAX_SPECIES] = {0.0};
 
   Y1[0] = fmax(Y[0] - Ye_delta, min_Y);
-  CCTK_REAL mu_l1 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y1[0]);
-  CCTK_REAL e1 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y1[0]);
+  CCTK_REAL mu_l1 = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y1[0]);
+  CCTK_REAL e1 = tabeos->eps_from_rho_temp_ye(rho, T, Y1[0]);
 
   Y2[0] = fmin(Y[0] + Ye_delta, max_Y);
-  CCTK_REAL mu_l2 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y2[0]);
-  CCTK_REAL e2 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y2[0]);
+  CCTK_REAL mu_l2 = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y2[0]);
+  CCTK_REAL e2 = tabeos->eps_from_rho_temp_ye(rho, T, Y2[0]);
 
   CCTK_REAL dmu_l_dYe = (mu_l2 - mu_l1) / (Y2[0] - Y1[0]);
   de_dYe = (e2 - e1) / (Y2[0] - Y1[0]);
 
   CCTK_REAL T1 = fmax(T - T_delta, min_T);
-  mu_l1 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y1[0]);
-  e1 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y1[0]);
+  mu_l1 = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y1[0]);
+  e1 = tabeos->eps_from_rho_temp_ye(rho, T, Y1[0]);
 
   CCTK_REAL T2 = fmin(T + T_delta, max_T);
-  mu_l2 = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y2[0]);
-  e2 = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y2[0]);
+  mu_l2 = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y2[0]);
+  e2 = tabeos->eps_from_rho_temp_ye(rho, T, Y2[0]);
 
   CCTK_REAL dmu_l_dT = (mu_l2 - mu_l1) / (T2 - T1);
   de_dT = (e2 - e1) / (T2 - T1);
@@ -110,7 +110,7 @@ jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq, CCTK_REAL Yle,
     return ierr;
   }
 
-  CCTK_REAL mu_l = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y[0]);
+  CCTK_REAL mu_l = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y[0]);
   CCTK_REAL eta = mu_l / T;
   CCTK_REAL eta2 = eta * eta;
 
@@ -152,8 +152,8 @@ CCTK_DEVICE inline void func_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq,
   CCTK_REAL Y[MAX_SPECIES] = {0.0};
   Y[0] = x[1];
 
-  CCTK_REAL mu_l = tabeos->mu_lepton_from_valid_rho_temp_ye(rho, T, Y[0]);
-  CCTK_REAL e = tabeos->eps_from_valid_rho_temp_ye(rho, T, Y[0]);
+  CCTK_REAL mu_l = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y[0]);
+  CCTK_REAL e = tabeos->eps_from_rho_temp_ye(rho, T, Y[0]);
   CCTK_REAL eta = mu_l / T;
   CCTK_REAL eta2 = eta * eta;
 

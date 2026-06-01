@@ -45,7 +45,7 @@ extern "C" void nuX_Seeds_SetupHydroTest_kerrschild(CCTK_ARGUMENTS) {
         Ye[ijk] = static_ye;
 
         press[ijk] =
-            eos_3p_ig->press_from_valid_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
+            eos_3p_ig->press_from_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
       });
   grid.loop_all_device<1, 0, 0>(
       grid.nghostzones,
