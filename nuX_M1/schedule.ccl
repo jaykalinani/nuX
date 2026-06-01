@@ -18,6 +18,9 @@ STORAGE: neutrino_fractions
 STORAGE: nu_flux_x
 STORAGE: nu_flux_y
 STORAGE: nu_flux_z
+STORAGE: nu_cmax_x
+STORAGE: nu_cmax_y
+STORAGE: nu_cmax_z
 
 STORAGE: opacs
 STORAGE: nueave
@@ -38,6 +41,55 @@ STORAGE: rF_rhs
 STORAGE: source_update_delta_N
 STORAGE: source_update_delta_E
 STORAGE: source_update_delta_F
+STORAGE: rN_rhs_transport
+STORAGE: rE_rhs_transport
+STORAGE: rF_rhs_transport
+
+STORAGE: rN_bc_snapshot
+STORAGE: rE_bc_snapshot
+STORAGE: rF_bc_snapshot
+STORAGE: rN_postupdate_snapshot
+STORAGE: rE_postupdate_snapshot
+STORAGE: rF_postupdate_snapshot
+STORAGE: rN_prepostbc_snapshot
+STORAGE: rE_prepostbc_snapshot
+STORAGE: rF_prepostbc_snapshot
+STORAGE: rN_preflux_snapshot
+STORAGE: rE_preflux_snapshot
+STORAGE: rF_preflux_snapshot
+STORAGE: rP_preflux_snapshot
+STORAGE: chi_preflux_snapshot
+
+STORAGE: rN_transport_input
+STORAGE: rE_transport_input
+STORAGE: rF_transport_input
+STORAGE: transport_cmax
+STORAGE: transport_A
+STORAGE: transport_flux_N
+STORAGE: transport_flux_E
+STORAGE: transport_physflux_N_x
+STORAGE: transport_physflux_N_y
+STORAGE: transport_physflux_N_z
+STORAGE: transport_physflux_E_x
+STORAGE: transport_physflux_E_y
+STORAGE: transport_physflux_E_z
+STORAGE: transport_fluxavg_N
+STORAGE: transport_fluxavg_E
+STORAGE: transport_fluxdiss_N
+STORAGE: transport_fluxdiss_E
+STORAGE: transport_statejump_N
+STORAGE: transport_statejump_E
+STORAGE: transport_fluxlow_N
+STORAGE: transport_fluxlow_E
+STORAGE: transport_fluxhigh_N
+STORAGE: transport_fluxhigh_E
+STORAGE: transport_limiter_N
+STORAGE: transport_limiter_E
+STORAGE: transport_saw_N
+STORAGE: transport_saw_E
+STORAGE: transport_rhsdiv_N
+STORAGE: transport_rhsdiv_E
+STORAGE: transport_trace_Ez
 
 STORAGE: nuX_m1_mask
 
