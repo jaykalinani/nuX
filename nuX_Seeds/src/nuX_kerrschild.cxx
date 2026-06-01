@@ -18,7 +18,7 @@ extern "C" void nuX_Seeds_SetupHydroTest_kerrschild(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_kerrschild;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose)
+  if (verbose && CCTK_MyProc(cctkGH) == 0)
     CCTK_INFO("nuX_Seeds_SetupHydroTest_kerrschild");
 
   auto eos_3p_ig = global_eos_3p_ig;
@@ -73,7 +73,7 @@ extern "C" void nuX_Seeds_SetupNeutTest_kerrschild(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_kerrschild;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose)
+  if (verbose && CCTK_MyProc(cctkGH) == 0)
     CCTK_INFO("nuX_Seeds_SetupNeutTest_kerrschild");
 
   const GridDescBaseDevice grid(cctkGH);
