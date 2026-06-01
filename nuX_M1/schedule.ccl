@@ -15,6 +15,9 @@ STORAGE: rH
 
 STORAGE: radial_fluxes
 STORAGE: neutrino_fractions
+STORAGE: nu_flux_x
+STORAGE: nu_flux_y
+STORAGE: nu_flux_z
 
 STORAGE: opacs
 STORAGE: nueave
