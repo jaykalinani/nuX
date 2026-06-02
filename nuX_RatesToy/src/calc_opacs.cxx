@@ -131,8 +131,8 @@ extern "C" void nuX_RatesToy_Calc(CCTK_ARGUMENTS) {
         my_grey_opacity_params.eos_pars.yn = 1.0 - yeL;
 
         CCTK_REAL mu_pL, mu_nL, mu_eL;
-        eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL,
-                                              mu_eL);
+        eos_3p->mu_pne_from_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL,
+                                        mu_eL);
         my_grey_opacity_params.eos_pars.mu_p = mu_pL;
         my_grey_opacity_params.eos_pars.mu_n = mu_nL;
         my_grey_opacity_params.eos_pars.mu_e = mu_eL;

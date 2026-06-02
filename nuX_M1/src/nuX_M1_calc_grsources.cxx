@@ -36,8 +36,7 @@ fd_cc_from_vc(const GF3D2<const T> &gf, const PointDesc &p, const int dir) {
   return (-fp2 + 8.0 * fp1 - 8.0 * fm1 + fm2) * (1.0 / (12.0 * p.DX[dir]));
 }
 
-template <int FDORDER>
-CCTK_HOST CCTK_DEVICE void CalcGRSourcesImpl(CCTK_ARGUMENTS) {
+template <int FDORDER> void CalcGRSourcesImpl(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcGRSources;
   DECLARE_CCTK_PARAMETERS;
   const GridDescBaseDevice grid(cctkGH);

@@ -15,6 +15,9 @@ STORAGE: rH
 
 STORAGE: radial_fluxes
 STORAGE: neutrino_fractions
+STORAGE: nu_flux_x
+STORAGE: nu_flux_y
+STORAGE: nu_flux_z
 
 STORAGE: opacs
 STORAGE: nueave
@@ -27,6 +30,10 @@ STORAGE: chi
 STORAGE: rN_rhs
 STORAGE: rE_rhs
 STORAGE: rF_rhs
+STORAGE: source_update_delta_N
+STORAGE: source_update_delta_E
+STORAGE: source_update_delta_F
+STORAGE: source_limiter_theta
 
 STORAGE: nuX_m1_mask
 
@@ -226,7 +233,7 @@ SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
     SYNC: rF
 } "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
 
-SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep AFTER nuX_M1_SyncConserved
 {
     LANG: C
     READS: ADMBaseX::metric(interior)
@@ -388,15 +395,19 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     READS: chi(interior)
     READS: HydroBaseX::Ye(interior) AsterX::dens(interior)
-    READS: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
+    READS: AsterX::momx(interior) AsterX::momy(interior) AsterX::momz(interior)
+    READS: AsterX::tau(interior) AsterX::DYe(interior)
     READS: TimeIntegratorStage
  
     WRITES: chi(interior)
     WRITES: fluidsources(interior)  
-    WRITES: AsterX::mom(interior) AsterX::tau(interior) AsterX::DYe(interior)
+    WRITES: source_update_delta_N(interior) source_update_delta_E(interior)
+    WRITES: source_update_delta_F(interior) source_limiter_theta(interior)
+    WRITES: AsterX::momx(interior) AsterX::momy(interior) AsterX::momz(interior)
+    WRITES: AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi rN rE rF fluidsources AsterX::mom AsterX::tau AsterX::DYe 
+    SYNC: chi rN rE rF fluidsources AsterX::cons_vector
 
 } "Semi-implicit update of radiation and matter fields"
 

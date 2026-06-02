@@ -131,8 +131,8 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
         my_grey_opacity_params.eos_pars.yn = 1.0 - yeL;
 
         CCTK_REAL mu_pL, mu_nL, mu_eL;
-        eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL,
-                                              mu_eL);
+        eos_3p->mu_pne_from_rho_temp_ye(rhoL, tempL, yeL, mu_pL, mu_nL,
+                                        mu_eL);
         my_grey_opacity_params.eos_pars.mu_p = mu_pL;
         my_grey_opacity_params.eos_pars.mu_n = mu_nL;
         my_grey_opacity_params.eos_pars.mu_e = mu_eL;
@@ -225,7 +225,7 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
             nudens_1_trap[MAX_GROUPSPECIES];
         if (opacity_tau_trap >= 0 && tau > opacity_tau_trap) {
 
-          CCTK_REAL epsL = eos_3p->eps_from_valid_rho_temp_ye(rhoL, tempL, yeL);
+          CCTK_REAL epsL = eos_3p->eps_from_rho_temp_ye(rhoL, tempL, yeL);
           CCTK_REAL etot = epsL;
 
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
@@ -263,8 +263,8 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
           }
 
           CCTK_REAL mu_p_trap, mu_n_trap, mu_e_trap;
-          eos_3p->mu_pne_from_valid_rho_temp_ye(
-              rhoL, temp_trap, ye_trap, mu_p_trap, mu_n_trap, mu_e_trap);
+          eos_3p->mu_pne_from_rho_temp_ye(rhoL, temp_trap, ye_trap, mu_p_trap,
+                                          mu_n_trap, mu_e_trap);
 
           NeutrinoDens(mu_n_trap, mu_p_trap, mu_e_trap, temp_trap,
                        nudens_0_trap[0], nudens_0_trap[1], nudens_0_trap[2],

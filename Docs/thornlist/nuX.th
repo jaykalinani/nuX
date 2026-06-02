@@ -168,13 +168,15 @@ CarpetX/TmunuBaseX
 # SpacetimeX thorns
 !TARGET   = $ARR
 !TYPE     = git
-!URL      = https://github.com/EinsteinToolkit/SpacetimeX.git
+!URL      = https://github.com/jaykalinani/SpacetimeX.git
 !REPO_PATH= $2
+!REPO_BRANCH = nuX
 !CHECKOUT =
 SpacetimeX/AHFinderDirect
 SpacetimeX/AHFinderX
 SpacetimeX/BrillLindquist
 SpacetimeX/Cowling
+SpacetimeX/KerrSchildX
 SpacetimeX/Multipole
 SpacetimeX/NewRadX
 SpacetimeX/TestNewRadX
@@ -191,8 +193,9 @@ SpacetimeX/Z4c
 # AsterX thorns
 !TARGET   = $ARR
 !TYPE     = git
-!URL      = https://github.com/EinsteinToolkit/AsterX.git
+!URL      = https://github.com/jaykalinani/AsterX.git
 !REPO_PATH= $2
+!REPO_BRANCH = nuX
 !CHECKOUT =
 AsterX/AsterMasks
 AsterX/AsterSeeds
@@ -209,6 +212,7 @@ AsterX/TOVSolverX
 !TYPE     = git
 !URL      = https://github.com/jaykalinani/nuX.git
 !REPO_PATH= $2
+!REPO_BRANCH = dev
 !CHECKOUT =
 nuX/nuX_FakeRates
 nuX/nuX_M1
@@ -216,4 +220,3 @@ nuX/nuX_Rates
 nuX/nuX_RatesToy
 nuX/nuX_Seeds
 nuX/nuX_Utils
-

@@ -61,7 +61,7 @@ extern "C" void nuX_Seeds_SetupHydroTest_diff_limit_test(CCTK_ARGUMENTS) {
       eps[ijk] = static_eps;
       Ye[ijk] = static_ye;
       press[ijk] =
-          eos_3p_ig->press_from_valid_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
+          eos_3p_ig->press_from_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
     }
   });
 

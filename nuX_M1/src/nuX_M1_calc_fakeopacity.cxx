@@ -190,7 +190,7 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
           CCTK_REAL ye_trap = ylep_e;
 
           CCTK_REAL mu_p_trap, mu_n_trap, mu_e_trap;
-          // eos_3p->mu_pne_from_valid_rho_temp_ye(rhoL, temp_trap, ye_trap,
+          // eos_3p->mu_pne_from_rho_temp_ye(rhoL, temp_trap, ye_trap,
           // mu_p_trap, mu_n_trap, mu_e_trap);
 
           myfakerates->FakeNeutrinoDens(

@@ -21,7 +21,14 @@ using namespace nuX_Utils;
 using namespace Loop;
 using namespace std;
 
-typedef CCTK_REAL (*closure_t)(CCTK_REAL const);
+enum closure_t : int {
+  CLOSURE_EDDINGTON = 0,
+  CLOSURE_KERSHAW = 1,
+  CLOSURE_MINERBO = 2,
+  CLOSURE_THIN = 3,
+};
+
+#ifdef NUX_M1_CLOSURE_IMPLEMENTATION
 
 struct Parameters {
   CCTK_HOST CCTK_DEVICE Parameters(
@@ -46,6 +53,8 @@ struct Parameters {
   CCTK_REAL const E;
   tensor::generic<CCTK_REAL, 4, 1> const &F_d;
 };
+
+#endif // NUX_M1_CLOSURE_IMPLEMENTATION
 
 enum ClosFlag : CCTK_INT {
   CLOS_OK = 0,   // closure success
@@ -331,6 +340,31 @@ thin(CCTK_REAL const xi) {
   return 1.0;
 }
 
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+closure_is_eddington(closure_t const closure) {
+  return closure == CLOSURE_EDDINGTON;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+closure_is_thin(closure_t const closure) {
+  return closure == CLOSURE_THIN;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+eval_closure(closure_t const closure, CCTK_REAL const xi) {
+  switch (closure) {
+  case CLOSURE_EDDINGTON:
+    return eddington(xi);
+  case CLOSURE_KERSHAW:
+    return kershaw(xi);
+  case CLOSURE_MINERBO:
+    return minerbo(xi);
+  case CLOSURE_THIN:
+    return thin(xi);
+  }
+  return eddington(xi);
+}
+
 // Computes the closure in the lab frame given the Eddington factor chi
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 apply_closure(tensor::metric<4> const &g_dd, tensor::inv_metric<4> const &g_uu,
@@ -493,6 +527,8 @@ calc_rF_source(CCTK_REAL const alp,
   }
 }
 
+#ifdef NUX_M1_CLOSURE_IMPLEMENTATION
+
 // Function to rootfind in order to determine the closure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline double
 zFunction(double xi, void *params) {
@@ -500,7 +536,8 @@ zFunction(double xi, void *params) {
 
   tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
   apply_closure(p->g_dd, p->g_uu, p->n_d, p->w_lorentz, p->u_u, p->v_d,
-                p->proj_ud, p->E, p->F_d, p->closure(xi), &P_dd);
+                p->proj_ud, p->E, p->F_d, eval_closure(p->closure, xi),
+                &P_dd);
 
   tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
   assemble_rT(p->n_d, p->E, p->F_d, P_dd, &rT_dd);
@@ -521,7 +558,7 @@ closure_abort_if_no_fallback(bool use_fallback) {
 }
 
 // Computes the closure in the lab frame with a rootfinding procedure
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
     closure_t closure_fun, tensor::metric<4> const &g_dd,
     tensor::inv_metric<4> const &g_uu,
@@ -533,13 +570,13 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
     CCTK_INT closure_maxiter, bool use_fallback) {
   // These are special cases for which no root finding is needed
-  if (closure_fun == eddington) {
+  if (closure_is_eddington(closure_fun)) {
     *chi = 1. / 3.;
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
     return;
   }
-  if (closure_fun == thin) {
+  if (closure_is_thin(closure_fun)) {
     *chi = 1.0;
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                   P_dd);
@@ -566,9 +603,21 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
   CCTK_REAL const f_lo = fn(x_lo);
   CCTK_REAL const f_hi = fn(x_hi);
 
+  if (isfinite(f_lo) && isfinite(f_hi) &&
+      (f_lo == CCTK_REAL(0.0) || f_hi == CCTK_REAL(0.0))) {
+    // Match GSL/THC endpoint-root handling. If both endpoints solve the
+    // degenerate equation, THC returns the upper endpoint for this test.
+    CCTK_REAL const xi =
+        (f_hi == CCTK_REAL(0.0)) ? CCTK_REAL(x_hi) : CCTK_REAL(x_lo);
+    *chi = eval_closure(closure_fun, xi);
+    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
+                  P_dd);
+    return;
+  }
+
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
-  if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi >= 0.0) {
+  if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi > 0.0) {
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
     apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
@@ -629,7 +678,7 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
   } else {
-    CCTK_REAL const chi_try = closure_fun(xi);
+    CCTK_REAL const chi_try = eval_closure(closure_fun, xi);
     if (!isfinite(chi_try)) {
       closure_abort_if_no_fallback(use_fallback);
       *chi = fallback_chi();
@@ -641,6 +690,20 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void calc_closure(
   apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
                 P_dd);
 }
+
+#endif // NUX_M1_CLOSURE_IMPLEMENTATION
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
+    cGH const *cctkGH, int const i, int const j, int const k, int const ig,
+    closure_t closure_fun, tensor::metric<4> const &g_dd,
+    tensor::inv_metric<4> const &g_uu,
+    tensor::generic<CCTK_REAL, 4, 1> const &n_d,
+    CCTK_REAL const w_lorentz, tensor::generic<CCTK_REAL, 4, 1> const &u_u,
+    tensor::generic<CCTK_REAL, 4, 1> const &v_d,
+    tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
+    tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
+    tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
+    CCTK_INT closure_maxiter, bool use_fallback);
 
 // Enforce that E > rad_E_floor and F_a F^a < (1 - rad_eps) E^2
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void

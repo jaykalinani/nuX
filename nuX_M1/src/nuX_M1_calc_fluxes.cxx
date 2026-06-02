@@ -65,8 +65,7 @@ face_speed(int dir, const tensor::inv_metric<3> &gamma,
 // numerical flux construction happens here — that is done in the RHS
 // update kernel using a 1D stencil along each direction.
 //---------------------------------------------------------------------
-template <int dir>
-CCTK_DEVICE CCTK_HOST void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
+template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcFluxes;
   DECLARE_CCTK_PARAMETERS;
 
