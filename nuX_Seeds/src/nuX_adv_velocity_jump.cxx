@@ -19,6 +19,9 @@ extern "C" void nuX_Seeds_SetupHydroTest_adv_velocity_jump(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_adv_velocity_jump;
   DECLARE_CCTK_PARAMETERS;
 
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupHydroTest_adv_velocity_jump");
+
   auto eos_3p_ig = global_eos_3p_ig;
   if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
     CCTK_VERROR("Invalid evolution EOS type '%s'. Please, set "
@@ -96,6 +99,9 @@ extern "C" void nuX_Seeds_SetupHydroTest_adv_velocity_jump(CCTK_ARGUMENTS) {
 extern "C" void nuX_Seeds_SetupNeutTest_adv_velocity_jump(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_adv_velocity_jump;
   DECLARE_CCTK_PARAMETERS;
+
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupNeutTest_adv_velocity_jump");
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});

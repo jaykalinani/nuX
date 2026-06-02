@@ -23,6 +23,9 @@ extern "C" void nuX_Seeds_SetupHydroTest_atmosphere(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupHydroTest_atmosphere;
   DECLARE_CCTK_PARAMETERS;
 
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupHydroTest_atmosphere");
+
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   grid.loop_all_device<1, 1, 1>(
@@ -41,6 +44,9 @@ extern "C" void nuX_Seeds_SetupHydroTest_atmosphere(CCTK_ARGUMENTS) {
 extern "C" void nuX_Seeds_SetupNeutTest_atmosphere(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_atmosphere;
   DECLARE_CCTK_PARAMETERS;
+
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupNeutTest_atmosphere");
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});

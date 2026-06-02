@@ -35,7 +35,7 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
     return;
   }
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
+  if (verbose) {
     CCTK_INFO("nuX_M1_CalcOpacity");
   }
 

@@ -19,7 +19,7 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcRadialFluxes;
   DECLARE_CCTK_PARAMETERS
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
+  if (verbose) {
     CCTK_INFO("nuX_M1_CalcRadialFluxes");
   }
 

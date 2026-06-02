@@ -16,7 +16,7 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_AddToTmunu;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
+  if (verbose) {
     CCTK_INFO("nuX_M1_AddToTmunu");
   }
 
@@ -31,9 +31,7 @@ extern "C" void nuX_M1_AddToTmunu(CCTK_ARGUMENTS) {
   } else if (CCTK_Equals(closure, "thin")) {
     closure_fun = CLOSURE_THIN;
   } else {
-    if (CCTK_MyProc(cctkGH) == 0) {
-      CCTK_VINFO("Unknown closure \"%s\"", closure);
-    }
+    CCTK_VINFO("Unknown closure \"%s\"", closure);
     CCTK_ERROR("Unsupported closure");
   }
   // Setup grid layout

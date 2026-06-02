@@ -20,6 +20,9 @@ extern "C" void nuX_Seeds_SetupNeutTest_equil(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_Seeds_SetupNeutTest_equil;
   DECLARE_CCTK_PARAMETERS;
 
+  if (verbose)
+    CCTK_INFO("nuX_Seeds_SetupNeutTest_equil");
+
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});

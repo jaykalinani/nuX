@@ -44,7 +44,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcUpdate;
   DECLARE_CCTK_PARAMETERS;
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
+  if (verbose) {
     CCTK_INFO("nuX_M1_CalcUpdate");
   }
 
@@ -54,7 +54,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
       CCTK_DELTA_TIME / static_cast<CCTK_REAL>(*TimeIntegratorStage);
   const bool apply_backreact = backreact && (1 == *TimeIntegratorStage);
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
+  if (verbose) {
     CCTK_VINFO("Integrated to time, dt, TimeIntegratorStage: %e, %e, %e",
                cctkGH->cctk_time, dt,
                static_cast<CCTK_REAL>(*TimeIntegratorStage));
@@ -74,7 +74,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   // particle_mass is in MeV
   CCTK_REAL const mb = AverageBaryonMass(particle_mass);
 
-  if (verbose && CCTK_MyProc(cctkGH) == 0) {
+  if (verbose) {
     CCTK_INFO("nuX_M1_CalcUpdate 1");
   }
 

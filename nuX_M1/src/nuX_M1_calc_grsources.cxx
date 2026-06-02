@@ -39,6 +39,7 @@ fd_cc_from_vc(const GF3D2<const T> &gf, const PointDesc &p, const int dir) {
 template <int FDORDER> void CalcGRSourcesImpl(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcGRSources;
   DECLARE_CCTK_PARAMETERS;
+
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
