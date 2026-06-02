@@ -39,6 +39,7 @@ ADMBaseX::initial_dtshift         = "none"
 # AsterX
 # -----------------------------------------------------------------------------
 AsterX::debug_mode = "yes"
+AsterX::freeze_evolution = yes
 AsterX::flux_type = "LxF"
 AsterX::update_tmunu = "no"
 

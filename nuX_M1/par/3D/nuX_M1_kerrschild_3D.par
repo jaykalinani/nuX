@@ -57,6 +57,7 @@ KerrSchildX::epsilon = 1.0e-8
 # AsterX
 # -----------------------------------------------------------------------------
 AsterX::debug_mode   = "yes"
+AsterX::freeze_evolution = yes
 AsterX::flux_type    = "LxF"
 AsterX::update_tmunu = "no"
 

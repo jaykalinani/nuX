@@ -41,6 +41,7 @@ ADMBaseX::initial_shift   = "zero"
 # AsterX
 # -----------------------------------------------------------------------------
 AsterX::debug_mode           = "yes"
+AsterX::freeze_evolution     = yes
 AsterX::flux_type            = "LxF"
 AsterX::local_estimate_error = "no"
 AsterX::recon_type           = "z_vec"
