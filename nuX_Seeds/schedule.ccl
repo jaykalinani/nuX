@@ -1,6 +1,12 @@
 #Schedule definitions for thorn nuX_Seeds
 
 if (CCTK_Equals(nuX_test_case, "beam")) {
+  SCHEDULE nuX_Seeds_SetupHydroTest_beam IN HydroBaseX_InitialData AFTER HydroBaseX_initial_data {
+    LANG: C
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: AsterX::Avec_x(everywhere) AsterX::Avec_y(everywhere) AsterX::Avec_z(everywhere)
+  } "Setup beam test Hydro initial conditions."
   SCHEDULE nuX_Seeds_SetupNeutTest_beam IN nuX_M1_InitialData {
     LANG: C
     WRITES: nuX_M1::rN(everywhere) nuX_M1::rE(everywhere) nuX_M1::rF(everywhere)
