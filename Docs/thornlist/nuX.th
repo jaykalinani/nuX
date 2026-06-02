@@ -212,10 +212,12 @@ AsterX/TOVSolverX
 !TYPE     = git
 !URL      = https://github.com/jaykalinani/nuX.git
 !REPO_PATH= $2
-!REPO_BRANCH = dev
+!REPO_BRANCH = m0
 !CHECKOUT =
 nuX/nuX_FakeRates
+nuX/nuX_LeakageBase
 nuX/nuX_M1
+nuX/nuX_M0
 nuX/nuX_Rates
 nuX/nuX_RatesToy
 nuX/nuX_Seeds
