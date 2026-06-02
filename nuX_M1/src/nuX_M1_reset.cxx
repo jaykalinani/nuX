@@ -36,12 +36,6 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
           rFy[i4D] = 0.0;
           rFz[i4D] = 0.0;
 
-          rE_p[i4D] = rad_E_floor;
-          rN_p[i4D] = rad_N_floor;
-          rFx_p[i4D] = 0.0;
-          rFy_p[i4D] = 0.0;
-          rFz_p[i4D] = 0.0;
-
           abs_0[i4D] = 0.0;
           abs_1[i4D] = 0.0;
           eta_0[i4D] = 0.0;

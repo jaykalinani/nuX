@@ -3,9 +3,9 @@
 ###############################################################################
 # Storage
 ###############################################################################
-STORAGE: rN[2]
-STORAGE: rE[2]
-STORAGE: rF[2]
+STORAGE: rN
+STORAGE: rE
+STORAGE: rF
 STORAGE: rP
 
 STORAGE: rnnu
@@ -36,8 +36,6 @@ STORAGE: source_update_delta_F
 STORAGE: source_limiter_theta
 
 STORAGE: nuX_m1_mask
-
-STORAGE: TimeIntegratorStage
 
 ###############################################################################
 # Initialization
@@ -71,7 +69,6 @@ SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
     LANG: C
 
     WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
-    WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
     WRITES: opacs(everywhere) nueave(everywhere)
 } "Initialize everything to zero"
 
@@ -105,16 +102,6 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_InitialGroup \
     WRITES: chi(everywhere)
 } "Compute the M1 closure everywhere on the grid"
 
-if (copy_levels) {
-    SCHEDULE nuX_M1_CopyLevels IN (nuX_M1_InitialGroup)
-    AFTER (nuX_M1_CalcClosure)
-    {
-        LANG: C
-        READS: rN(everywhere) rE(everywhere) rF(everywhere)
-        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
-    } "Copy data to past timelevels"
-}
-
 ###############################################################################
 # Initial data
 ###############################################################################
@@ -132,7 +119,6 @@ if (reset_to_equilibrium) {
     {
         LANG: C
         WRITES: rN(everywhere) rE(everywhere) rF(everywhere) nuX_m1_mask(everywhere)
-        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
     } "Initialize everything to zero"
 
     SCHEDULE nuX_M1_FiducialVelocity AT CCTK_POST_RECOVER_VARIABLES \
@@ -155,68 +141,22 @@ if (reset_to_equilibrium) {
 #        LANG: C
 #    } "Set radiation quantities to equilibrium"
 
-    if (copy_levels) {
-        SCHEDULE nuX_M1_CopyLevels AT CCTK_POST_RECOVER_VARIABLES \
-            AFTER nuX_M1_FiducialVelocity
-        {
-            LANG: C
-            READS: rN(everywhere) rE(everywhere) rF(everywhere)
-            WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
-        } "Copy data to past timelevels"
-    }
 }
 
 ###############################################################################
 # Main loop
 ###############################################################################
-SCHEDULE nuX_M1_InitialCopy AT CCTK_EVOL \
-    BEFORE (ODESolvers_Solve nuX_M1_WRAP)
+SCHEDULE GROUP nuX_M1_RHSGroup IN ODESolvers_RHS
 {
-    LANG: C
-    READS: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere)
-    WRITES: rN(everywhere) rE(everywhere) rF(everywhere)
-} "Copy the data from the previous time-level to the current one"
+} "Build the explicit radiation RHS"
 
-SCHEDULE GROUP nuX_M1_WRAP AT CCTK_EVOL \
-    AFTER (ODESolvers_Solve ODESolvers_PostStep nuX_M1_InitialCopy)
-{
-} "This group wraps all nuX_M1 updates"
-
-SCHEDULE GROUP nuX_M1_EVOL IN nuX_M1_WRAP
-{
-} "Radiation updates go here"
-
-SCHEDULE nuX_M1_InitTimeIntegrator IN nuX_M1_EVOL BEFORE nuX_M1_TimeStep
-{
-    LANG: C
-    OPTIONS: LEVEL
-    WRITES: TimeIntegratorStage
-} "Set the time integrator index"
-
-
-SCHEDULE nuX_M1_FinalizeTimeIntegrator IN nuX_M1_EVOL AFTER nuX_M1_TimeStep 
-{
-    LANG: C
-    OPTIONS: LEVEL
-    READS: TimeIntegratorStage  
-} "Clean ups after the time integration"
-
-SCHEDULE nuX_M1_SetMask IN nuX_M1_EVOL
+SCHEDULE nuX_M1_SetMask IN nuX_M1_RHSGroup
 {
     LANG: C
     WRITES: nuX_m1_mask(everywhere)
 } "Excise regions of the domain"
 
-#------------------------------------------------------------------------------
-SCHEDULE GROUP nuX_M1_TimeStep IN nuX_M1_EVOL \
-    WHILE nuX_M1::TimeIntegratorStage \
-    AFTER (nuX_M1_InitTimeIntegrator nuX_M1_SetMask)
-{
-
-} "A single substep in the evolution"
-#------------------------------------------------------------------------------
-
-SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
+SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_RHSGroup AFTER nuX_M1_SetMask
 {
     LANG: C
     WRITES: rN_rhs(everywhere) rE_rhs(everywhere) rF_rhs(everywhere) 
@@ -224,7 +164,7 @@ SCHEDULE nuX_M1_InitFluxesRHS IN nuX_M1_TimeStep
 } "Initialize explicit RHSs to zero"
 
 # Ensure conserved vars have valid ghost zones before closure/fluxes
-SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
+SCHEDULE nuX_M1_SyncConserved IN nuX_M1_RHSGroup AFTER nuX_M1_InitFluxesRHS
 {
     LANG: C
     OPTIONS: SINGLEMAP
@@ -233,7 +173,7 @@ SCHEDULE nuX_M1_SyncConserved IN nuX_M1_TimeStep AFTER nuX_M1_InitFluxesRHS
     SYNC: rF
 } "Sync rN/rE/rF into ghost zones prior to closure/flux computations"
 
-SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep AFTER nuX_M1_SyncConserved
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_RHSGroup AFTER nuX_M1_SyncConserved
 {
     LANG: C
     READS: ADMBaseX::metric(interior)
@@ -246,7 +186,7 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep AFTER nuX_M1_SyncConserved
     
 } "Compute the fiducial velocity"
 
-SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
+SCHEDULE nuX_M1_CalcClosure IN nuX_M1_RHSGroup AFTER nuX_M1_FiducialVelocity
 {
     LANG: C
  
@@ -262,10 +202,9 @@ SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep AFTER nuX_M1_FiducialVelocity
 } "Compute the M1 closure everywhere on the grid"
 
 if (use_fakerates) {
-  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_RHSGroup AFTER nuX_M1_CalcClosure
   {
       LANG: C
-      READS: TimeIntegratorStage
       READS: ADMBaseX::metric(everywhere)
       READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
@@ -274,10 +213,9 @@ if (use_fakerates) {
   } "Compute fake opacities"
 }
 else {
-  SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_TimeStep AFTER nuX_M1_CalcClosure
+  SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_RHSGroup AFTER nuX_M1_CalcClosure
   {
       LANG: C
-      READS: TimeIntegratorStage
       READS: ADMBaseX::metric(everywhere)
       READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) 
@@ -286,7 +224,7 @@ else {
 }
 
 # Sync closure/opacity outputs so 4-pt stencil sees valid ghost data
-SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
+SCHEDULE nuX_M1_SyncDerived IN nuX_M1_RHSGroup \
     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
     BEFORE nuX_M1_CalcFluxes
 {
@@ -302,7 +240,7 @@ SCHEDULE nuX_M1_SyncDerived IN nuX_M1_TimeStep \
 
 if (include_fluxes) {
 
-    SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_TimeStep \
+    SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_RHSGroup \
     AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
            nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
@@ -331,7 +269,7 @@ if (include_fluxes) {
     	SYNC: nu_flux_x nu_flux_y nu_flux_z
     } "Compute neutrino transport fluxes at cell centres"
 
-    SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_TimeStep \
+    SCHEDULE nuX_M1_UpdateRHSFromFluxes IN nuX_M1_RHSGroup \
     AFTER (nuX_M1_CalcFluxes nuX_M1_InitFluxesRHS)
     {
     	LANG: C
@@ -363,9 +301,8 @@ if (include_fluxes) {
 }
 
 if (include_GR_sources) {
-    SCHEDULE nuX_M1_CalcGRSources IN nuX_M1_TimeStep \
+    SCHEDULE nuX_M1_CalcGRSources IN nuX_M1_RHSGroup \
         AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
-        BEFORE nuX_M1_CalcUpdate
     {
         LANG: C
         
@@ -378,9 +315,170 @@ if (include_GR_sources) {
     } "Compute the radiation GR sources and add them to the RHS"
 }
 
-SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
-    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
-           nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromFluxes)
+if (backreact && !freeze_evolution) {
+    SCHEDULE nuX_M1_CalcBackreactionRHS IN ODESolvers_RHS \
+        AFTER (AsterX_RHS nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity \
+               nuX_M1_CalcClosure)
+    {
+        LANG: C
+
+        READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+        READS: nuX_m1_mask(interior)
+        READS: fidu_vel(interior) fidu_w_lorentz(interior)
+        READS: rN(interior) rE(interior) rF(interior)
+        READS: rJ(interior) rHt(interior) rH(interior)
+        READS: opacs(interior)
+        READS: AsterX::rhs_vector(interior)
+
+        WRITES: AsterX::rhs_vector(interior)
+    } "Add explicit radiation backreaction to the fluid RHS"
+}
+
+if (backreact && freeze_evolution) {
+    SCHEDULE nuX_M1_CalcBackreactionRHS IN ODESolvers_RHS \
+        AFTER (AsterX_FreezeEvolutionRHS nuX_M1_CalcOpacity \
+               nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
+    {
+        LANG: C
+
+        READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+        READS: nuX_m1_mask(interior)
+        READS: fidu_vel(interior) fidu_w_lorentz(interior)
+        READS: rN(interior) rE(interior) rF(interior)
+        READS: rJ(interior) rHt(interior) rH(interior)
+        READS: opacs(interior)
+        READS: AsterX::rhs_vector(interior)
+
+        WRITES: AsterX::rhs_vector(interior)
+    } "Add explicit radiation backreaction to the fluid RHS"
+}
+
+SCHEDULE GROUP nuX_M1_ImplicitRHSGroup IN ODESolvers_ImplicitRHS
+{
+} "Build the explicit stiff source RHS used by IMEX stages"
+
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_ImplicitRHSGroup
+{
+    LANG: C
+    READS: ADMBaseX::metric(interior)
+    READS: AsterX::dens(interior)
+    READS: HydroBaseX::vel(interior)
+    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
+    WRITES: fidu_w_lorentz(interior)
+    SYNC: fidu_vel
+    SYNC: fidu_w_lorentz
+} "Compute the fiducial velocity for the IMEX source RHS"
+
+SCHEDULE nuX_M1_CalcClosure IN nuX_M1_ImplicitRHSGroup AFTER nuX_M1_FiducialVelocity
+{
+    LANG: C
+
+    READS: ADMBaseX::metric(everywhere)
+    READS: ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere)
+    READS: ADMBaseX::curv(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
+    READS: fidu_w_lorentz(everywhere)
+    READS: rN(everywhere) rE(everywhere) rF(everywhere)
+    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: chi(everywhere)
+} "Compute the M1 closure for the IMEX source RHS"
+
+if (use_fakerates) {
+  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_ImplicitRHSGroup AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+      READS: opacs(everywhere) nueave(everywhere)
+      WRITES: opacs(everywhere) nueave(everywhere)
+  } "Compute fake opacities for the IMEX source RHS"
+}
+else {
+  SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_ImplicitRHSGroup AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+      WRITES: opacs(everywhere) nueave(everywhere)
+  } "Compute the opacities for the IMEX source RHS"
+}
+
+SCHEDULE nuX_M1_CalcSourceRHS IN nuX_M1_ImplicitRHSGroup \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
+{
+    LANG: C
+
+    READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+    READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+    READS: nuX_m1_mask(interior)
+    READS: fidu_vel(interior) fidu_w_lorentz(interior)
+    READS: rN(interior) rE(interior) rF(interior)
+    READS: rJ(interior) rHt(interior) rH(interior)
+    READS: opacs(interior)
+
+    WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+} "Compute the known stiff source RHS for IMEX"
+
+SCHEDULE GROUP nuX_M1_SourceGroup IN ODESolvers_ImplicitStep
+{
+} "Apply the semi-implicit radiation source update"
+
+SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_SourceGroup
+{
+    LANG: C
+    READS: ADMBaseX::metric(interior)
+    READS: AsterX::dens(interior)
+    READS: HydroBaseX::vel(interior)
+    WRITES: fidu_velx(interior) fidu_vely(interior) fidu_velz(interior)
+    WRITES: fidu_w_lorentz(interior)
+    SYNC: fidu_vel
+    SYNC: fidu_w_lorentz
+} "Compute the fiducial velocity for the implicit source step"
+
+SCHEDULE nuX_M1_CalcClosure IN nuX_M1_SourceGroup AFTER nuX_M1_FiducialVelocity
+{
+    LANG: C
+
+    READS: ADMBaseX::metric(everywhere)
+    READS: ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere)
+    READS: ADMBaseX::curv(everywhere)
+    READS: fidu_vel(everywhere) nuX_m1_mask(everywhere)
+    READS: fidu_w_lorentz(everywhere)
+    READS: rN(everywhere) rE(everywhere) rF(everywhere)
+    WRITES: rP(everywhere) rJ(everywhere) rHt(everywhere) rH(everywhere) rnnu(everywhere)
+    WRITES: chi(everywhere)
+} "Compute the M1 closure for the implicit source step"
+
+if (use_fakerates) {
+  SCHEDULE nuX_M1_CalcFakeOpacity IN nuX_M1_SourceGroup AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere) HydroBaseX::eps(everywhere)
+      READS: opacs(everywhere) nueave(everywhere)
+      WRITES: opacs(everywhere) nueave(everywhere)
+  } "Compute fake opacities for the implicit source step"
+}
+else {
+  SCHEDULE nuX_M1_CalcOpacity IN nuX_M1_SourceGroup AFTER nuX_M1_CalcClosure
+  {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere)
+      READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+      WRITES: opacs(everywhere) nueave(everywhere)
+  } "Compute the opacities for the implicit source step"
+}
+
+SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_SourceGroup \
+    AFTER (nuX_M1_CalcOpacity nuX_M1_CalcFakeOpacity nuX_M1_CalcClosure)
 {
     LANG: C
     
@@ -389,61 +487,24 @@ SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_TimeStep \
     READS: nuX_m1_mask(interior)
     READS: fidu_vel(interior) fidu_w_lorentz(interior) 
     READS: rN(interior) rE(interior) rF(interior)  
-    READS: rN_p(interior) rE_p(interior) rF_p(interior)
     READS: rJ(interior) rHt(interior) rH(interior) 
     READS: opacs(interior) nueave(interior)
-    READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     READS: chi(interior)
-    READS: HydroBaseX::Ye(interior) AsterX::dens(interior)
-    READS: AsterX::momx(interior) AsterX::momy(interior) AsterX::momz(interior)
-    READS: AsterX::tau(interior) AsterX::DYe(interior)
-    READS: TimeIntegratorStage
+    READS: HydroBaseX::Ye(interior)
+    READS: AsterX::dens(interior) AsterX::tau(interior)
  
     WRITES: chi(interior)
     WRITES: fluidsources(interior)  
     WRITES: source_update_delta_N(interior) source_update_delta_E(interior)
     WRITES: source_update_delta_F(interior) source_limiter_theta(interior)
-    WRITES: AsterX::momx(interior) AsterX::momy(interior) AsterX::momz(interior)
-    WRITES: AsterX::tau(interior) AsterX::DYe(interior)
     WRITES: rN(interior) rE(interior) rF(interior)
      
-    SYNC: chi rN rE rF fluidsources AsterX::cons_vector
+    SYNC: chi rN rE rF fluidsources
 
-} "Semi-implicit update of radiation and matter fields"
-
-### The following scheduling might not work; needs testing
-if (backreact) {
-    SCHEDULE GROUP HydroBase_Boundaries IN nuX_M1_WRAP AFTER nuX_M1_EVOL
-    {
-    } "Apply BCs and synchronize hydro variables"
-
-    SCHEDULE GROUP HydroBase_Con2Prim IN nuX_M1_WRAP AFTER HydroBase_Boundaries
-    {
-        LANG: C
-    } "Computes the primitives from the conservatives"
-}
-
-SCHEDULE nuX_M1_DecrementTimeIntegratorStage IN nuX_M1_TimeStep AFTER nuX_M1_CalcUpdate
-{
-    LANG: C
-    OPTIONS: LEVEL
-    READS: TimeIntegratorStage
-    WRITES: TimeIntegratorStage
-    SYNC: TimeIntegratorStage
-} "Decrement TimeIntegratorStage"
-
+} "Semi-implicit update of radiation fields"
 
 # -----------------------------------------------------------------------------
-#if (optimize_prolongation) {
-#    SCHEDULE nuX_M1_ControlProlongation in nuX_M1_TimeStep BEFORE nuX_M1_BoundaryConditions AFTER nuX_M1_CalcUpdate
-#    {
-#        LANG: C
-#        OPTIONS: level
-#    } "enable / disable prolongation during RK steps"
-#}
-
-SCHEDULE GROUP nuX_M1_BoundaryConditions IN nuX_M1_TimeStep \
-    AFTER nuX_M1_DecrementTimeIntegratorStage
+SCHEDULE GROUP nuX_M1_BoundaryConditions IN ODESolvers_PostStep
 {
 } "Apply boundary conditions during the evolution"
 # -----------------------------------------------------------------------------
@@ -496,16 +557,6 @@ if (add_to_Tmunu) {
 ###############################################################################
 # Stuff outside of the main loop
 ###############################################################################
-
-if (copy_levels) {
-    SCHEDULE nuX_M1_CopyLevels AT CCTK_POSTSTEP \
-    AFTER nuX_M1_WRAP
-    {
-        LANG: C
-        READS: rN(everywhere) rE(everywhere) rF(everywhere) 
-        WRITES: rN_p(everywhere) rE_p(everywhere) rF_p(everywhere) 
-    } "Persist current radiation fields into past timelevel after each step"
-}
 
 # This group is basically the equivalent of MoL_PostStep
 SCHEDULE GROUP nuX_M1_PostStep AT PostInitial BEFORE MoL_PostStep

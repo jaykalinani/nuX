@@ -150,7 +150,7 @@ IO::out_every = 10 #$ncells * 2 ** ($nlevels - 1) / 32
 # -----------------------------------------------------------------------------
 # ODESolvers
 # -----------------------------------------------------------------------------
-ODESolvers::method = "RK4"
+ODESolvers::method = "IMEX42L"
 
 # -----------------------------------------------------------------------------
 # ReconX
@@ -186,7 +186,6 @@ nuX_M1::backreact          = "no"
 nuX_M1::bc_type            = "none"  #? Not sure
 nuX_M1::closure            = "Eddington"
 nuX_M1::closure_epsilon    = 1e-5
-nuX_M1::copy_levels        = "no"
 nuX_M1::include_fluxes     = "yes"
 nuX_M1::include_GR_sources = "no"
 nuX_M1::opacity_corr_fac_max = 1.0

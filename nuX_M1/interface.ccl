@@ -21,6 +21,9 @@ USES FUNCTION EnableProlongating
 CCTK_INT FUNCTION QueryProlongating()
 USES FUNCTION QueryProlongating
 
+CCTK_REAL FUNCTION ODESolvers_GetStepDeltaTime()
+USES FUNCTION ODESolvers_GetStepDeltaTime
+
 
 # === Public grid functions ===
 
@@ -28,11 +31,11 @@ PUBLIC:
 
 ##TODO: add correct dependents and tags for checkpointing
 
-CCTK_REAL rN[nspecies*ngroups] TYPE=GF TIMELEVELS=2 CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame"
+CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rN_rhs" checkpoint="yes" dependents="rP rJ rHt rH rnnu chi opacs nueave fluidsources nu_flux_x nu_flux_y nu_flux_z"' "Neutrino density in the lab frame"
 
-CCTK_REAL rE[nspecies*ngroups] TYPE=GF TIMELEVELS=2 CENTERING={ccc} TAGS='checkpoint="yes"' "Radiation energy density in the lab frame"
+CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes" dependents="rP rJ rHt rH rnnu chi opacs nueave fluidsources nu_flux_x nu_flux_y nu_flux_z"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF TIMELEVELS=2 CENTERING={ccc} TAGS='checkpoint="yes"' 
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes" dependents="rP rJ rHt rH rnnu chi opacs nueave fluidsources nu_flux_x nu_flux_y nu_flux_z"'
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"
@@ -42,16 +45,8 @@ CCTK_REAL rP[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"'
     rPxx, rPxy, rPxz, rPyy, rPyz, rPzz
 } "Radiation pressure in the lab frame, normalized with E"
 
-## TODO: add timelevels infrastructure, for now defining previous time_levels explicitly
-
-#CCTK_REAL rN_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="yes"' "Neutrino density in the lab frame for previous timelevel"
-#
-#CCTK_REAL rE_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rE_rhs" checkpoint="yes"' "Radiation energy density in the lab frame for previous time level"
-#
-#CCTK_REAL rF_p[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="rF_rhs" checkpoint="yes"'
-#{
-#    rFx_p, rFy_p, rFz_p
-#} "Radiation energy flux in the lab frame for previous time level"
+## ODESolvers owns old-state and RK/IMEX stage storage, so evolution routines
+## should use only the current state pointers passed to the active schedule bin.
 
 ## Fluid frame quantities
 CCTK_REAL rnnu[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino density in the fluid frame"
@@ -135,5 +130,3 @@ CCTK_REAL source_update_delta_F[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='
 } "Stage-local radiation flux source increment"
 
 CCTK_REAL source_limiter_theta TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Limiter applied to the radiation-matter source update"
-
-CCTK_INT TimeIntegratorStage TYPE=SCALAR TAGS='checkpoint="no"' "Current stage of the time integrator"

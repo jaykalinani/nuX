@@ -6,6 +6,9 @@ EXTENDS KEYWORD initial_hydro "Hydro initial data"
     "nuX_M1" :: ""
 }
 
+SHARES: AsterX
+USES BOOLEAN freeze_evolution
+
 #USES INT hydro_excision
 #USES KEYWORD evolution_method
 
@@ -18,7 +21,7 @@ BOOLEAN add_to_Tmunu "Add radiation to the global stress-energy tensor" STEERABL
 {
 } "yes"
 
-BOOLEAN backreact "Backreact on the fluid" STEERABLE=ALWAYS
+BOOLEAN backreact "Add radiation-matter backreaction as an explicit fluid RHS source" STEERABLE=ALWAYS
 {
 } "yes"
 
@@ -195,10 +198,6 @@ REAL equilibrium_rho_min "Set to equilibrium only if the density is larger than 
 ###############################################################################
 # Numerical settings
 ###############################################################################
-BOOLEAN copy_levels "Fill past timelevels after initial data"
-{
-} "yes"
-
 # This requires cctk_nghostzones >= 4
 BOOLEAN optimize_prolongation "Disable prolongation during the intermediate steps of the time integrator"
 {

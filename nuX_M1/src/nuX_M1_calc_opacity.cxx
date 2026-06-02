@@ -6,6 +6,7 @@
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
+#include "cctk_Functions.h"
 #include "cctk_Parameters.h"
 
 #include "m1_opacities.hpp"
@@ -30,11 +31,6 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcOpacity;
   DECLARE_CCTK_PARAMETERS;
 
-  // Opacities are constant throught the timestep
-  if (*TimeIntegratorStage != 2) {
-    return;
-  }
-
   if (verbose) {
     CCTK_INFO("nuX_M1_CalcOpacity");
   }
@@ -49,7 +45,11 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
   const GF3D2<const CCTK_REAL> gf_gyz(layout_vc, gyz);
   const GF3D2<const CCTK_REAL> gf_gzz(layout_vc, gzz);
 
-  CCTK_REAL const dt = CCTK_DELTA_TIME;
+  // Opacity trapping is a macro-step decision. ODESolvers temporarily changes
+  // CCTK_DELTA_TIME for diagonal implicit source solves, so use the saved step dt.
+  const CCTK_REAL step_delta_time = ODESolvers_GetStepDeltaTime();
+  CCTK_REAL const dt =
+      step_delta_time > 0.0 ? step_delta_time : CCTK_DELTA_TIME;
 
   // NuRates Setup
   // Init structs for nurates calls

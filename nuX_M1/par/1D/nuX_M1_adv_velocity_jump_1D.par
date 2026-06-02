@@ -161,7 +161,7 @@ IO::out_every = 1 #$ncells * 2 ** ($nlevels - 1) / 32
 # -----------------------------------------------------------------------------
 # ODESolvers
 # -----------------------------------------------------------------------------
-ODESolvers::method = "RK4"
+ODESolvers::method = "IMEX42L"
 
 # -----------------------------------------------------------------------------
 # ReconX
@@ -198,7 +198,6 @@ nuX_M1::bc_type              = "none" #? Not sure
 nuX_M1::closure              = "thin" #"Minerbo" #"thin"
 nuX_M1::closure_epsilon      = 1e-3
 nuX_M1::closure_maxiter      = 1000
-nuX_M1::copy_levels          = "yes"
 nuX_M1::include_GR_sources   = "yes"
 nuX_M1::include_fluxes       = "yes"
 nuX_M1::reset_to_equilibrium = "no"

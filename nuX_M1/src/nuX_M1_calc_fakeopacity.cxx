@@ -22,6 +22,7 @@
 
 #include "cctk.h"
 #include "cctk_Arguments.h"
+#include "cctk_Functions.h"
 #include "cctk_Parameters.h"
 
 #include "nuX_fakerates.hxx"
@@ -57,37 +58,13 @@ extern "C" void nuX_M1_CalcFakeOpacity(CCTK_ARGUMENTS) {
   const GF3D2<const CCTK_REAL> gf_gyz(layout_vc, gyz);
   const GF3D2<const CCTK_REAL> gf_gzz(layout_vc, gzz);
 
-  CCTK_REAL const dt = CCTK_DELTA_TIME;
+  // Opacity trapping is a macro-step decision. ODESolvers temporarily changes
+  // CCTK_DELTA_TIME for diagonal implicit source solves, so use the saved step dt.
+  const CCTK_REAL step_delta_time = ODESolvers_GetStepDeltaTime();
+  CCTK_REAL const dt =
+      step_delta_time > 0.0 ? step_delta_time : CCTK_DELTA_TIME;
 
   FakeRatesDef *myfakerates = global_fakerates;
-
-  if (*TimeIntegratorStage != 2) {
-    // Keep opacities frozen across the substeps, matching THC_M1 behavior.
-    grid.loop_all_device<1, 1, 1>(
-        grid.nghostzones,
-        [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          const int ijk = layout_cc.linear(p.i, p.j, p.k);
-
-          CCTK_REAL abs0L, abs1L, eta0L, eta1L, scat1L, nueaveL;
-          for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-            int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
-            abs0L = abs_0[i4D];
-            abs1L = abs_1[i4D];
-            eta0L = eta_0[i4D];
-            eta1L = eta_1[i4D];
-            scat1L = scat_1[i4D];
-            nueaveL = nueave[i4D];
-
-            abs_0[i4D] = abs0L;
-            abs_1[i4D] = abs1L;
-            eta_0[i4D] = eta0L;
-            eta_1[i4D] = eta1L;
-            scat_1[i4D] = scat1L;
-            nueave[i4D] = nueaveL;
-          }
-        });
-    return;
-  }
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,

@@ -142,7 +142,7 @@ IO::out_every = 1
 # -----------------------------------------------------------------------------
 # ODESolvers
 # -----------------------------------------------------------------------------
-ODESolvers::method = "RK4"
+ODESolvers::method = "IMEX42L"
 
 # -----------------------------------------------------------------------------
 # ReconX
@@ -179,7 +179,6 @@ nuX_M1::bc_type              = "none"
 nuX_M1::closure              = "Minerbo"
 nuX_M1::closure_epsilon      = 1e-5
 nuX_M1::closure_maxiter      = 1000
-nuX_M1::copy_levels          = "yes"
 nuX_M1::fiducial_velocity    = "fluid"
 nuX_M1::include_GR_sources   = "yes"
 nuX_M1::include_fluxes       = "yes"

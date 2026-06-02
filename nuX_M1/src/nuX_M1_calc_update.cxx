@@ -50,14 +50,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
 
   closure_t const closure_fun = pick_closure(closure);
 
-  CCTK_REAL const dt =
-      CCTK_DELTA_TIME / static_cast<CCTK_REAL>(*TimeIntegratorStage);
-  const bool apply_backreact = backreact && (1 == *TimeIntegratorStage);
+  CCTK_REAL const dt = CCTK_DELTA_TIME;
 
   if (verbose) {
-    CCTK_VINFO("Integrated to time, dt, TimeIntegratorStage: %e, %e, %e",
-               cctkGH->cctk_time, dt,
-               static_cast<CCTK_REAL>(*TimeIntegratorStage));
+    CCTK_VINFO("Applying implicit source step at time %e with dt %e",
+               cctkGH->cctk_time, dt);
   }
 
   const GridDescBaseDevice grid(cctkGH);
@@ -137,16 +134,11 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           assert(isfinite(rFx[i4D]));
           assert(isfinite(rFy[i4D]));
           assert(isfinite(rFz[i4D]));
-          assert(isfinite(rN_p[i4D]));
-          assert(isfinite(rE_p[i4D]));
-          assert(isfinite(rFx_p[i4D]));
           assert(isfinite(rN_rhs[i4D]));
           assert(isfinite(rE_rhs[i4D]));
           assert(isfinite(rFx_rhs[i4D]));
           assert(isfinite(rFy_rhs[i4D]));
           assert(isfinite(rFz_rhs[i4D]));
-          assert(isfinite(rFy_p[i4D]));
-          assert(isfinite(rFz_p[i4D]));
 
 #if (NUX_M1_SRC_METHOD == NUX_M1_SRC_EXPL)
           CCTK_REAL E = rE[i4D];
@@ -174,12 +166,10 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
               dt * alp_ijk *
               (volform_ijk * eta_0[i4D] - abs_0[i4D] * rN[i4D] / Gamma);
 #else
-          CCTK_REAL Estar = rE_p[i4D] + dt * rE_rhs[i4D];
+          CCTK_REAL Estar = rE[i4D];
           tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
-          pack_F_d(betax_ijk, betay_ijk, betaz_ijk,
-                   rFx_p[i4D] + dt * rFx_rhs[i4D],
-                   rFy_p[i4D] + dt * rFy_rhs[i4D],
-                   rFz_p[i4D] + dt * rFz_rhs[i4D], &Fstar_d);
+          pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D],
+                   rFz[i4D], &Fstar_d);
           apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
           assert(isfinite(Estar));
           assert(isfinite(Fstar_d(1)));
@@ -201,7 +191,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
             continue;
           }
 
-          CCTK_REAL Nstar = std::max(rN_p[i4D] + dt * rN_rhs[i4D], rad_N_floor);
+          CCTK_REAL Nstar = std::max(rN[i4D], rad_N_floor);
           CCTK_REAL Enew = Estar;
           tensor::generic<CCTK_REAL, 4, 1> Fnew_d;
 
@@ -338,14 +328,14 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           for (int ig = 0; ig < groupspec; ++ig) {
             int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
-            CCTK_REAL Estar = rE_p[i4D] + dt * rE_rhs[i4D];
+            CCTK_REAL Estar = rE[i4D];
             if (source_update_delta_E[i4D] < 0) {
               theta = min(theta, -source_limiter * max(Estar, 0.0) /
                                      source_update_delta_E[i4D]);
             }
             DTau_sum -= source_update_delta_E[i4D];
 
-            CCTK_REAL Nstar = rN_p[i4D] + dt * rN_rhs[i4D];
+            CCTK_REAL Nstar = rN[i4D];
             if (source_update_delta_N[i4D] < 0) {
               theta = min(theta, -source_limiter * max(Nstar, 0.0) /
                                      source_update_delta_N[i4D]);
@@ -396,28 +386,23 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
           assert(isfinite(theta));
-          assert(isfinite(rE_p[i4D]));
-          assert(isfinite(rFx_p[i4D]));
-          assert(isfinite(rFy_p[i4D]));
-          assert(isfinite(rFz_p[i4D]));
-          assert(isfinite(rE_rhs[i4D]));
-          assert(isfinite(rFx_rhs[i4D]));
-          assert(isfinite(rFy_rhs[i4D]));
-          assert(isfinite(rFz_rhs[i4D]));
+          assert(isfinite(rE[i4D]));
+          assert(isfinite(rFx[i4D]));
+          assert(isfinite(rFy[i4D]));
+          assert(isfinite(rFz[i4D]));
           assert(isfinite(source_update_delta_E[i4D]));
           assert(isfinite(source_update_delta_Fx[i4D]));
           assert(isfinite(source_update_delta_Fy[i4D]));
           assert(isfinite(source_update_delta_Fz[i4D]));
           assert(isfinite(source_update_delta_N[i4D]));
 
-          CCTK_REAL E =
-              rE_p[i4D] + dt * rE_rhs[i4D] + theta * source_update_delta_E[i4D];
+          CCTK_REAL E = rE[i4D] + theta * source_update_delta_E[i4D];
           const CCTK_REAL Fx_new =
-              rFx_p[i4D] + dt * rFx_rhs[i4D] + theta * source_update_delta_Fx[i4D];
+              rFx[i4D] + theta * source_update_delta_Fx[i4D];
           const CCTK_REAL Fy_new =
-              rFy_p[i4D] + dt * rFy_rhs[i4D] + theta * source_update_delta_Fy[i4D];
+              rFy[i4D] + theta * source_update_delta_Fy[i4D];
           const CCTK_REAL Fz_new =
-              rFz_p[i4D] + dt * rFz_rhs[i4D] + theta * source_update_delta_Fz[i4D];
+              rFz[i4D] + theta * source_update_delta_Fz[i4D];
 
           assert(isfinite(E));
           assert(isfinite(Fx_new));
@@ -429,24 +414,14 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                    &F_d);
           apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
 
-          CCTK_REAL N =
-              rN_p[i4D] + dt * rN_rhs[i4D] + theta * source_update_delta_N[i4D];
+          CCTK_REAL N = rN[i4D] + theta * source_update_delta_N[i4D];
           N = max(N, rad_N_floor);
           const CCTK_REAL DDxp_ig =
               -mb * ((ig == 0 ? source_update_delta_N[i4D] : 0.0) -
                      (ig == 1 ? source_update_delta_N[i4D] : 0.0));
 
-          if (apply_backreact) {
-            assert(ngroups == 1);
-            assert(nspecies == 3);
-            momx[ijk] -= theta * source_update_delta_Fx[i4D];
-            momy[ijk] -= theta * source_update_delta_Fy[i4D];
-            momz[ijk] -= theta * source_update_delta_Fz[i4D];
-            tau[ijk] -= theta * source_update_delta_E[i4D];
-            DYe[ijk] += theta * DDxp_ig;
-            netabs[ijk] += theta * DDxp_ig;
-            netheat[ijk] -= theta * source_update_delta_E[i4D];
-          }
+          netabs[ijk] += theta * DDxp_ig;
+          netheat[ijk] -= theta * source_update_delta_E[i4D];
 
           rE[i4D] = E;
           unpack_F_d(F_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
