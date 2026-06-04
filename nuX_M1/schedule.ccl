@@ -153,6 +153,14 @@ SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
     WRITES: closure_status(everywhere) closure_update_status(everywhere)
 } "Initialize everything to zero"
 
+SCHEDULE nuX_M1_SetMask IN nuX_M1_InitialGroup \
+    AFTER nuX_M1_Reset \
+    BEFORE nuX_M1_FiducialVelocity
+{
+    LANG: C
+    WRITES: nuX_m1_mask(everywhere)
+} "Initialize the nuX mask on all initial AMR levels"
+
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_InitialGroup \
     AFTER (nuX_M1_Reset)
 {
@@ -686,6 +694,12 @@ if (add_to_Tmunu) {
     SCHEDULE GROUP nuX_M1_Tmunu IN TmunuBaseX_AddToTmunu
     {
     } "Adds the contribution of radiation to the global stress-energy tensor"
+
+    SCHEDULE nuX_M1_SetMask IN nuX_M1_Tmunu BEFORE nuX_M1_FiducialVelocity
+    {
+        LANG: C
+        WRITES: nuX_m1_mask(everywhere)
+    } "Ensure the nuX mask is valid before stress-energy coupling"
 
     SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_Tmunu BEFORE nuX_M1_AddToTmunu
     {
