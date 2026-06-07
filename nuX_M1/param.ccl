@@ -233,3 +233,6 @@ BOOLEAN use_fakerates "Whether to use fakerates for testing" STEERABLE=always
 
 SHARES: EOSX
 USES CCTK_REAL particle_mass
+
+SHARES: AsterX
+USES CCTK_INT tmunu_interp_order
