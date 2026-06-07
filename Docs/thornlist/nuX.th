@@ -163,7 +163,7 @@ CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
 CarpetX/TmunuBaseX
-#CarpetX/Subcycling
+CarpetX/Subcycling
 
 # SpacetimeX thorns
 !TARGET   = $ARR
