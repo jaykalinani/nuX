@@ -31,6 +31,18 @@ extern "C" void nuX_M1_SyncDerived(CCTK_ARGUMENTS) {
   // Do nothing, let SYNC handle BCs.
 }
 
+// Sync radiation moments before vertex-centered Tmunu interpolation.
+extern "C" void nuX_M1_SyncTmunuInputs(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_M1_SyncTmunuInputs;
+  DECLARE_CCTK_PARAMETERS;
+
+  if (verbose) {
+    CCTK_INFO("nuX_M1_SyncTmunuInputs");
+  }
+
+  // Do nothing, let SYNC handle BCs.
+}
+
 extern "C" void nuX_M1_Sync(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_Sync;
   DECLARE_CCTK_PARAMETERS;
