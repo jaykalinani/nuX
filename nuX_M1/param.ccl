@@ -255,3 +255,6 @@ CCTK_REAL unit_test_pipeline_atol "Absolute tolerance for nuX_M1 pipeline tests"
 
 SHARES: EOSX
 USES CCTK_REAL particle_mass
+
+SHARES: AsterX
+USES CCTK_INT tmunu_interp_order

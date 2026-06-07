@@ -348,7 +348,7 @@ SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_TimeStep \
     WRITES: fidu_w_lorentz(everywhere)
     SYNC: fidu_vel
     SYNC: fidu_w_lorentz
-    
+
 } "Compute the fiducial velocity"
 
 SCHEDULE nuX_M1_CalcClosure IN nuX_M1_TimeStep \
@@ -707,12 +707,22 @@ if (add_to_Tmunu) {
         READS: ADMBaseX::metric(everywhere)
         READS: AsterX::dens(everywhere)
         READS: HydroBaseX::vel(everywhere)
-        READS: nuX_m1_mask(interior)
+        READS: nuX_m1_mask(everywhere)
         WRITES: fidu_velx(everywhere) fidu_vely(everywhere) fidu_velz(everywhere)
         WRITES: fidu_w_lorentz(everywhere)
         SYNC: fidu_vel
         SYNC: fidu_w_lorentz
     } "Compute the fiducial velocity"
+
+    SCHEDULE nuX_M1_SyncTmunuInputs IN nuX_M1_Tmunu \
+        AFTER nuX_M1_FiducialVelocity \
+        BEFORE nuX_M1_AddToTmunu
+    {
+        LANG: C
+        OPTIONS: SINGLEMAP
+        SYNC: rE
+        SYNC: rF
+    } "Sync radiation moments before stress-energy coupling"
 
     SCHEDULE nuX_M1_AddToTmunu IN nuX_M1_Tmunu
     {
@@ -721,9 +731,8 @@ if (add_to_Tmunu) {
         READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
         READS: fidu_w_lorentz(everywhere) fidu_vel(everywhere)
         READS: rE(everywhere) rF(everywhere)
-        READS: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
-        WRITES: TmunuBaseX::eTtt(everywhere) TmunuBaseX::eTti(everywhere) TmunuBaseX::eTij(everywhere)
-        SYNC: TmunuBaseX::eTtt TmunuBaseX::eTti TmunuBaseX::eTij
+        READS: TmunuBaseX::eTtt(interior) TmunuBaseX::eTti(interior) TmunuBaseX::eTij(interior)
+        WRITES: TmunuBaseX::eTtt(interior) TmunuBaseX::eTti(interior) TmunuBaseX::eTij(interior)
     } "Adds the contribution of radiation to the global stress-energy tensor"
 }
 
