@@ -67,28 +67,40 @@ STORAGE: transport_cmax
 STORAGE: transport_A
 STORAGE: transport_flux_N
 STORAGE: transport_flux_E
+STORAGE: transport_flux_Fy
 STORAGE: transport_physflux_N_x
 STORAGE: transport_physflux_N_y
 STORAGE: transport_physflux_N_z
 STORAGE: transport_physflux_E_x
 STORAGE: transport_physflux_E_y
 STORAGE: transport_physflux_E_z
+STORAGE: transport_physflux_Fy_x
+STORAGE: transport_physflux_Fy_y
+STORAGE: transport_physflux_Fy_z
 STORAGE: transport_fluxavg_N
 STORAGE: transport_fluxavg_E
+STORAGE: transport_fluxavg_Fy
 STORAGE: transport_fluxdiss_N
 STORAGE: transport_fluxdiss_E
+STORAGE: transport_fluxdiss_Fy
 STORAGE: transport_statejump_N
 STORAGE: transport_statejump_E
+STORAGE: transport_statejump_Fy
 STORAGE: transport_fluxlow_N
 STORAGE: transport_fluxlow_E
+STORAGE: transport_fluxlow_Fy
 STORAGE: transport_fluxhigh_N
 STORAGE: transport_fluxhigh_E
+STORAGE: transport_fluxhigh_Fy
 STORAGE: transport_limiter_N
 STORAGE: transport_limiter_E
+STORAGE: transport_limiter_Fy
 STORAGE: transport_saw_N
 STORAGE: transport_saw_E
+STORAGE: transport_saw_Fy
 STORAGE: transport_rhsdiv_N
 STORAGE: transport_rhsdiv_E
+STORAGE: transport_rhsdiv_Fy
 STORAGE: transport_trace_Ez
 
 STORAGE: nuX_m1_mask
@@ -512,32 +524,34 @@ if (include_fluxes) {
     	READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
     	WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
         WRITES: transport_cmax(interior) transport_A(interior)
-        WRITES: transport_flux_N(interior) transport_flux_E(interior)
+        WRITES: transport_flux_N(interior) transport_flux_E(interior) transport_flux_Fy(interior)
         WRITES: transport_physflux_N_x(interior) transport_physflux_N_y(interior) transport_physflux_N_z(interior)
         WRITES: transport_physflux_E_x(interior) transport_physflux_E_y(interior) transport_physflux_E_z(interior)
-        WRITES: transport_fluxavg_N(interior) transport_fluxavg_E(interior)
-        WRITES: transport_fluxdiss_N(interior) transport_fluxdiss_E(interior)
-        WRITES: transport_statejump_N(interior) transport_statejump_E(interior)
-        WRITES: transport_fluxlow_N(interior) transport_fluxlow_E(interior)
-        WRITES: transport_fluxhigh_N(interior) transport_fluxhigh_E(interior)
-        WRITES: transport_limiter_N(interior) transport_limiter_E(interior)
-        WRITES: transport_saw_N(interior) transport_saw_E(interior)
-        WRITES: transport_rhsdiv_N(interior) transport_rhsdiv_E(interior)
+        WRITES: transport_physflux_Fy_x(interior) transport_physflux_Fy_y(interior) transport_physflux_Fy_z(interior)
+        WRITES: transport_fluxavg_N(interior) transport_fluxavg_E(interior) transport_fluxavg_Fy(interior)
+        WRITES: transport_fluxdiss_N(interior) transport_fluxdiss_E(interior) transport_fluxdiss_Fy(interior)
+        WRITES: transport_statejump_N(interior) transport_statejump_E(interior) transport_statejump_Fy(interior)
+        WRITES: transport_fluxlow_N(interior) transport_fluxlow_E(interior) transport_fluxlow_Fy(interior)
+        WRITES: transport_fluxhigh_N(interior) transport_fluxhigh_E(interior) transport_fluxhigh_Fy(interior)
+        WRITES: transport_limiter_N(interior) transport_limiter_E(interior) transport_limiter_Fy(interior)
+        WRITES: transport_saw_N(interior) transport_saw_E(interior) transport_saw_Fy(interior)
+        WRITES: transport_rhsdiv_N(interior) transport_rhsdiv_E(interior) transport_rhsdiv_Fy(interior)
         WRITES: transport_trace_Ez(interior)
 
    	SYNC: rN_rhs rE_rhs rF_rhs
         SYNC: transport_cmax transport_A
-        SYNC: transport_flux_N transport_flux_E
+        SYNC: transport_flux_N transport_flux_E transport_flux_Fy
         SYNC: transport_physflux_N_x transport_physflux_N_y transport_physflux_N_z
         SYNC: transport_physflux_E_x transport_physflux_E_y transport_physflux_E_z
-        SYNC: transport_fluxavg_N transport_fluxavg_E
-        SYNC: transport_fluxdiss_N transport_fluxdiss_E
-        SYNC: transport_statejump_N transport_statejump_E
-        SYNC: transport_fluxlow_N transport_fluxlow_E
-        SYNC: transport_fluxhigh_N transport_fluxhigh_E
-        SYNC: transport_limiter_N transport_limiter_E
-        SYNC: transport_saw_N transport_saw_E
-        SYNC: transport_rhsdiv_N transport_rhsdiv_E
+        SYNC: transport_physflux_Fy_x transport_physflux_Fy_y transport_physflux_Fy_z
+        SYNC: transport_fluxavg_N transport_fluxavg_E transport_fluxavg_Fy
+        SYNC: transport_fluxdiss_N transport_fluxdiss_E transport_fluxdiss_Fy
+        SYNC: transport_statejump_N transport_statejump_E transport_statejump_Fy
+        SYNC: transport_fluxlow_N transport_fluxlow_E transport_fluxlow_Fy
+        SYNC: transport_fluxhigh_N transport_fluxhigh_E transport_fluxhigh_Fy
+        SYNC: transport_limiter_N transport_limiter_E transport_limiter_Fy
+        SYNC: transport_saw_N transport_saw_E transport_saw_Fy
+        SYNC: transport_rhsdiv_N transport_rhsdiv_E transport_rhsdiv_Fy
     } "Add limited flux divergence to the neutrino RHS"
 
     if (unit_test_pipeline) {
@@ -551,7 +565,8 @@ if (include_fluxes) {
     }
 
     SCHEDULE nuX_M1_StoreTransportRHS IN nuX_M1_TimeStep \
-    AFTER nuX_M1_UpdateRHSFromFluxes
+    AFTER nuX_M1_UpdateRHSFromFluxes \
+    BEFORE nuX_M1_CalcGRSources
     {
         LANG: C
 

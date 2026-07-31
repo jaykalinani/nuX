@@ -219,6 +219,10 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                              transport_FE_Lz};
   CCTK_REAL *diag_FE_R[3] = {transport_FE_Rx, transport_FE_Ry,
                              transport_FE_Rz};
+  CCTK_REAL *diag_Fy_L[3] = {transport_Fy_Lx, transport_Fy_Ly,
+                             transport_Fy_Lz};
+  CCTK_REAL *diag_Fy_R[3] = {transport_Fy_Rx, transport_Fy_Ry,
+                             transport_Fy_Rz};
   CCTK_REAL *diag_favgN_L[3] = {transport_favgN_Lx, transport_favgN_Ly,
                                 transport_favgN_Lz};
   CCTK_REAL *diag_favgN_R[3] = {transport_favgN_Rx, transport_favgN_Ry,
@@ -227,6 +231,10 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                                 transport_favgE_Lz};
   CCTK_REAL *diag_favgE_R[3] = {transport_favgE_Rx, transport_favgE_Ry,
                                 transport_favgE_Rz};
+  CCTK_REAL *diag_favgFy_L[3] = {transport_favgFy_Lx, transport_favgFy_Ly,
+                                 transport_favgFy_Lz};
+  CCTK_REAL *diag_favgFy_R[3] = {transport_favgFy_Rx, transport_favgFy_Ry,
+                                 transport_favgFy_Rz};
   CCTK_REAL *diag_fdissN_L[3] = {transport_fdissN_Lx, transport_fdissN_Ly,
                                  transport_fdissN_Lz};
   CCTK_REAL *diag_fdissN_R[3] = {transport_fdissN_Rx, transport_fdissN_Ry,
@@ -235,6 +243,12 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                                  transport_fdissE_Lz};
   CCTK_REAL *diag_fdissE_R[3] = {transport_fdissE_Rx, transport_fdissE_Ry,
                                  transport_fdissE_Rz};
+  CCTK_REAL *diag_fdissFy_L[3] = {transport_fdissFy_Lx,
+                                  transport_fdissFy_Ly,
+                                  transport_fdissFy_Lz};
+  CCTK_REAL *diag_fdissFy_R[3] = {transport_fdissFy_Rx,
+                                  transport_fdissFy_Ry,
+                                  transport_fdissFy_Rz};
   CCTK_REAL *diag_duN_L[3] = {transport_duN_Lx, transport_duN_Ly,
                               transport_duN_Lz};
   CCTK_REAL *diag_duN_R[3] = {transport_duN_Rx, transport_duN_Ry,
@@ -243,6 +257,10 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                               transport_duE_Lz};
   CCTK_REAL *diag_duE_R[3] = {transport_duE_Rx, transport_duE_Ry,
                               transport_duE_Rz};
+  CCTK_REAL *diag_duFy_L[3] = {transport_duFy_Lx, transport_duFy_Ly,
+                               transport_duFy_Lz};
+  CCTK_REAL *diag_duFy_R[3] = {transport_duFy_Rx, transport_duFy_Ry,
+                               transport_duFy_Rz};
   CCTK_REAL *diag_fphysN[3][3] = {
       {transport_fphysN_Lx, transport_fphysN_Cx, transport_fphysN_Rx},
       {transport_fphysN_Ly, transport_fphysN_Cy, transport_fphysN_Ry},
@@ -253,6 +271,11 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
       {transport_fphysE_Ly, transport_fphysE_Cy, transport_fphysE_Ry},
       {transport_fphysE_Lz, transport_fphysE_Cz, transport_fphysE_Rz},
   };
+  CCTK_REAL *diag_fphysFy[3][3] = {
+      {transport_fphysFy_Lx, transport_fphysFy_Cx, transport_fphysFy_Rx},
+      {transport_fphysFy_Ly, transport_fphysFy_Cy, transport_fphysFy_Ry},
+      {transport_fphysFy_Lz, transport_fphysFy_Cz, transport_fphysFy_Rz},
+  };
   CCTK_REAL *diag_flowN_L[3] = {transport_flowN_Lx, transport_flowN_Ly,
                                 transport_flowN_Lz};
   CCTK_REAL *diag_flowN_R[3] = {transport_flowN_Rx, transport_flowN_Ry,
@@ -261,6 +284,10 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                                 transport_flowE_Lz};
   CCTK_REAL *diag_flowE_R[3] = {transport_flowE_Rx, transport_flowE_Ry,
                                 transport_flowE_Rz};
+  CCTK_REAL *diag_flowFy_L[3] = {transport_flowFy_Lx, transport_flowFy_Ly,
+                                 transport_flowFy_Lz};
+  CCTK_REAL *diag_flowFy_R[3] = {transport_flowFy_Rx, transport_flowFy_Ry,
+                                 transport_flowFy_Rz};
   CCTK_REAL *diag_fhighN_L[3] = {transport_fhighN_Lx, transport_fhighN_Ly,
                                  transport_fhighN_Lz};
   CCTK_REAL *diag_fhighN_R[3] = {transport_fhighN_Rx, transport_fhighN_Ry,
@@ -269,6 +296,12 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                                  transport_fhighE_Lz};
   CCTK_REAL *diag_fhighE_R[3] = {transport_fhighE_Rx, transport_fhighE_Ry,
                                  transport_fhighE_Rz};
+  CCTK_REAL *diag_fhighFy_L[3] = {transport_fhighFy_Lx,
+                                  transport_fhighFy_Ly,
+                                  transport_fhighFy_Lz};
+  CCTK_REAL *diag_fhighFy_R[3] = {transport_fhighFy_Rx,
+                                  transport_fhighFy_Ry,
+                                  transport_fhighFy_Rz};
   CCTK_REAL *diag_phiN_L[3] = {transport_phiN_Lx, transport_phiN_Ly,
                                transport_phiN_Lz};
   CCTK_REAL *diag_phiN_R[3] = {transport_phiN_Rx, transport_phiN_Ry,
@@ -277,6 +310,10 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                                transport_phiE_Lz};
   CCTK_REAL *diag_phiE_R[3] = {transport_phiE_Rx, transport_phiE_Ry,
                                transport_phiE_Rz};
+  CCTK_REAL *diag_phiFy_L[3] = {transport_phiFy_Lx, transport_phiFy_Ly,
+                                transport_phiFy_Lz};
+  CCTK_REAL *diag_phiFy_R[3] = {transport_phiFy_Rx, transport_phiFy_Ry,
+                                transport_phiFy_Rz};
   CCTK_REAL *diag_sawN_L[3] = {transport_sawN_Lx, transport_sawN_Ly,
                                transport_sawN_Lz};
   CCTK_REAL *diag_sawN_R[3] = {transport_sawN_Rx, transport_sawN_Ry,
@@ -285,10 +322,16 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                                transport_sawE_Lz};
   CCTK_REAL *diag_sawE_R[3] = {transport_sawE_Rx, transport_sawE_Ry,
                                transport_sawE_Rz};
+  CCTK_REAL *diag_sawFy_L[3] = {transport_sawFy_Lx, transport_sawFy_Ly,
+                                transport_sawFy_Lz};
+  CCTK_REAL *diag_sawFy_R[3] = {transport_sawFy_Rx, transport_sawFy_Ry,
+                                transport_sawFy_Rz};
   CCTK_REAL *diag_divN[3] = {transport_divN_x, transport_divN_y,
                              transport_divN_z};
   CCTK_REAL *diag_divE[3] = {transport_divE_x, transport_divE_y,
                              transport_divE_z};
+  CCTK_REAL *diag_divFy[3] = {transport_divFy_x, transport_divFy_y,
+                              transport_divFy_z};
 
   // Physical fluxes at cell centres in this direction
   const CCTK_REAL *nu_flux_dir =
@@ -528,6 +571,27 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                 diag_FN_L[dir][idx4_j] = F_L;
                 diag_FN_R[dir][idx4_j] = F_R;
                 diag_divN[dir][idx4_j] = div_contrib;
+              } else if (iv == 2) {
+                diag_fphysFy[dir][0][idx4_j] = f_jm1;
+                diag_fphysFy[dir][1][idx4_j] = f_j;
+                diag_fphysFy[dir][2][idx4_j] = f_jp1;
+                diag_favgFy_L[dir][idx4_j] = flux_avg_L;
+                diag_favgFy_R[dir][idx4_j] = flux_avg_R;
+                diag_fdissFy_L[dir][idx4_j] = flux_diss_L;
+                diag_fdissFy_R[dir][idx4_j] = flux_diss_R;
+                diag_duFy_L[dir][idx4_j] = du_state_L;
+                diag_duFy_R[dir][idx4_j] = du_state_R;
+                diag_flowFy_L[dir][idx4_j] = flux_low_L;
+                diag_flowFy_R[dir][idx4_j] = flux_low_R;
+                diag_fhighFy_L[dir][idx4_j] = flux_high_L;
+                diag_fhighFy_R[dir][idx4_j] = flux_high_R;
+                diag_phiFy_L[dir][idx4_j] = phi_L;
+                diag_phiFy_R[dir][idx4_j] = phi_R;
+                diag_sawFy_L[dir][idx4_j] = saw_L ? 1.0 : 0.0;
+                diag_sawFy_R[dir][idx4_j] = saw_R ? 1.0 : 0.0;
+                diag_Fy_L[dir][idx4_j] = F_L;
+                diag_Fy_R[dir][idx4_j] = F_R;
+                diag_divFy[dir][idx4_j] = div_contrib;
               } else if (iv == 4) {
                 diag_fphysE[dir][0][idx4_j] = f_jm1;
                 diag_fphysE[dir][1][idx4_j] = f_j;

@@ -246,6 +246,12 @@ CCTK_REAL transport_flux_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='check
     transport_FE_Rx, transport_FE_Ry, transport_FE_Rz
 } "Per-direction left/right numerical fluxes for the radiation energy density"
 
+CCTK_REAL transport_flux_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_Fy_Lx, transport_Fy_Ly, transport_Fy_Lz,
+    transport_Fy_Rx, transport_Fy_Ry, transport_Fy_Rz
+} "Per-direction left/right numerical fluxes for the y-radiation-flux component"
+
 CCTK_REAL transport_physflux_N_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     transport_fphysN_Lx, transport_fphysN_Cx, transport_fphysN_Rx
@@ -276,6 +282,21 @@ CCTK_REAL transport_physflux_E_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS=
     transport_fphysE_Lz, transport_fphysE_Cz, transport_fphysE_Rz
 } "Z-direction cell-centred physical fluxes entering the radiation energy-density numerical flux"
 
+CCTK_REAL transport_physflux_Fy_x[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysFy_Lx, transport_fphysFy_Cx, transport_fphysFy_Rx
+} "X-direction cell-centred physical fluxes entering the y-radiation-flux numerical flux"
+
+CCTK_REAL transport_physflux_Fy_y[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysFy_Ly, transport_fphysFy_Cy, transport_fphysFy_Ry
+} "Y-direction cell-centred physical fluxes entering the y-radiation-flux numerical flux"
+
+CCTK_REAL transport_physflux_Fy_z[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fphysFy_Lz, transport_fphysFy_Cz, transport_fphysFy_Rz
+} "Z-direction cell-centred physical fluxes entering the y-radiation-flux numerical flux"
+
 CCTK_REAL transport_fluxavg_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     transport_favgN_Lx, transport_favgN_Ly, transport_favgN_Lz,
@@ -287,6 +308,12 @@ CCTK_REAL transport_fluxavg_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='ch
     transport_favgE_Lx, transport_favgE_Ly, transport_favgE_Lz,
     transport_favgE_Rx, transport_favgE_Ry, transport_favgE_Rz
 } "Per-direction left/right average-physical-flux term in the low-order numerical flux for the radiation energy density"
+
+CCTK_REAL transport_fluxavg_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_favgFy_Lx, transport_favgFy_Ly, transport_favgFy_Lz,
+    transport_favgFy_Rx, transport_favgFy_Ry, transport_favgFy_Rz
+} "Per-direction left/right average-physical-flux term in the low-order numerical flux for the y-radiation-flux component"
 
 CCTK_REAL transport_fluxdiss_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
@@ -300,6 +327,12 @@ CCTK_REAL transport_fluxdiss_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='c
     transport_fdissE_Rx, transport_fdissE_Ry, transport_fdissE_Rz
 } "Per-direction left/right diffusive term 0.5*cmax*du in the low-order numerical flux for the radiation energy density"
 
+CCTK_REAL transport_fluxdiss_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fdissFy_Lx, transport_fdissFy_Ly, transport_fdissFy_Lz,
+    transport_fdissFy_Rx, transport_fdissFy_Ry, transport_fdissFy_Rz
+} "Per-direction left/right diffusive term 0.5*cmax*du in the low-order numerical flux for the y-radiation-flux component"
+
 CCTK_REAL transport_statejump_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     transport_duN_Lx, transport_duN_Ly, transport_duN_Lz,
@@ -311,6 +344,12 @@ CCTK_REAL transport_statejump_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='
     transport_duE_Lx, transport_duE_Ly, transport_duE_Lz,
     transport_duE_Rx, transport_duE_Ry, transport_duE_Rz
 } "Per-direction left/right state jumps entering the low-order numerical flux for the radiation energy density"
+
+CCTK_REAL transport_statejump_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_duFy_Lx, transport_duFy_Ly, transport_duFy_Lz,
+    transport_duFy_Rx, transport_duFy_Ry, transport_duFy_Rz
+} "Per-direction left/right state jumps entering the low-order numerical flux for the y-radiation-flux component"
 
 CCTK_REAL transport_fluxlow_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
@@ -324,6 +363,12 @@ CCTK_REAL transport_fluxlow_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='ch
     transport_flowE_Rx, transport_flowE_Ry, transport_flowE_Rz
 } "Per-direction left/right low-order interface fluxes for the radiation energy density"
 
+CCTK_REAL transport_fluxlow_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_flowFy_Lx, transport_flowFy_Ly, transport_flowFy_Lz,
+    transport_flowFy_Rx, transport_flowFy_Ry, transport_flowFy_Rz
+} "Per-direction left/right low-order interface fluxes for the y-radiation-flux component"
+
 CCTK_REAL transport_fluxhigh_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     transport_fhighN_Lx, transport_fhighN_Ly, transport_fhighN_Lz,
@@ -335,6 +380,12 @@ CCTK_REAL transport_fluxhigh_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='c
     transport_fhighE_Lx, transport_fhighE_Ly, transport_fhighE_Lz,
     transport_fhighE_Rx, transport_fhighE_Ry, transport_fhighE_Rz
 } "Per-direction left/right high-order interface fluxes for the radiation energy density"
+
+CCTK_REAL transport_fluxhigh_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_fhighFy_Lx, transport_fhighFy_Ly, transport_fhighFy_Lz,
+    transport_fhighFy_Rx, transport_fhighFy_Ry, transport_fhighFy_Rz
+} "Per-direction left/right high-order interface fluxes for the y-radiation-flux component"
 
 CCTK_REAL transport_limiter_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
@@ -348,6 +399,12 @@ CCTK_REAL transport_limiter_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='ch
     transport_phiE_Rx, transport_phiE_Ry, transport_phiE_Rz
 } "Per-direction left/right limiter phi values for the radiation energy density"
 
+CCTK_REAL transport_limiter_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_phiFy_Lx, transport_phiFy_Ly, transport_phiFy_Lz,
+    transport_phiFy_Rx, transport_phiFy_Ry, transport_phiFy_Rz
+} "Per-direction left/right limiter phi values for the y-radiation-flux component"
+
 CCTK_REAL transport_saw_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     transport_sawN_Lx, transport_sawN_Ly, transport_sawN_Lz,
@@ -360,6 +417,12 @@ CCTK_REAL transport_saw_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkp
     transport_sawE_Rx, transport_sawE_Ry, transport_sawE_Rz
 } "Per-direction left/right sawtooth flags for the radiation energy density"
 
+CCTK_REAL transport_saw_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_sawFy_Lx, transport_sawFy_Ly, transport_sawFy_Lz,
+    transport_sawFy_Rx, transport_sawFy_Ry, transport_sawFy_Rz
+} "Per-direction left/right sawtooth flags for the y-radiation-flux component"
+
 CCTK_REAL transport_rhsdiv_N[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     transport_divN_x, transport_divN_y, transport_divN_z
@@ -369,6 +432,11 @@ CCTK_REAL transport_rhsdiv_E[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='che
 {
     transport_divE_x, transport_divE_y, transport_divE_z
 } "Per-direction transport divergence contribution to the radiation energy-density RHS"
+
+CCTK_REAL transport_rhsdiv_Fy[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_divFy_x, transport_divFy_y, transport_divFy_z
+} "Per-direction transport divergence contribution to the y-radiation-flux RHS"
 
 CCTK_REAL transport_trace_Ez TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
