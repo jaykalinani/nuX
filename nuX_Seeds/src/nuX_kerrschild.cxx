@@ -111,6 +111,8 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
   const GF3D2<const CCTK_REAL> gf_gyy(layout_vc, gyy);
   const GF3D2<const CCTK_REAL> gf_gyz(layout_vc, gyz);
   const GF3D2<const CCTK_REAL> gf_gzz(layout_vc, gzz);
+  const CCTK_REAL beam_y_width =
+      kerr_beam_y_width > 0.0 ? kerr_beam_y_width : kerr_beam_width;
 
   // Apply faces in THC order to get deterministic edge/corner precedence:
   // -X, +X, -Y, +Y, -Z, +Z.
@@ -119,14 +121,16 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
   // Y-face copy BCs read neighboring cells, and doing that while writing all
   // faces in one kernel causes boundary read/write races on GPU.
 
-  // -X: inject Kerr beam, vacuum outside beam window
-  grid.loop_int_device<1, 1, 1>(
+  // -X: inject Kerr beam, vacuum outside beam window. Cover both the
+  // adjacent interior boundary plane and the physical ghost layers so flux
+  // reconstruction sees the same analytic state on both sides of the boundary.
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        if (p.BI[0] != -1.0)
+        if (!(p.BI[0] == -1 || p.NI[0] < 0))
           return;
 
-        const bool in_beam = (fabs(p.y) <= kerr_beam_width) &&
+        const bool in_beam = (fabs(p.y) <= beam_y_width) &&
                              (p.z >= kerr_beam_position) &&
                              (p.z <= kerr_beam_position + kerr_beam_width);
         CCTK_REAL E_new = 0.0;
@@ -192,11 +196,11 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
         }
       });
 
-  // +X: vacuum
-  grid.loop_int_device<1, 1, 1>(
+  // +X: vacuum, including physical ghost layers.
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        if (p.BI[0] != 1.0)
+        if (!(p.BI[0] == 1 || p.NI[0] > 0))
           return;
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
@@ -213,10 +217,10 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
   const int jsrc_lo = nghy;
   for (int d = 0; d < nghy; ++d) {
     const int jdst = d;
-    grid.loop_int_device<1, 1, 1>(
+    grid.loop_all_device<1, 1, 1>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (p.BI[1] != -1.0 || p.j != jdst)
+          if (!(p.NI[1] < 0) || p.j != jdst)
             return;
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
             const int i4Db = layout_cc.linear(p.i, jdst, p.k, ig);
@@ -235,10 +239,10 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
   const int jsrc_hi = cctk_lsh[1] - nghy - 1;
   for (int d = 0; d < nghy; ++d) {
     const int jdst = cctk_lsh[1] - nghy + d;
-    grid.loop_int_device<1, 1, 1>(
+    grid.loop_all_device<1, 1, 1>(
         grid.nghostzones,
         [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-          if (p.BI[1] != 1.0 || p.j != jdst)
+          if (!(p.NI[1] > 0) || p.j != jdst)
             return;
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
             const int i4Db = layout_cc.linear(p.i, jdst, p.k, ig);
@@ -252,11 +256,11 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
         });
   }
 
-  // -Z: vacuum
-  grid.loop_int_device<1, 1, 1>(
+  // -Z: vacuum, including physical ghost layers.
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        if (p.BI[2] != -1.0)
+        if (!(p.BI[2] == -1 || p.NI[2] < 0))
           return;
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
@@ -268,11 +272,11 @@ extern "C" void nuX_Seeds_KerrInflow(CCTK_ARGUMENTS) {
         }
       });
 
-  // +Z: vacuum
-  grid.loop_int_device<1, 1, 1>(
+  // +Z: vacuum, including physical ghost layers.
+  grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
-        if (p.BI[2] != 1.0)
+        if (!(p.BI[2] == 1 || p.NI[2] > 0))
           return;
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);

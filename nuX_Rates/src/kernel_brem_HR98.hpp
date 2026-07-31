@@ -2,15 +2,15 @@
 // bns-nurates neutrino opacities code
 // Copyright(C) XXX, licensed under the YYY License
 // ================================================
-//! \file  kernel_brem.c
+//! \file  kernel_brem_HR98.hpp
 //  \brief contains bremsstrahlung kernels and associated helper functions
 //
 // Computation of nucleon-nucleon bremsstrahlung kernel using the analytic
 // fitting formula in Hannestad & Raffelt 1998, Apj, 507, 339
 // (https://iopscience.iop.org/article/10.1086/306303/pdf)
 
-#ifndef BNS_NURATES_INCLUDE_KERNEL_BREM_HPP_
-#define BNS_NURATES_INCLUDE_KERNEL_BREM_HPP_
+#ifndef BNS_NURATES_INCLUDE_KERNEL_BREM_HR98_HPP_
+#define BNS_NURATES_INCLUDE_KERNEL_BREM_HR98_HPP_
 
 #include "bns_nurates.hpp"
 #include "constants.hpp"
@@ -33,7 +33,7 @@
 CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremKernelS(BS_REAL x, BS_REAL y, BS_REAL eta_star)
 {
-    constexpr BS_REAL zero   = 0;
+    [[maybe_unused]] constexpr BS_REAL zero   = 0;
     constexpr BS_REAL one    = 1;
     constexpr BS_REAL two    = 2;
     constexpr BS_REAL three  = 3;
@@ -165,7 +165,7 @@ BS_REAL BremKernelS(BS_REAL x, BS_REAL y, BS_REAL eta_star)
 CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremKernelG(BS_REAL y, BS_REAL eta_star)
 {
-    constexpr BS_REAL zero       = 0;
+    [[maybe_unused]] constexpr BS_REAL zero       = 0;
     constexpr BS_REAL one        = 1;
     constexpr BS_REAL two        = 2;
     constexpr BS_REAL half       = 0.5;
@@ -392,124 +392,4 @@ MyKernelOutput BremKernelsLegCoeff(BremKernelParams* kernel_params,
     return brem_kernel;
 }
 
-CCTK_HOST CCTK_DEVICE inline
-void BremKernelsTable(const int n, BS_REAL* nu_array,
-                      GreyOpacityParams* grey_pars, M1MatrixKokkos2D* out)
-{
-    MyKernelOutput brem_ker;
-
-    grey_pars->kernel_pars.brem_kernel_params.l = 0;
-    grey_pars->kernel_pars.brem_kernel_params.use_NN_medium_corr =
-        grey_pars->opacity_pars.use_NN_medium_corr;
-
-    for (int i = 0; i < n; ++i)
-    {
-        for (int j = i; j < n; ++j)
-        {
-            // compute the brem kernels
-            grey_pars->kernel_pars.brem_kernel_params.omega       = nu_array[i];
-            grey_pars->kernel_pars.brem_kernel_params.omega_prime = nu_array[j];
-
-            brem_ker =
-                BremKernelsLegCoeff(&grey_pars->kernel_pars.brem_kernel_params,
-                                    &grey_pars->eos_pars);
-
-            out->m1_mat_em[0][i][j] = brem_ker.em[0];
-            out->m1_mat_em[0][j][i] = brem_ker.em[0];
-
-            out->m1_mat_ab[0][i][j] = brem_ker.abs[0];
-            out->m1_mat_ab[0][j][i] = brem_ker.abs[0];
-        }
-    }
-
-    return;
-}
-
-
-/* NN bremsstrahlung rates from BRT06 */
-
-
-// Bremsstrahlung fitting formula described in
-// A. Burrows et al. Nuclear Physics A 777 (2006) 356-394
-// * The factor 2.0778 is different from the paper 1.04 to account
-//   for the nuclear matrix element for one-pion exchange
-//   (Adam Burrows, private comm)
-CCTK_HOST CCTK_DEVICE inline
-BS_REAL QBrem_BRT06(const BS_REAL nb, const BS_REAL T, const BS_REAL xn,
-                    const BS_REAL xp)
-{
-    constexpr BS_REAL half               = 0.5;
-    constexpr BS_REAL twentyeight_thirds = 28. / 3.;
-    constexpr BS_REAL eleven_halves      = 5.5;
-    constexpr BS_REAL mb                 = kBS_Mb;
-
-    constexpr BS_REAL kBS_Brem_BRT06_Const = 2.0778e+02;
-    const BS_REAL rho                      = nb * mb; // mass density [g nm-3]
-    return kBS_Brem_BRT06_Const * half * kBS_MeV *
-           (POW2(xn) + POW2(xp) + twentyeight_thirds * xn * xp) * POW2(rho) *
-           pow(T, eleven_halves); // [MeV nm-3 s-1]
-}
-
-// Bremsstrahlung kernel from BRT06 Eq.(143) rewritten consistently
-// to fit within the framework of the present library
-CCTK_HOST CCTK_DEVICE inline
-MyKernelOutput BremKernelsBRT06(BremKernelParams* kernel_params,
-                                MyEOSParams* eos_pars)
-{
-    constexpr BS_REAL half = 0.5;
-
-    const BS_REAL omega       = kernel_params->omega;
-    const BS_REAL omega_prime = kernel_params->omega_prime;
-    const BS_REAL temp        = eos_pars->temp;
-
-    const BS_REAL x = half * (omega + omega_prime) / temp;
-    const BS_REAL q_nb =
-        QBrem_BRT06(eos_pars->nb, temp, eos_pars->yn, eos_pars->yp);
-
-    const BS_REAL tmp = kBS_HClight6FourPiSquared * kBS_Brem_C4BRT06 *
-                        (q_nb / POW7(temp)) * bessk1(x) / x;
-    const BS_REAL s_em  = tmp * SafeExp(-x);
-    const BS_REAL s_abs = tmp * SafeExp(x);
-
-    MyKernelOutput brem_kernel;
-    for (int idx = 0; idx < total_num_species; ++idx)
-    {
-        brem_kernel.abs[idx] = s_abs;
-        brem_kernel.em[idx]  = s_em;
-    }
-
-    return brem_kernel;
-}
-
-CCTK_HOST CCTK_DEVICE inline
-void BremKernelsTableBRT06(const int n, BS_REAL* nu_array,
-                           GreyOpacityParams* grey_pars, M1MatrixKokkos2D* out)
-{
-    MyKernelOutput brem_ker;
-
-    for (int i = 0; i < n; ++i)
-    {
-
-        for (int j = i; j < n; ++j)
-        {
-
-            // compute the brem kernels
-            grey_pars->kernel_pars.brem_kernel_params.omega       = nu_array[i];
-            grey_pars->kernel_pars.brem_kernel_params.omega_prime = nu_array[j];
-
-            brem_ker =
-                BremKernelsBRT06(&grey_pars->kernel_pars.brem_kernel_params,
-                                 &grey_pars->eos_pars);
-
-            out->m1_mat_em[0][i][j] = brem_ker.em[0];
-            out->m1_mat_em[0][j][i] = brem_ker.em[0];
-
-            out->m1_mat_ab[0][i][j] = brem_ker.abs[0];
-            out->m1_mat_ab[0][j][i] = brem_ker.abs[0];
-        }
-    }
-
-    return;
-}
-
-#endif // BNS_NURATES_INCLUDE_KERNEL_BREM_HPP_
+#endif // BNS_NURATES_INCLUDE_KERNEL_BREM_HR98_HPP_

@@ -26,6 +26,12 @@ using namespace EOSX;
 #define MAX_GROUPSPECIES 3
 #endif
 
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+rate_is_valid(CCTK_REAL const value, CCTK_REAL const max_abs) {
+  return isfinite(value) && value >= CCTK_REAL(0) &&
+         (max_abs < CCTK_REAL(0) || value <= max_abs);
+}
+
 extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcOpacity;
   DECLARE_CCTK_PARAMETERS;
@@ -209,6 +215,21 @@ extern "C" void nuX_M1_CalcOpacity(CCTK_ARGUMENTS) {
               coeffs.eta_0[ig] / nuX_ndens_conv * nuX_time_conv * out_fac;
           eta_1_loc[ig] =
               coeffs.eta[ig] / nuX_edens_conv * nuX_time_conv * out_fac;
+
+          if (!rate_is_valid(abs_0_loc[ig], opacity_rate_max) ||
+              !rate_is_valid(abs_1_loc[ig], opacity_rate_max) ||
+              !rate_is_valid(scat_1_loc[ig], opacity_rate_max) ||
+              !rate_is_valid(eta_0_loc[ig], opacity_rate_max) ||
+              !rate_is_valid(eta_1_loc[ig], opacity_rate_max)) {
+            abs_0_loc[ig] = 0.0;
+            abs_1_loc[ig] = 0.0;
+            scat_0_loc[ig] = 0.0;
+            scat_1_loc[ig] = 0.0;
+            kappa_0_loc[ig] = 0.0;
+            kappa_1_loc[ig] = 0.0;
+            eta_0_loc[ig] = 0.0;
+            eta_1_loc[ig] = 0.0;
+          }
         }
         /*---------------- ^^^ NuRates boilerplate ^^^ -------------*/
 

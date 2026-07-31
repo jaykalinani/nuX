@@ -2,14 +2,14 @@
 // bns-nurates neutrino opacities code
 // Copyright(C) XXX, licensed under the YYY License
 // ================================================
-//! \file distribution.h
+//! \file distribution.hpp
 //  \brief header file for distribution function reconstruction from M1
 //  parameters
 //         supports three different species: electron neutrino, electron
 //         anti-neutrino and mu/tau neutrino/antineutrino
 
-#ifndef BNS_NURATES_SRC_DISTRIBUTION_DISTRIBUTION_H_
-#define BNS_NURATES_SRC_DISTRIBUTION_DISTRIBUTION_H_
+#ifndef BNS_NURATES_SRC_DISTRIBUTION_DISTRIBUTION_HPP_
+#define BNS_NURATES_SRC_DISTRIBUTION_DISTRIBUTION_HPP_
 
 #include "bns_nurates.hpp"
 #include "constants.hpp"
@@ -52,10 +52,10 @@ CCTK_HOST CCTK_DEVICE inline
 void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                                 NuDistributionParams* out_distribution_pars)
 {
-    //constexpr BS_REAL zero         = 0;
+    // constexpr BS_REAL zero         = 0;
     constexpr BS_REAL one          = 1;
     constexpr BS_REAL three_halves = 1.5;
-    constexpr BS_REAL one_third    = 1. / 3.;
+    [[maybe_unused]] constexpr BS_REAL one_third    = 1. / 3.;
 
     constexpr BS_REAL twenty = 20;
     constexpr BS_REAL thirty = 30;
@@ -91,8 +91,9 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
 
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
-        const BS_REAL n   = fmax(1e-100, M1_pars->n[nuid]); // [nm^-3]
-        const BS_REAL J   = fmax(1e-100, M1_pars->J[nuid]); // [MeV nm^-3]
+        // Use ternary instead of fmax: fmax(floor, NaN) returns NaN on IEEE-compliant hardware (Intel SYCL).
+        const BS_REAL n   = (M1_pars->n[nuid] > 1e-100) ? M1_pars->n[nuid] : 1e-100; // [nm^-3]
+        const BS_REAL J   = (M1_pars->J[nuid] > 1e-100) ? M1_pars->J[nuid] : 1e-100; // [MeV nm^-3]
         const BS_REAL chi = M1_pars->chi[nuid];
 
         // BS_ASSERT(
@@ -162,8 +163,10 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
             out_distribution_pars->eta_t[nuid] = twenty;
         }
 
+        // Use ternary instead of fmin: fmin(NaN, x) = NaN on Intel SYCL.
         out_distribution_pars->eta_t[nuid] =
-            fmin(out_distribution_pars->eta_t[nuid], twenty);
+            (out_distribution_pars->eta_t[nuid] < twenty)
+                ? out_distribution_pars->eta_t[nuid] : twenty;
 
         out_distribution_pars->temp_t[nuid] =
             FDI_p2(out_distribution_pars->eta_t[nuid]) * J /
@@ -204,18 +207,19 @@ CCTK_HOST CCTK_DEVICE inline
 void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
                                NuDistributionParams* out_distribution_pars)
 {
-    constexpr BS_REAL zero      = 0;
+    [[maybe_unused]] constexpr BS_REAL zero      = 0;
     constexpr BS_REAL one       = 1;
     constexpr BS_REAL three     = 3;
     constexpr BS_REAL half      = 0.5;
-    constexpr BS_REAL one_third = 1. / 3.;
+    [[maybe_unused]] constexpr BS_REAL one_third = 1. / 3.;
 
     constexpr BS_REAL c_f = CONST_C_F;
 
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
-        const BS_REAL n   = fmax(1e-100, M1_pars->n[nuid]); // [nm^-3]
-        const BS_REAL J   = fmax(1e-100, M1_pars->J[nuid]); // [MeV nm^-3]
+        // Use ternary instead of fmax: fmax(floor, NaN) returns NaN on IEEE-compliant hardware (Intel SYCL).
+        const BS_REAL n   = (M1_pars->n[nuid] > 1e-100) ? M1_pars->n[nuid] : 1e-100; // [nm^-3]
+        const BS_REAL J   = (M1_pars->J[nuid] > 1e-100) ? M1_pars->J[nuid] : 1e-100; // [MeV nm^-3]
         const BS_REAL chi = M1_pars->chi[nuid];
 
         // BS_ASSERT(
@@ -251,7 +255,7 @@ NuDistributionParams NuEquilibriumParams(const MyEOSParams* eos_pars)
 {
     constexpr BS_REAL zero     = 0;
     constexpr BS_REAL one      = 1;
-    constexpr BS_REAL thousand = 1e3;
+    [[maybe_unused]] constexpr BS_REAL thousand = 1e3;
 
     constexpr BS_REAL c_f = CONST_C_F;
 
@@ -295,7 +299,7 @@ CCTK_HOST CCTK_DEVICE inline
 BS_REAL TotalNuF(const BS_REAL omega, const NuDistributionParams* distr_pars,
                  const int nuid)
 {
-    constexpr BS_REAL zero = 0;
+    [[maybe_unused]] constexpr BS_REAL zero = 0;
 
     BS_ASSERT(omega >= zero, "Neutrino energy is negative.");
     BS_ASSERT(nuid >= 0 && nuid < total_num_species,
@@ -390,7 +394,7 @@ inline MyQuadratureIntegrand NuNumber(NuDistributionParams* distr_pars)
  *
  * Computes this for three neutrino species
  */
-CCTK_HOST CCTK_DEVICE inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
+inline MyQuadratureIntegrand NuEnergyIntegrand(BS_REAL* x, void* p)
 {
     MyQuadratureIntegrand result = NuNumberIntegrand(x, p);
 
@@ -468,4 +472,4 @@ void ComputeM1DensitiesEq(const MyEOSParams* eos_pars,
     return;
 }
 
-#endif // BNS_NURATES_SRC_DISTRIBUTION_DISTRIBUTION_H_
+#endif // BNS_NURATES_SRC_DISTRIBUTION_DISTRIBUTION_HPP_

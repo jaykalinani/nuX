@@ -2,11 +2,11 @@
 // bns-nurates neutrino opacities code
 // Copyright(C) XXX, licensed under the YYY License
 // ================================================
-//! \file opacities.h
+//! \file formulas_beta_iso.hpp
 //  \brief header files for opacity functions
 
-#ifndef BNS_NURATES_SRC_OPACITIES_OPACITIES_H_
-#define BNS_NURATES_SRC_OPACITIES_OPACITIES_H_
+#ifndef BNS_NURATES_SRC_OPACITIES_OPACITIES_HPP_
+#define BNS_NURATES_SRC_OPACITIES_OPACITIES_HPP_
 
 #include "bns_nurates.hpp"
 #include "constants.hpp"
@@ -132,8 +132,8 @@ BS_REAL EtaPN(const BS_REAL nn, const BS_REAL np, const BS_REAL mu_hat,
  * Inputs:
  *    omega [MeV], mLep [MeV], muLep [MeV]
  * Outputs: j_x and 1/lambda_x for neutrino and antineutrino
- *    out[0]: c/lambda_nu [s^-1], out[1]: j_nu [s^-1], out[2]: c/lambda_anu [s^-1],
- * out[3]: j_anu [s^-1]
+ *    out[0]: c/lambda_nu [s^-1], out[1]: j_nu [s^-1], out[2]: c/lambda_anu
+ * [s^-1], out[3]: j_anu [s^-1]
  */
 CCTK_HOST CCTK_DEVICE inline
 void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
@@ -163,6 +163,8 @@ void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
 
     const BS_REAL nn = nb * yn; // Neutron number density [nm-3]
     const BS_REAL np = nb * yp; // Proton number density  [nm-3]
+    const bool low_density = opacity_pars->use_beta_low_density_fallback &&
+                             nb < opacity_pars->beta_low_density_nb_threshold;
 
     // Mean field corrections
     if (opacity_pars->use_dU)
@@ -176,8 +178,17 @@ void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
     Qprime = dQ + dU;     // [MeV], Eq.(79) in Hempel
     mu_np  = mu_hat - dU; // [MeV], Eq.(80,86) in Hempel
 
-    etanp = EtaNP(nn, np, mu_np, T); // Eq. (C14)
-    etapn = EtaPN(nn, np, mu_np, T);
+    if (low_density)
+    {
+        // Bruenn non-degenerate matter limit, as used by THC/WeakRates.
+        etanp = nn;
+        etapn = np;
+    }
+    else
+    {
+        etanp = EtaNP(nn, np, mu_np, T); // Eq. (C14)
+        etapn = EtaPN(nn, np, mu_np, T);
+    }
 
     // Phase space, recoil and weak magnetism correction
     if (opacity_pars->use_WM_ab)
@@ -218,7 +229,15 @@ void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
     out[1] =
         kBS_Beta_Const * etapn * (cap_term * fd_e + dec_term * (one - fd_p));
     // Neutrino absorptivity [s^-1]
-    out[0] = out[1] * SafeExp((omega - (mu_p + mu_lepton - mu_n)) / T);
+    if (low_density)
+    {
+        out[0] = kBS_Beta_Const * etanp *
+                 (cap_term * (one - fd_e) + dec_term * fd_p);
+    }
+    else
+    {
+        out[0] = out[1] * SafeExp((omega - (mu_p + mu_lepton - mu_n)) / T);
+    }
 
     // without detailed balance
     // out[0] = kAbsEmConst * etanp * (cap_term * (1. - fd_e) + dec_term *
@@ -260,7 +279,15 @@ void AbsOpacitySingleLep(const BS_REAL omega, OpacityParams* opacity_pars,
     out[3] =
         kBS_Beta_Const * etanp * (cap_term * fd_p + dec_term * (one - fd_e));
     // Antineutrino absorptivity [s^-1]
-    out[2] = out[3] * SafeExp((omega - (mu_n - mu_p - mu_lepton)) / T);
+    if (low_density)
+    {
+        out[2] = kBS_Beta_Const * etapn *
+                 (cap_term * (one - fd_p) + dec_term * fd_e);
+    }
+    else
+    {
+        out[2] = out[3] * SafeExp((omega - (mu_n - mu_p - mu_lepton)) / T);
+    }
 
     // without detailed balance
     // out[2] = kAbsEmConst * etapn * (cap_term * (1 - fd_p) + dec_term * fd_e);
@@ -340,48 +367,6 @@ MyOpacity StimAbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
     return abs_opacity;
 }
 
-CCTK_HOST CCTK_DEVICE inline
-void BetaOpacitiesTable(MyQuadrature* quad, MyEOSParams* eos_pars,
-                        OpacityParams* opacity_pars, BS_REAL t,
-                        M1MatrixKokkos2D* out)
-{
-    const int n = quad->nx;
-
-    MyOpacity beta_1, beta_2;
-
-    for (int i = 0; i < n; ++i)
-    {
-
-        beta_1 = StimAbsOpacity(t * quad->points[i], opacity_pars, eos_pars);
-        beta_2 = StimAbsOpacity(t / quad->points[i], opacity_pars, eos_pars);
-
-        for (int idx = 0; idx < total_num_species; ++idx)
-        {
-            out->m1_mat_ab[idx][0][i] = beta_1.abs[idx];
-            out->m1_mat_em[idx][0][i] = beta_1.em[idx];
-
-            out->m1_mat_ab[idx][0][n + i] = beta_2.abs[idx];
-            out->m1_mat_em[idx][0][n + i] = beta_2.em[idx];
-        }
-    }
-
-    return;
-}
-
-/*
-// (Anti)neutrino absorption on nucleons
-MyOpacity AbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
-                     MyEOSParams* eos_pars);
-
-// Stimulated absoption version
-MyOpacity StimAbsOpacity(const BS_REAL omega, OpacityParams* opacity_pars,
-                         MyEOSParams* eos_pars);
-
-// Build matrix for integration
-void BetaOpacitiesTable(MyQuadrature* quad, MyEOSParams* eos_pars,
-                        OpacityParams* opacity_pars, BS_REAL t, M1Matrix* out);
-
-*/
 /*===========================================================================*/
 
 // nu_scatt_iso.c
@@ -627,4 +612,4 @@ MyKernelQuantity BremOpacitiesFermi(MyQuadrature* quad,
                                     MyKernelParams* my_kernel_params);
 #endif // GSL_INCLUDES_H
 
-#endif // BNS_NURATES_SRC_OPACITIES_OPACITIES_H_
+#endif // BNS_NURATES_SRC_OPACITIES_OPACITIES_HPP_

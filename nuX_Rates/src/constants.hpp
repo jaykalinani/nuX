@@ -1,5 +1,5 @@
-#ifndef BNS_NURATES_SRC_CONSTANTS_H_
-#define BNS_NURATES_SRC_CONSTANTS_H_
+#ifndef BNS_NURATES_SRC_CONSTANTS_HPP_
+#define BNS_NURATES_SRC_CONSTANTS_HPP_
 
 #include "bns_nurates.hpp"
 
@@ -7,7 +7,7 @@
 // bns-nurates neutrino opacities code
 // Copyright(C) XXX, licensed under the YYY License
 // ================================================
-//! \file constants.h
+//! \file constants.hpp
 //  \brief constants used throughout the code
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,6 +32,9 @@
 inline constexpr double kBS_MeV_double = 1.6021766341182763e+8;
 inline constexpr BS_REAL kBS_MeV       = kBS_MeV_double;
 
+// erg to MeV
+inline constexpr double erg_to_MeV = 6.241509e+5;
+
 // fm^-3 to nm^-3
 inline constexpr BS_REAL nuX_ndens_conv = 1.0e9;
 
@@ -55,6 +58,7 @@ inline constexpr BS_REAL nuX_time_conv = 4.9257949707731345e-06;
 
 // CU to nm
 inline constexpr BS_REAL nuX_length_conv = 1476625038050.1248;
+
 
 ////////////////////////
 // PHYSICAL CONSTANTS //
@@ -246,7 +250,7 @@ inline constexpr BS_REAL kBS_MnGrams =
 inline constexpr BS_REAL kBS_MpGrams =
     kBS_Mp * kBS_MeV_double / POW2(kBS_Clight);
 
-// Proton mass in grams
+// MeV/c^2 to grams
 inline constexpr BS_REAL kBS_MeVtog = kBS_MeV_double / POW2(kBS_Clight);
 
 // Geometric mean of nucleon masses in grams
@@ -266,4 +270,4 @@ inline constexpr BS_REAL kBS_PiHalfToFiveHalves =
     3.09242868139914350627854469835251;
 
 
-#endif // BNS_NURATES_SRC_CONSTANTS_H_
+#endif // BNS_NURATES_SRC_CONSTANTS_HPP_

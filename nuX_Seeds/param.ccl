@@ -108,6 +108,11 @@ CCTK_REAL kerr_beam_width "Width of the beam used for the kerr test"
     (0:*) :: "Any positive number"
 } 0.5
 
+CCTK_REAL kerr_beam_y_width "Width of the beam in the y direction for the kerr test; 0 uses kerr_beam_width"
+{
+    0:* :: "Any non-negative number"
+} 0.0
+
 CCTK_REAL kerr_mask_radius "Excision radius for the Kerr Schild test"
 {
     0:* :: "Any non-negative number"

@@ -118,8 +118,8 @@ extern "C" void nuX_RatesToy_Calc(CCTK_ARGUMENTS) {
           printf("WMab = %i\n", my_grey_opacity_params.opacity_pars.use_WM_ab);
           printf("WMsc = %i\n", my_grey_opacity_params.opacity_pars.use_WM_sc);
           printf("decay = %i\n", my_grey_opacity_params.opacity_pars.use_decay);
-          printf("BRT brem = %i\n",
-                 my_grey_opacity_params.opacity_pars.use_BRT_brem);
+          printf("brem implementation = %i\n",
+                 (int)my_grey_opacity_params.opacity_pars.brem_implementation);
           printf("NN medium = %i\n",
                  my_grey_opacity_params.opacity_pars.use_NN_medium_corr);
           printf("neglect block = %i\n",

@@ -1,23 +1,17 @@
-#ifndef BNS_NURATES_SRC_INTEGRATION_INTEGRATION_H_
-#define BNS_NURATES_SRC_INTEGRATION_INTEGRATION_H_
+#ifndef BNS_NURATES_SRC_INTEGRATION_INTEGRATION_HPP_
+#define BNS_NURATES_SRC_INTEGRATION_INTEGRATION_HPP_
 
 //=================================================
 // bns-nurates neutrino opacities code
 // Copyright(C) XXX, licensed under the YYY License
 // ================================================
-//! \file  integration.h
+//! \file  integration.hpp
 //  \brief header file for all integration routines
 
 #include "bns_nurates.hpp"
 #include "functions.hpp"
 
 #define num_max_integrands 10
-
-// TODO: Don't hardcode this any more
-#define NUX_NX 10
-#define NUX_NY 1
-#define NUX_NZ 1
-#define DUMMY 3
 
 /* Generate Gauss-Legendre quadratures in [x1,x2].
  *
@@ -31,7 +25,7 @@
  *            This already contains metadata for the quadrature, the routine
  *            only populates the quadrature points and weights
  */
-CCTK_DEVICE CCTK_HOST inline void GaussLegendre(MyQuadrature* quad)
+inline void GaussLegendre(MyQuadrature* quad)
 {
     const double kEps = 1.0e-10; // 1.0e-14;
 
@@ -99,7 +93,7 @@ CCTK_DEVICE CCTK_HOST inline void GaussLegendre(MyQuadrature* quad)
  *    wtarray:  array of quadrature weights
  *    fnarray:  array of function values at corresponding quadrature positions
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 BS_REAL DoIntegration(const int n, const BS_REAL* wtarray,
                       const BS_REAL* fnarray)
 {
@@ -126,14 +120,12 @@ BS_REAL DoIntegration(const int n, const BS_REAL* wtarray,
  * x2 = 1. func: The function struct to be integrated t:    The value of points
  * at which to break the integral into two
  */
-CCTK_DEVICE CCTK_HOST inline BS_REAL GaussLegendreIntegrateZeroInf(MyQuadrature* quad,
+inline BS_REAL GaussLegendreIntegrateZeroInf(MyQuadrature* quad,
                                              MyFunction* func, BS_REAL t)
 {
 
-    // BS_REAL f1_x[quad->nx], f2_x[quad->nx], f_y[quad->ny], f_z[quad->nz];
-    // BS_REAL w_y[quad->ny], w_z[quad->nz];
-    BS_REAL f1_x[NUX_NX], f2_x[NUX_NX], f_y[NUX_NY], f_z[NUX_NZ];
-    BS_REAL w_y[NUX_NY], w_z[NUX_NZ];
+    BS_REAL f1_x[quad->nx], f2_x[quad->nx], f_y[quad->ny], f_z[quad->nz];
+    BS_REAL w_y[quad->ny], w_z[quad->nz];
     // var3d var = var3d_default;
     BS_REAL var[3];
 
@@ -178,46 +170,28 @@ CCTK_DEVICE CCTK_HOST inline BS_REAL GaussLegendreIntegrateZeroInf(MyQuadrature*
  *      the emissivities and absoptivities for e and points neutrinos (take care
  * of constant multiplications separately outside)
  */
-CCTK_DEVICE CCTK_HOST inline MyKernelQuantity
+inline MyKernelQuantity
 GaussLegendreIntegrateZeroInfSpecial(MyQuadrature* quad,
                                      MyFunctionSpecial* func, BS_REAL t)
 {
 
-    // BS_REAL f1_em_e[quad->nx], f2_em_e[quad->nx];   // emissivity e neutrino
-    // BS_REAL f1_abs_e[quad->nx], f2_abs_e[quad->nx]; // absoptivity e neutrino
-    // BS_REAL f1_em_x[quad->nx], f2_em_x[quad->nx]; // emissivity mu/tau neutrino
-    // BS_REAL f1_abs_x[quad->nx],
-    //     f2_abs_x[quad->nx]; // absorptivity mu/tau neutrino
+    BS_REAL f1_em_e[quad->nx], f2_em_e[quad->nx];   // emissivity e neutrino
+    BS_REAL f1_abs_e[quad->nx], f2_abs_e[quad->nx]; // absoptivity e neutrino
+    BS_REAL f1_em_x[quad->nx], f2_em_x[quad->nx]; // emissivity mu/tau neutrino
+    BS_REAL f1_abs_x[quad->nx],
+        f2_abs_x[quad->nx]; // absorptivity mu/tau neutrino
 
-    // BS_REAL f_em_e_y[quad->ny];  // emissivity e neutrino
-    // BS_REAL f_abs_e_y[quad->ny]; // absoptivity e neutrino
-    // BS_REAL f_em_x_y[quad->ny];  // emissivity mu/tau neutrino
-    // BS_REAL f_abs_x_y[quad->ny]; // absorptivity mu/tau neutrino
+    BS_REAL f_em_e_y[quad->ny];  // emissivity e neutrino
+    BS_REAL f_abs_e_y[quad->ny]; // absoptivity e neutrino
+    BS_REAL f_em_x_y[quad->ny];  // emissivity mu/tau neutrino
+    BS_REAL f_abs_x_y[quad->ny]; // absorptivity mu/tau neutrino
 
-    // BS_REAL f_em_e_z[quad->ny];  // emissivity e neutrino
-    // BS_REAL f_abs_e_z[quad->ny]; // absoptivity e neutrino
-    // BS_REAL f_em_x_z[quad->ny];  // emissivity mu/tau neutrino
-    // BS_REAL f_abs_x_z[quad->ny]; // absorptivity mu/tau neutrino
+    BS_REAL f_em_e_z[quad->ny];  // emissivity e neutrino
+    BS_REAL f_abs_e_z[quad->ny]; // absoptivity e neutrino
+    BS_REAL f_em_x_z[quad->ny];  // emissivity mu/tau neutrino
+    BS_REAL f_abs_x_z[quad->ny]; // absorptivity mu/tau neutrino
 
-    // BS_REAL w_y[quad->ny], w_z[quad->nz];
-    
-    BS_REAL f1_em_e[NUX_NX], f2_em_e[NUX_NX];   // emissivity e neutrino
-    BS_REAL f1_abs_e[NUX_NX], f2_abs_e[NUX_NX]; // absoptivity e neutrino
-    BS_REAL f1_em_x[NUX_NX], f2_em_x[NUX_NX]; // emissivity mu/tau neutrino
-    BS_REAL f1_abs_x[NUX_NX],
-        f2_abs_x[NUX_NX]; // absorptivity mu/tau neutrino
-
-    BS_REAL f_em_e_y[NUX_NY];  // emissivity e neutrino
-    BS_REAL f_abs_e_y[NUX_NY]; // absoptivity e neutrino
-    BS_REAL f_em_x_y[NUX_NY];  // emissivity mu/tau neutrino
-    BS_REAL f_abs_x_y[NUX_NY]; // absorptivity mu/tau neutrino
-
-    BS_REAL f_em_e_z[NUX_NY];  // emissivity e neutrino
-    BS_REAL f_abs_e_z[NUX_NY]; // absoptivity e neutrino
-    BS_REAL f_em_x_z[NUX_NY];  // emissivity mu/tau neutrino
-    BS_REAL f_abs_x_z[NUX_NY]; // absorptivity mu/tau neutrino
-
-    BS_REAL w_y[NUX_NY], w_z[NUX_NZ];
+    BS_REAL w_y[quad->ny], w_z[quad->nz];
     BS_REAL var[3];
 
     for (int k = 0; k < quad->nz; ++k)
@@ -248,11 +222,11 @@ GaussLegendreIntegrateZeroInfSpecial(MyQuadrature* quad,
                     f2_vals.abs_x / (quad->points[i] * quad->points[i]);
             }
             f_em_e_y[j]  = t * (DoIntegration(quad->nx, quad->w, f1_em_e) +
-                               DoIntegration(quad->nx, quad->w, f2_em_e));
+                                DoIntegration(quad->nx, quad->w, f2_em_e));
             f_abs_e_y[j] = t * (DoIntegration(quad->nx, quad->w, f1_abs_e) +
                                 DoIntegration(quad->nx, quad->w, f2_abs_e));
             f_em_x_y[j]  = t * (DoIntegration(quad->nx, quad->w, f1_em_x) +
-                               DoIntegration(quad->nx, quad->w, f2_em_x));
+                                DoIntegration(quad->nx, quad->w, f2_em_x));
             f_abs_x_y[j] = t * (DoIntegration(quad->nx, quad->w, f1_abs_x) +
                                 DoIntegration(quad->nx, quad->w, f2_abs_x));
             w_y[j]       = quad->w[quad->nx + j];
@@ -279,13 +253,13 @@ GaussLegendreIntegrateZeroInfSpecial(MyQuadrature* quad,
  *    quad: A properly populated Gauss-Laguerre quadrature struct
  *    func:    The function struct to be integrated
  */
-CCTK_DEVICE CCTK_HOST inline BS_REAL GaussLaguerreIntegrateZeroInf(MyQuadrature* quad,
+inline BS_REAL GaussLaguerreIntegrateZeroInf(MyQuadrature* quad,
                                              MyFunction* func)
 {
 
     constexpr BS_REAL zero = 0;
 
-    BS_REAL f[NUX_NX];
+    BS_REAL f[quad->nx];
 
     if (quad->alpha == zero)
     {
@@ -315,17 +289,17 @@ CCTK_DEVICE CCTK_HOST inline BS_REAL GaussLaguerreIntegrateZeroInf(MyQuadrature*
  * t:       the value at which to break the integral into two
  */
 // @TODO: rewrite loops in row-wise order
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand
+inline MyQuadratureIntegrand
 GaussLegendreIntegrateFixedSplit2D(MyQuadrature* quad, MyFunctionMultiD* func,
                                    BS_REAL t)
 {
 
     int num_integrands = func->my_quadrature_integrand.n;
 
-    BS_REAL f1_x[DUMMY][NUX_NX], f2_x[DUMMY][NUX_NX];
-    BS_REAL f1_y[DUMMY][NUX_NY], f2_y[DUMMY][NUX_NY];
+    BS_REAL f1_x[num_integrands][quad->nx], f2_x[num_integrands][quad->nx];
+    BS_REAL f1_y[num_integrands][quad->ny], f2_y[num_integrands][quad->ny];
 
-    BS_REAL w_y[NUX_NY];
+    BS_REAL w_y[quad->ny];
     BS_REAL var[2];
 
     MyQuadratureIntegrand f1_vals, f2_vals;
@@ -407,13 +381,13 @@ GaussLegendreIntegrateFixedSplit2D(MyQuadrature* quad, MyFunctionMultiD* func,
  * t:       the value at which to break the integral into two
  */
 // @TODO: rewrite loops in row-wise order
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand
+inline MyQuadratureIntegrand
 GaussLegendreIntegrateFixedSplit1D(MyQuadrature* quad, MyFunctionMultiD* func,
                                    BS_REAL t)
 {
 
     int num_integrands = func->my_quadrature_integrand.n;
-    BS_REAL f1_x[DUMMY][NUX_NX], f2_x[DUMMY][NUX_NX];
+    BS_REAL f1_x[num_integrands][quad->nx], f2_x[num_integrands][quad->nx];
     BS_REAL var[2];
 
     MyQuadratureIntegrand f1_vals, f2_vals;
@@ -455,17 +429,17 @@ GaussLegendreIntegrateFixedSplit1D(MyQuadrature* quad, MyFunctionMultiD* func,
  * func:    the function(s) to be integrated
  * t:       the value at which to break the integral into two
  */
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand GaussLegendreIntegrate2D(MyQuadrature* quad,
+inline MyQuadratureIntegrand GaussLegendreIntegrate2D(MyQuadrature* quad,
                                                       MyFunctionMultiD* func,
                                                       BS_REAL* tx, BS_REAL* ty)
 {
 
     int num_integrands = func->my_quadrature_integrand.n;
 
-    BS_REAL f1_x[DUMMY][NUX_NX], f2_x[DUMMY][NUX_NX];
-    BS_REAL f1_y[DUMMY][NUX_NY], f2_y[DUMMY][NUX_NY];
+    BS_REAL f1_x[num_integrands][quad->nx], f2_x[num_integrands][quad->nx];
+    BS_REAL f1_y[num_integrands][quad->ny], f2_y[num_integrands][quad->ny];
 
-    BS_REAL w_y[NUX_NY];
+    BS_REAL w_y[quad->ny];
     BS_REAL var[2];
 
     MyQuadratureIntegrand result;
@@ -533,7 +507,7 @@ CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand GaussLegendreIntegrate2D(MyQu
  * func:    the function(s) to be integrated
  * t:       the value at which to break the integral into two
  */
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 MyQuadratureIntegrand
 GaussLegendreIntegrate1D(MyQuadrature* quad, MyFunctionMultiD* func, BS_REAL* t)
 {
@@ -571,7 +545,7 @@ GaussLegendreIntegrate1D(MyQuadrature* quad, MyFunctionMultiD* func, BS_REAL* t)
     return result;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 MyQuadratureIntegrand
 GaussLegendreIntegrate2DMatrix(const MyQuadrature* quad,
                                const M1MatrixKokkos2D* mat, BS_REAL t)
@@ -631,7 +605,7 @@ GaussLegendreIntegrate2DMatrix(const MyQuadrature* quad,
 }
 
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 void GaussLegendreIntegrate2DMatrixForM1Coeffs(const MyQuadrature* quad,
                                                const M1MatrixKokkos2D* mat,
                                                BS_REAL t,
@@ -710,7 +684,7 @@ void GaussLegendreIntegrate2DMatrixForM1Coeffs(const MyQuadrature* quad,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 void GaussLegendreIntegrate2DMatrixForNEPS(const MyQuadrature* quad,
                                            const M1MatrixKokkos2D* mat,
                                            BS_REAL t,
@@ -793,7 +767,7 @@ void GaussLegendreIntegrate2DMatrixForNEPS(const MyQuadrature* quad,
     return;
 }
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 MyQuadratureIntegrand
 GaussLegendreIntegrate1DMatrix(const MyQuadrature* quad,
                                const int num_integrands,
@@ -828,7 +802,7 @@ GaussLegendreIntegrate1DMatrix(const MyQuadrature* quad,
 }
 
 
-CCTK_DEVICE CCTK_HOST inline
+CCTK_HOST CCTK_DEVICE inline
 void GaussLegendreIntegrate1DMatrixOnlyNumber(const MyQuadrature* quad,
                                               const int num_integrands,
                                               const BS_REAL mat[][BS_N_MAX],
@@ -875,14 +849,14 @@ void GaussLegendreIntegrate1DMatrixOnlyNumber(const MyQuadrature* quad,
  * quad:    must be a properly populated 1d quadrature generated from between
  * interval of integration func:    the function(s) to be integrated
  */
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand
+inline MyQuadratureIntegrand
 GaussLegendreIntegrate1DFiniteInterval(MyQuadrature* quad,
                                        MyFunctionMultiD* func, BS_REAL* t)
 {
     (void)t;
 
     int num_integrands = func->my_quadrature_integrand.n;
-    BS_REAL f_x[DUMMY][NUX_NX];
+    BS_REAL f_x[num_integrands][quad->nx];
     BS_REAL var[2];
     MyQuadratureIntegrand result;
 
@@ -912,17 +886,17 @@ GaussLegendreIntegrate1DFiniteInterval(MyQuadrature* quad,
  * quad:    must be a properly populated 2d quadrature generated from between
  * interval of integration func:    the function(s) to be integrated
  */
-CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand GaussLegendreIntegrate2DFiniteInterval(
+inline MyQuadratureIntegrand GaussLegendreIntegrate2DFiniteInterval(
     MyQuadrature* quad, MyFunctionMultiD* func, BS_REAL* tx, BS_REAL* ty)
 {
     (void)tx;
 
     int num_integrands = func->my_quadrature_integrand.n;
 
-    BS_REAL f1_x[DUMMY][NUX_NX];
-    BS_REAL f1_y[DUMMY][NUX_NY], f2_y[DUMMY][NUX_NY];
+    BS_REAL f1_x[num_integrands][quad->nx];
+    BS_REAL f1_y[num_integrands][quad->ny], f2_y[num_integrands][quad->ny];
 
-    BS_REAL w_y[NUX_NY];
+    BS_REAL w_y[quad->ny];
     BS_REAL var[2];
 
     MyQuadratureIntegrand result;
@@ -965,4 +939,4 @@ CCTK_DEVICE CCTK_HOST inline MyQuadratureIntegrand GaussLegendreIntegrate2DFinit
     return result;
 }
 
-#endif // BNS_NURATES_SRC_INTEGRATION_INTEGRATION_H_
+#endif // BNS_NURATES_SRC_INTEGRATION_INTEGRATION_HPP_

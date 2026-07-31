@@ -2,11 +2,11 @@
 // bns-nurates neutrino opacities code
 // Copyright(C) XXX, licensed under the YYY License
 // ================================================
-//! \file bns_nurates.h
+//! \file bns_nurates.hpp
 //  \brief essential data structures for the library
 
-#ifndef BNS_NURATES_SRC_BNS_NURATES_H_
-#define BNS_NURATES_SRC_BNS_NURATES_H_
+#ifndef BNS_NURATES_SRC_BNS_NURATES_HPP_
+#define BNS_NURATES_SRC_BNS_NURATES_HPP_
 
 #include <float.h>
 #include <math.h>
@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits>
+#include <type_traits>
 
 #define POW0(X) ((1))
 #define POW1(X) ((X))
@@ -105,8 +106,8 @@ struct MyQuadrature
     points[BS_N_MAX]; // points for the quadrature scheme (store points in the
                       // points direction, then y and z in one flat array)
     BS_REAL
-        w[BS_N_MAX]; // weights for the quadrature scheme (store points in the
-                     // points direction, then y and z in one flat array)
+    w[BS_N_MAX]; // weights for the quadrature scheme (store points in the
+                 // points direction, then y and z in one flat array)
 };
 typedef struct MyQuadrature MyQuadrature;
 __attribute__((unused)) static MyQuadrature quadrature_default = {.type =
@@ -309,6 +310,9 @@ struct MyOpacity
 };
 typedef struct MyOpacity MyOpacity;
 
+/* BremImpl enum: choice of bremsstrahlung implementation (device-compatible) */
+enum BremImpl { BREM_HR98 = 0, BREM_BRT06 = 1, BREM_GP19 = 2 };
+
 /* OpacityParams struct
  *
  * Store additional flags when computing opacities
@@ -320,8 +324,11 @@ struct OpacityParams
     bool use_WM_ab;  // flag for WM correction (and related) on absorption rates
     bool use_WM_sc;  // flag for WM correction (and related) on scattering rates
     bool use_decay;  // flag for inclusion of nucleon decay rates
-    bool use_BRT_brem; // flag for computing NN brem rates using BRT06 instead
-                       // of HR98
+    bool use_beta_low_density_fallback; // use Bruenn non-degenerate
+                                        // beta-process fallback at low density
+    BS_REAL beta_low_density_nb_threshold; // baryon number-density threshold [nm^-3]
+    BremImpl brem_implementation; // choice of brem implementation: BREM_HR98,
+                                  // BREM_BRT06 or BREM_GP19
     bool use_NN_medium_corr; // flag for inclusion of medium correction to HR98
                              // NN brem kernel as in Fischer16
     bool neglect_blocking;   // flag for neglecting blocking factor of
@@ -329,23 +336,27 @@ struct OpacityParams
 };
 typedef struct OpacityParams OpacityParams;
 __attribute__((unused)) static OpacityParams opacity_params_default_all = {
-    .use_dU             = true,
-    .use_dm_eff         = true,
-    .use_WM_ab          = true,
-    .use_WM_sc          = true,
-    .use_decay          = true,
-    .use_BRT_brem       = true,
-    .use_NN_medium_corr = true,
-    .neglect_blocking   = true};
+    .use_dU                       = true,
+    .use_dm_eff                   = true,
+    .use_WM_ab                    = true,
+    .use_WM_sc                    = true,
+    .use_decay                    = true,
+    .use_beta_low_density_fallback = true,
+    .beta_low_density_nb_threshold = 1.0e14,
+    .brem_implementation           = BREM_HR98,
+    .use_NN_medium_corr           = true,
+    .neglect_blocking             = true};
 __attribute__((unused)) static OpacityParams opacity_params_default_none = {
-    .use_dU             = false,
-    .use_dm_eff         = false,
-    .use_WM_ab          = false,
-    .use_WM_sc          = false,
-    .use_decay          = false,
-    .use_BRT_brem       = false,
-    .use_NN_medium_corr = false,
-    .neglect_blocking   = false};
+    .use_dU                       = false,
+    .use_dm_eff                   = false,
+    .use_WM_ab                    = false,
+    .use_WM_sc                    = false,
+    .use_decay                    = false,
+    .use_beta_low_density_fallback = true,
+    .beta_low_density_nb_threshold = 1.0e14,
+    .brem_implementation           = BREM_HR98,
+    .use_NN_medium_corr           = false,
+    .neglect_blocking             = false};
 
 /* ==================================================================================
  * M1 structures
@@ -437,6 +448,8 @@ typedef struct GreyOpacityParams GreyOpacityParams;
  * Stores the emissivity, absorption and scattering coefficients
  * for electron neutrino (nue), electron anti-neutrino (anue) and mu/tau
  * neutrinos (nux) as in Radice et al. (2022)
+ *
+ * NEPS is included in all the quantities (excluded kappa_s).
  */
 struct M1Opacities
 {
@@ -450,6 +463,36 @@ struct M1Opacities
     BS_REAL kappa_s[total_num_species]; // scattering coefficient
 };
 typedef struct M1Opacities M1Opacities;
+
+
+/* M1OpacitiesNonThermalSeparated struct
+ *
+ * Stores the emissivity, absorption and scattering coefficients
+ * for electron neutrino (nue), electron anti-neutrino (anue) and mu/tau
+ * neutrinos (nux) as in Radice et al. (2022)
+ *
+ * NEPS is treated separately from other reactions.
+ * NEPS is not considered for computation of number emissivity (eta_0)
+ * and absorsivity (kappa_0_a).
+ */
+struct M1OpacitiesNonThermalSeparated
+{
+    /* Number coefficients */
+    BS_REAL eta_0[total_num_species];     // number emissivity coefficient
+    BS_REAL kappa_0_a[total_num_species]; // number absorption coefficient
+
+    /* Energy coefficients */
+    BS_REAL eta_th[total_num_species];          // energy emissivity coefficient
+                                                // for thermal processes
+    BS_REAL eta_non_th[total_num_species];      // energy emissivity coefficient
+                                                // for non-thermal processes
+    BS_REAL kappa_a_th[total_num_species];      // energy absorption coefficient
+                                                // for thermal processes
+    BS_REAL kappa_a_non_th[total_num_species];  // energy absorption coefficient
+                                                // for thermal processes
+    BS_REAL kappa_s[total_num_species];         // scattering coefficient
+};
+typedef struct M1OpacitiesNonThermalSeparated M1OpacitiesNonThermalSeparated;
 
 
 /* M1Matrix struct
@@ -502,11 +545,10 @@ struct SpectralOpacities
 typedef struct SpectralOpacities SpectralOpacities;
 
 /* ==================================================================================
- * Additional tricks for CarpetX
+ * Additional Cactus/CarpetX state
  * ==================================================================================
  */
 
-// Define namespace to store global reaction params
 namespace nuX_Rates {
   extern OpacityFlags global_opac_flags;
   extern OpacityParams global_opac_params;
@@ -574,4 +616,4 @@ inline void BS_do_assert(const char* snippet, const char* file, int line,
 #endif
 
 
-#endif // BNS_NURATES_SRC_BNS_NURATES_H_
+#endif // BNS_NURATES_SRC_BNS_NURATES_HPP_

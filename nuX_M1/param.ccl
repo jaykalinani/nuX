@@ -180,6 +180,12 @@ REAL opacity_corr_fac_max "Maximum correction factor for optically thin regime" 
     (1.0:* :: "Any value larger than 1"
 } 3.0
 
+REAL opacity_rate_max "Maximum allowed absolute value for converted opacity and emissivity coefficients" STEERABLE=ALWAYS
+{
+    -1    :: "Disable this safety check"
+    (0:*  :: "Zero all rates for a species if any converted coefficient exceeds this value"
+} 1.0e30
+
 ###############################################################################
 # Special tricks
 ###############################################################################

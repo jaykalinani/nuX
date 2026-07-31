@@ -2,8 +2,8 @@
 // Created by maitraya on 6/2/23.
 //
 
-#ifndef BNS_NURATES_SRC_FUNCTIONS_FUNCTIONS_H_
-#define BNS_NURATES_SRC_FUNCTIONS_FUNCTIONS_H_
+#ifndef BNS_NURATES_SRC_FUNCTIONS_FUNCTIONS_HPP_
+#define BNS_NURATES_SRC_FUNCTIONS_FUNCTIONS_HPP_
 
 #include "bns_nurates.hpp"
 #include "constants.hpp"
@@ -66,7 +66,12 @@ void NRcatch(NRerror err)
 CCTK_HOST CCTK_DEVICE inline
 BS_REAL SafeExp(const BS_REAL x)
 {
-    return exp(fmin(fmax(x, kBS_ExpLowLim), kBS_ExpUppLim));
+    // Use ternary instead of fmin/fmax: on IEEE-compliant hardware (Intel SYCL),
+    // fmax(NaN, x) = NaN, so a NaN input would propagate through. With ternaries,
+    // (NaN > kBS_ExpLowLim) is false, so NaN is safely replaced by the lower bound.
+    const BS_REAL clamped_lo = (x > kBS_ExpLowLim) ? x : kBS_ExpLowLim;
+    const BS_REAL clamped    = (clamped_lo < kBS_ExpUppLim) ? clamped_lo : kBS_ExpUppLim;
+    return exp(clamped);
 }
 
 /*===========================================================================*/
@@ -192,7 +197,7 @@ const BS_REAL k1qq[]={1.0,1.125154514806458e1,4.427488496597630e1,
 1.857244676566022,2.538540887654872e-2};
 
 BS_REAL k1(const BS_REAL x) {
-    // Returns the modiﬁed Bessel function K1(x) for positive real x.
+    // Returns the modified Bessel function K1(x) for positive real x.
     if (x <= 1.0) {  // Use two rational approximations.
         const BS_REAL z=x*x;
         const BS_REAL term = poly(k1pi,4,z)*log(x)/poly(k1qi,2,1.-z);
@@ -203,7 +208,7 @@ BS_REAL k1(const BS_REAL x) {
     }
 }
 
-CCTK_HOST CCTK_DEVICE inline BS_REAL poly(const BS_REAL *cof, const int n, const BS_REAL x) {
+inline BS_REAL poly(const BS_REAL *cof, const int n, const BS_REAL x) {
     // Common code: Evaluate a polynomial.
     BS_REAL ans = cof[n];
     for (int i=n-1;i>=0;i--) ans = ans*x+cof[i];
@@ -263,7 +268,7 @@ static BS_REAL psics_data[23] = {
     -.000000000000023475, .000000000000004027,  -.000000000000000691,
     .000000000000000118,  -.000000000000000020};
 
-static ChebSeries psi_cs = {psics_data, 22, -1, 1, 17};
+[[maybe_unused]] static ChebSeries psi_cs = {psics_data, 22, -1, 1, 17};
 
 static BS_REAL apsics_data[16] = {
     -.0204749044678185, -.0101801271534859, .0000559718725387,
@@ -273,7 +278,7 @@ static BS_REAL apsics_data[16] = {
     .0000000000000045,  -.0000000000000009, .0000000000000002,
     -.0000000000000000};
 
-static ChebSeries apsi_cs = {apsics_data, 15, -1, 1, 9};
+[[maybe_unused]] static ChebSeries apsi_cs = {apsics_data, 15, -1, 1, 9};
 
 // Evaluation of the Chebyshev series cs at a given point x
 CCTK_HOST CCTK_DEVICE inline
@@ -3090,10 +3095,10 @@ BS_REAL FDI_p132(const BS_REAL x)
     BS_REAL ex, t, w, s;
     BS_REAL fd = 0.;
 
-    constexpr BS_REAL A[7]  = {1871.25430579778835,      10.2714824358192133,
-                               0.0648393897767320738,    0.000971410002224865156,
-                               0.0000232470542763426993, 7.41058598210549775e-7,
-                               3.37424008840868627e-8};
+    constexpr BS_REAL A[7] = {1871.25430579778835,      10.2714824358192133,
+                              0.0648393897767320738,    0.000971410002224865156,
+                              0.0000232470542763426993, 7.41058598210549775e-7,
+                              3.37424008840868627e-8};
     constexpr BS_REAL B[15] = {
         2.94504307654357499e6, 1.72142318914178000e6, 302664.670131641659,
         -4392.91160671565775,  1886.14265293074511,   5292.33536016064607,
@@ -3623,9 +3628,9 @@ BS_REAL FDI_p172(const BS_REAL x)
     BS_REAL ex, t, w, s;
     BS_REAL fd = 0.;
 
-    constexpr BS_REAL A[6]  = {119292.461994609007,      164.281538211493590,
-                               0.465418918711191171,     0.00397356161994318188,
-                               0.0000615968461595874662, 1.50191715167058393e-6};
+    constexpr BS_REAL A[6] = {119292.461994609007,      164.281538211493590,
+                              0.465418918711191171,     0.00397356161994318188,
+                              0.0000615968461595874662, 1.50191715167058393e-6};
     constexpr BS_REAL B[13] = {
         1.43233835112073902e8, 1.39644553704144873e8, 6.13766014358067700e7,
         1.56246791599180488e7, 2.43295219093432312e6, 218176.915876999296,
@@ -4455,7 +4460,7 @@ BS_REAL Gammln(const BS_REAL xx)
 CCTK_HOST CCTK_DEVICE inline
 BS_REAL GammaStirling(const BS_REAL x)
 {
-    constexpr BS_REAL zero  = 0;
+    [[maybe_unused]] constexpr BS_REAL zero  = 0;
     constexpr BS_REAL e     = 2.718281828459045235360287471352;
     constexpr BS_REAL twopi = 6.283185307179586;
 
@@ -4480,7 +4485,7 @@ BS_REAL W0(const BS_REAL x)
     constexpr BS_REAL zero = 0;
     constexpr BS_REAL one  = 1;
     constexpr BS_REAL e    = 2.718281828459045235360287471352;
-    constexpr BS_REAL ie   = one / e;
+    [[maybe_unused]] constexpr BS_REAL ie   = one / e;
     BS_REAL beta;
 
     BS_ASSERT(x > -ie);
@@ -4566,7 +4571,7 @@ BS_REAL MNewt1d(BS_REAL guess, BS_REAL x1, BS_REAL x2, BS_REAL f0,
     }
 
     BS_REAL rts   = guess; // 0.5*(x1+x2);  // Initialize the guess for root,
-    BS_REAL dxold = fabs(x2 - x1); // the “stepsize before last,”
+    BS_REAL dxold = fabs(x2 - x1); // the "stepsize before last,"
     BS_REAL dx    = dxold;         // and the last step.
 
     BS_REAL f  = func->function(&rts, func->params) - f0;
@@ -4596,8 +4601,8 @@ BS_REAL MNewt1d(BS_REAL guess, BS_REAL x1, BS_REAL x2, BS_REAL f0,
         if (fabs(dx) < xacc_1d)
             return rts; // Convergence criterion.
 
-        f = func->function(&rts, func->params) -
-            f0; // The one new function evaluation per iteration.
+        f  = func->function(&rts, func->params) -
+             f0; // The one new function evaluation per iteration.
         df = dfunc->function(&rts, dfunc->params);
 
         if (f < zero)
@@ -4810,4 +4815,4 @@ void FreeM1Matrix(M1Matrix* mat, const int n)
 
     return;
 }
-#endif // BNS_NURATES_SRC_FUNCTIONS_FUNCTIONS_H_
+#endif // BNS_NURATES_SRC_FUNCTIONS_FUNCTIONS_HPP_
