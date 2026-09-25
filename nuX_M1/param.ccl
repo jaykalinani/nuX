@@ -97,7 +97,7 @@ REAL rad_E_floor "Radiation energy density floor" STEERABLE=ALWAYS
 
 REAL rad_eps "Impose F_a F^a < (1 - rad_E_eps) E2" STEERABLE=ALWAYS
 {
-    0:* :: "Any non negative number"
+    [0:1) :: "Fractional margin below the realizability bound"
 } 1.0e-5
 
 REAL source_epsabs "Target absolute precision for the nonlinear solver" STEERABLE=ALWAYS
