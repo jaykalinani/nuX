@@ -679,6 +679,13 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
                nuX_Utils::roots::code(nuX_Utils::roots::status::continue_iter) &&
            iter < closure_maxiter);
 
+  // Reaching the budget is a failure only if the configured interval test is
+  // still asking for another iteration.  Convergence on the last allowed
+  // iteration remains valid.
+  if (test_status ==
+      nuX_Utils::roots::code(nuX_Utils::roots::status::continue_iter))
+    solver_failed = true;
+
   if (solver_failed) {
     closure_abort_if_no_fallback(use_fallback);
     *chi = fallback_chi();
