@@ -198,7 +198,6 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
   // Clamp every generated seed before its first residual/Jacobian evaluation.
   x1[0] = fmin(fmax(x0[0], min_T), max_T);
   x1[1] = fmin(fmax(x0[1], min_Y), max_Y);
-  bool KKT = false;
 
   // compute the initial residuals
   CCTK_REAL y[2] = {0.0};
@@ -212,13 +211,10 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
   CCTK_REAL J[2][2] = {0.0};
   CCTK_REAL invJ[2][2] = {0.0};
   CCTK_REAL dx1[2] = {0.0};
-  CCTK_REAL dxa[2] = {0.0};
-  CCTK_REAL norm[2] = {0.0};
-  CCTK_REAL x1_tmp[2] = {0.0};
 
   // loop until a low enough residual is found or until  a too
   // large number of steps has been performed
-  while (err > nu_2DNR_eps_lim && n_iter <= nu_2DNR_n_max && !KKT) {
+  while (err > nu_2DNR_eps_lim && n_iter <= nu_2DNR_n_max) {
     // compute the Jacobian
     ierr = jacobi_eq_weak(rho, n, particle_mass, e, Yle, x1, J, tabeos);
     if (ierr != 0) {
@@ -239,75 +235,44 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
     dx1[0] = -(invJ[0][0] * y[0] + invJ[0][1] * y[1]);
     dx1[1] = -(invJ[1][0] * y[0] + invJ[1][1] * y[1]);
 
-    // check if we are the boundary of the table
-    if (x1[0] == min_T) {
-      norm[0] = -1.0;
-    } else if (x1[0] == max_T) {
-      norm[0] = 1.0;
-    } else {
-      norm[0] = 0.0;
-    }
+    // Suppress only components that point out of the EOS box.  An inward
+    // direction at an active bound remains admissible.
+    if ((x1[0] <= min_T && dx1[0] < 0.0) ||
+        (x1[0] >= max_T && dx1[0] > 0.0))
+      dx1[0] = 0.0;
+    if ((x1[1] <= min_Y && dx1[1] < 0.0) ||
+        (x1[1] >= max_Y && dx1[1] > 0.0))
+      dx1[1] = 0.0;
 
-    if (x1[1] == min_Y) {
-      norm[1] = -1.0;
-    } else if (x1[1] == max_Y) {
-      norm[1] = 1.0;
-    } else {
-      norm[1] = 0.0;
-    }
+    if (dx1[0] == 0.0 && dx1[1] == 0.0)
+      return 2;
 
-    // Take the part of the gradient that is active (pointing within the eos
-    // domain)
-    CCTK_REAL scal = norm[0] * norm[0] + norm[1] * norm[1];
-    if (scal <= 0.5) { // this can only happen if norm = (0, 0)
-      scal = 1.0;
-    }
-    dxa[0] = dx1[0] - (dx1[0] * norm[0] + dx1[1] * norm[1]) * norm[0] / scal;
-    dxa[1] = dx1[1] - (dx1[0] * norm[0] + dx1[1] * norm[1]) * norm[1] / scal;
-
-    if ((dxa[0] * dxa[0] + dxa[1] * dxa[1]) <
-        (nu_2DNR_eps_lim * nu_2DNR_eps_lim *
-         (dx1[0] * dx1[0] + dx1[1] * dx1[1]))) {
-      KKT = true;
-      ierr = 2;
-      return ierr;
-    }
-
-    int n_cut = 0;
+    // Every backtracking trial must start from the same accepted base point.
+    // Do not commit a rejected trial to x1.
+    const CCTK_REAL base[2] = {x1[0], x1[1]};
+    const CCTK_REAL err_old = err;
+    bool accepted = false;
     CCTK_REAL fac_cut = 1.0;
-    CCTK_REAL err_old = err;
-
-    while (n_cut <= nu_bis_n_cut_max && err >= err_old) {
-      // the variation of x1 is divided by an powers of 2 if the
-      // error is not decreasing along the gradient direction
-
-      x1_tmp[0] = x1[0] + (dx1[0] * fac_cut);
-      x1_tmp[1] = x1[1] + (dx1[1] * fac_cut);
-
-      // check if the next step calculation had problems
-      if (isnan(x1_tmp[0])) {
-        ierr = 1;
-        return ierr;
+    for (int n_cut = 0; n_cut <= nu_bis_n_cut_max;
+         ++n_cut, fac_cut *= 0.5) {
+      CCTK_REAL trial[2] = {
+          fmin(fmax(base[0] + dx1[0] * fac_cut, min_T), max_T),
+          fmin(fmax(base[1] + dx1[1] * fac_cut, min_Y), max_Y)};
+      CCTK_REAL trial_y[2] = {0.0};
+      func_eq_weak(rho, n, particle_mass, e, Yle, trial, trial_y, tabeos);
+      const CCTK_REAL trial_err = error_func_eq_weak(Yle, e, trial_y);
+      if (trial_err < err_old) {
+        x1[0] = trial[0];
+        x1[1] = trial[1];
+        y[0] = trial_y[0];
+        y[1] = trial_y[1];
+        err = trial_err;
+        accepted = true;
+        break;
       }
-
-      // tabBoundsFlag = enforceTableBounds(rho, x1_tmp[0], x1_tmp[1]);
-      x1_tmp[0] = fmin(fmax(x1_tmp[0], min_T), max_T);
-      x1_tmp[1] = fmin(fmax(x1_tmp[1], min_Y), max_Y);
-
-      // assign the new point
-      x1[0] = x1_tmp[0];
-      x1[1] = x1_tmp[1];
-
-      // compute the residuals for the new point
-      func_eq_weak(rho, n, particle_mass, e, Yle, x1, y, tabeos);
-
-      // compute the error
-      err = error_func_eq_weak(Yle, e, y);
-
-      // update the bisection cut along the gradient
-      n_cut += 1;
-      fac_cut *= 0.5;
     }
+    if (!accepted)
+      return 2;
 
     // update the iteration
     n_iter += 1;
