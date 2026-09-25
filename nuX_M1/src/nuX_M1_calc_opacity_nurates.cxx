@@ -245,7 +245,10 @@ extern "C" void nuX_M1_CalcOpacityNuRates(CCTK_ARGUMENTS) {
           CCTK_REAL etot = epsL;
 
           for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-            etot += rJ[layout_cc.linear(p.i, p.j, p.k, ig)];
+            // rJ is a densitized energy density.  Undensitize it and divide
+            // by the matter density to match the EOS specific energy.
+            etot += rJ[layout_cc.linear(p.i, p.j, p.k, ig)] /
+                    (volformL * rhoL);
           }
 
           // TODO: Change BetaEq call to accept more lepton fractions if 4
@@ -253,8 +256,9 @@ extern "C" void nuX_M1_CalcOpacityNuRates(CCTK_ARGUMENTS) {
           CCTK_REAL ylep_e = yeL - (nudens_0[0] - nudens_0[1]) / nbL;
           CCTK_REAL temp_trap = tempL;
           CCTK_REAL ye_trap = yeL;
-          int ierr = BetaEquilibriumTrapped(rhoL, nbL, etot, ylep_e, temp_trap,
-                                            ye_trap, tempL, yeL, eos_3p);
+          int ierr = BetaEquilibriumTrapped(rhoL, nbL, particle_mass, etot,
+                                            ylep_e, temp_trap, ye_trap, tempL,
+                                            yeL, eos_3p);
           // ierr = WeakEquilibrium(
           //         rho[ijk], temperature[ijk], Y_e[ijk],
           //         nudens_0[0], nudens_0[1], nudens_0[2],
@@ -265,8 +269,9 @@ extern "C" void nuX_M1_CalcOpacityNuRates(CCTK_ARGUMENTS) {
           if (ierr) {
             // Try to recompute the weak equilibrium using neglecting
             // current neutrino data
-            ierr = BetaEquilibriumTrapped(rhoL, nbL, epsL, yeL, temp_trap,
-                                          ye_trap, tempL, yeL, eos_3p);
+            ierr = BetaEquilibriumTrapped(rhoL, nbL, particle_mass, epsL, yeL,
+                                          temp_trap, ye_trap, tempL, yeL,
+                                          eos_3p);
             // ierr = WeakEquilibrium(
             //         rho[ijk], temperature[ijk], Y_e[ijk],
             //         0.0, 0.0, 0.0, 0.0, 0.0, 0.0,

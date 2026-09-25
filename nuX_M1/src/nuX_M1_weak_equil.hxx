@@ -4,6 +4,10 @@
 
 namespace nuX_M1 {
 
+// The equilibrium energy equation uses EOS specific energy throughout.  The
+// analytic neutrino energy density (MeV fm^-3) is converted to specific energy
+// by dividing by the baryon density (fm^-3) and baryon mass (MeV).
+
 // Set constants
 const CCTK_REAL nu_2DNR_eps_lim = 1.e-7;
 const int nu_2DNR_n_max = 100;
@@ -97,8 +101,9 @@ eta_e_gradient(CCTK_REAL rho, CCTK_REAL T, CCTK_REAL *Y, CCTK_REAL eta,
 
 template <typename EOSType>
 CCTK_DEVICE inline int
-jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq, CCTK_REAL Yle,
-               CCTK_REAL x[2], CCTK_REAL J[2][2], const EOSType *tabeos) {
+jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
+               CCTK_REAL e_eq, CCTK_REAL Yle, CCTK_REAL x[2],
+               CCTK_REAL J[2][2], const EOSType *tabeos) {
   int ierr = 0;
 
   CCTK_REAL T = x[0];
@@ -134,19 +139,23 @@ jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq, CCTK_REAL Yle,
   J[0][1] = 1.e0 + nu_n_prefactor / n * T3 * (pi2 + 3.e0 * eta2) * detadye;
 
   J[1][0] =
-      (dedt + nu_e_prefactor * T3 *
+      (dedt + nu_e_prefactor / (n * particle_mass) * T3 *
                   (nu_7pi4_15 + nu_14pi4_15 + 2.e0 * eta2 * (pi2 + 0.5 * eta2) +
                    eta * T * (pi2 + eta2) * detadt)) /
       e_eq;
-  J[1][1] = (dedye + nu_e_prefactor * T3 * eta * (pi2 + eta2) * detadye) / e_eq;
+  J[1][1] =
+      (dedye + nu_e_prefactor / (n * particle_mass) * T3 * eta *
+                   (pi2 + eta2) * detadye) /
+      e_eq;
 
   return ierr;
 }
 
 template <typename EOSType>
-CCTK_DEVICE inline void func_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq,
-                                     CCTK_REAL Yle, CCTK_REAL x[2],
-                                     CCTK_REAL y[2], const EOSType *tabeos) {
+CCTK_DEVICE inline void
+func_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
+             CCTK_REAL e_eq, CCTK_REAL Yle, CCTK_REAL x[2], CCTK_REAL y[2],
+             const EOSType *tabeos) {
   CCTK_REAL T = x[0];
 
   CCTK_REAL Y[MAX_SPECIES] = {0.0};
@@ -162,7 +171,9 @@ CCTK_DEVICE inline void func_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq,
   y[0] = Y[0] + nu_n_prefactor * t3 * eta * (pi2 + eta2) / n - Yle;
   y[1] =
       (e + nu_e_prefactor * t4 *
-               ((nu_7pi4_60 + 0.5 * eta2 * (pi2 + 0.5 * eta2)) + nu_7pi4_30)) /
+               ((nu_7pi4_60 + 0.5 * eta2 * (pi2 + 0.5 * eta2)) +
+                nu_7pi4_30) /
+               (n * particle_mass)) /
           e_eq -
       1.0;
 
@@ -171,8 +182,9 @@ CCTK_DEVICE inline void func_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e_eq,
 
 template <typename EOSType>
 CCTK_DEVICE inline int
-trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yle,
-                         CCTK_REAL x0[2], CCTK_REAL x1[2],
+trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
+                         CCTK_REAL particle_mass, CCTK_REAL e,
+                         CCTK_REAL Yle, CCTK_REAL x0[2], CCTK_REAL x1[2],
                          const EOSType *tabeos) {
   int ierr = 1;
 
@@ -188,7 +200,7 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yle,
 
   // compute the initial residuals
   CCTK_REAL y[2] = {0.0};
-  func_eq_weak(rho, n, e, Yle, x1, y, tabeos);
+  func_eq_weak(rho, n, particle_mass, e, Yle, x1, y, tabeos);
 
   // compute the error from the residuals
   CCTK_REAL err = error_func_eq_weak(Yle, e, y);
@@ -206,7 +218,7 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yle,
   // large number of steps has been performed
   while (err > nu_2DNR_eps_lim && n_iter <= nu_2DNR_n_max && !KKT) {
     // compute the Jacobian
-    ierr = jacobi_eq_weak(rho, n, e, Yle, x1, J, tabeos);
+    ierr = jacobi_eq_weak(rho, n, particle_mass, e, Yle, x1, J, tabeos);
     if (ierr != 0) {
       return ierr;
     }
@@ -285,7 +297,7 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yle,
       x1[1] = x1_tmp[1];
 
       // compute the residuals for the new point
-      func_eq_weak(rho, n, e, Yle, x1, y, tabeos);
+      func_eq_weak(rho, n, particle_mass, e, Yle, x1, y, tabeos);
 
       // compute the error
       err = error_func_eq_weak(Yle, e, y);
@@ -312,9 +324,10 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yle,
 /// Y_eq given rho, e, and Yl
 template <typename EOSType>
 CCTK_DEVICE inline int
-BetaEquilibriumTrapped(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yl,
-                       CCTK_REAL &T_eq, CCTK_REAL &Y_eq, CCTK_REAL T_guess,
-                       CCTK_REAL Y_guess, const EOSType *tabeos) {
+BetaEquilibriumTrapped(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
+                       CCTK_REAL e, CCTK_REAL Yl, CCTK_REAL &T_eq,
+                       CCTK_REAL &Y_eq, CCTK_REAL T_guess, CCTK_REAL Y_guess,
+                       const EOSType *tabeos) {
   const int n_at = 16;
   CCTK_REAL vec_guess[n_at][2] = {
       {1.00e0, 1.00e0}, {0.90e0, 1.25e0}, {0.90e0, 1.10e0}, {0.90e0, 1.00e0},
@@ -334,7 +347,8 @@ BetaEquilibriumTrapped(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL e, CCTK_REAL Yl,
     x0[0] = vec_guess[na][0] * T_guess;
     x0[1] = vec_guess[na][1] * Y_guess;
 
-    ierr = trapped_equilibrium_2DNR(rho, n, e, Yl, x0, x1, tabeos);
+    ierr = trapped_equilibrium_2DNR(rho, n, particle_mass, e, Yl, x0, x1,
+                                    tabeos);
 
     na += 1;
   }

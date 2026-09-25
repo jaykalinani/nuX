@@ -198,18 +198,23 @@ extern "C" void nuX_M1_CalcOpacityWeakRates(CCTK_ARGUMENTS) {
               eos_3p->eps_from_rho_temp_ye(rhoL, tempL, yeL);
           CCTK_REAL etot = epsL;
           for (int ig = 0; ig < ng; ++ig) {
-            etot += rJ[layout_cc.linear(p.i, p.j, p.k, ig)];
+            // rJ is a densitized energy density.  Undensitize it and divide
+            // by the matter density to match the EOS specific energy.
+            etot += rJ[layout_cc.linear(p.i, p.j, p.k, ig)] /
+                    (volformL * rhoL);
           }
 
           const CCTK_REAL ylep_e =
               yeL - (nudens_0[0] - nudens_0[1]) / nbL;
           CCTK_REAL temp_trap = tempL;
           CCTK_REAL ye_trap = yeL;
-          int ierr = BetaEquilibriumTrapped(rhoL, nbL, etot, ylep_e, temp_trap,
-                                            ye_trap, tempL, yeL, eos_3p);
+          int ierr = BetaEquilibriumTrapped(rhoL, nbL, particle_mass, etot,
+                                            ylep_e, temp_trap, ye_trap, tempL,
+                                            yeL, eos_3p);
           if (ierr) {
-            ierr = BetaEquilibriumTrapped(rhoL, nbL, epsL, yeL, temp_trap,
-                                          ye_trap, tempL, yeL, eos_3p);
+            ierr = BetaEquilibriumTrapped(rhoL, nbL, particle_mass, epsL, yeL,
+                                          temp_trap, ye_trap, tempL, yeL,
+                                          eos_3p);
           }
 
           CCTK_REAL mu_p_trap, mu_n_trap, mu_e_trap;
