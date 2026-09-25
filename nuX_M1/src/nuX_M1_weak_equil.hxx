@@ -1,5 +1,7 @@
 #include "setup_eos.hxx"
 
+#include <limits>
+
 #define MAX_SPECIES 3
 
 namespace nuX_M1 {
@@ -34,8 +36,9 @@ const CCTK_REAL nu_14pi4_15 = 14.0 * pi4 / 15.0; // 14*pi**4/15 [-]
 /// Low level function for neutrino equilibrium, not intended for outside use
 CCTK_DEVICE inline CCTK_REAL error_func_eq_weak(CCTK_REAL Yle, CCTK_REAL e_eq,
                                                 CCTK_REAL y[2]) {
-  CCTK_REAL err = abs(y[0] / Yle) + abs(y[1] / 1.0);
-  return err;
+  const CCTK_REAL yle_scale = fmax(abs(Yle), CCTK_REAL(1.0e-12));
+  const CCTK_REAL err = fmax(abs(y[0]) / yle_scale, abs(y[1]));
+  return isfinite(err) ? err : std::numeric_limits<CCTK_REAL>::infinity();
 }
 
 CCTK_DEVICE inline void inv_jacobi(CCTK_REAL det, CCTK_REAL J[2][2],
@@ -90,7 +93,8 @@ eta_e_gradient(CCTK_REAL rho, CCTK_REAL T, CCTK_REAL *Y, CCTK_REAL eta,
   deta_dT = (dmu_l_dT - eta) / T; // [1/MeV] TODO: Check
   deta_dYe = dmu_l_dYe / T;       // [-]
 
-  if (isnan(deta_dT) || isnan(deta_dYe) || isnan(de_dT) || isnan(de_dYe)) {
+  if (!isfinite(deta_dT) || !isfinite(deta_dYe) || !isfinite(de_dT) ||
+      !isfinite(de_dYe)) {
     ierr = 1;
   } else {
     ierr = 0;
@@ -110,7 +114,7 @@ jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
   CCTK_REAL Y[MAX_SPECIES] = {0.0};
   Y[0] = x[1];
 
-  if (isnan(T)) {
+  if (!isfinite(T)) {
     ierr = 1;
     return ierr;
   }
@@ -119,7 +123,7 @@ jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
   CCTK_REAL eta = mu_l / T;
   CCTK_REAL eta2 = eta * eta;
 
-  if (isnan(eta)) {
+  if (!isfinite(eta)) {
     ierr = 1;
     return ierr;
   }
@@ -214,7 +218,10 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
 
   // loop until a low enough residual is found or until  a too
   // large number of steps has been performed
-  while (err > nu_2DNR_eps_lim && n_iter <= nu_2DNR_n_max) {
+  if (!isfinite(err))
+    return 1;
+
+  while (err > nu_2DNR_eps_lim && n_iter < nu_2DNR_n_max) {
     // compute the Jacobian
     ierr = jacobi_eq_weak(rho, n, particle_mass, e, Yle, x1, J, tabeos);
     if (ierr != 0) {
@@ -223,7 +230,7 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
 
     // compute and check the determinant of the Jacobian
     CCTK_REAL det = J[0][0] * J[1][1] - J[0][1] * J[1][0];
-    if (det == 0.0) {
+    if (!isfinite(det) || det == 0.0) {
       ierr = 1;
       return ierr;
     }
@@ -234,6 +241,8 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
     // compute the next step
     dx1[0] = -(invJ[0][0] * y[0] + invJ[0][1] * y[1]);
     dx1[1] = -(invJ[1][0] * y[0] + invJ[1][1] * y[1]);
+    if (!isfinite(dx1[0]) || !isfinite(dx1[1]))
+      return 1;
 
     // Suppress only components that point out of the EOS box.  An inward
     // direction at an active bound remains admissible.
@@ -261,7 +270,7 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
       CCTK_REAL trial_y[2] = {0.0};
       func_eq_weak(rho, n, particle_mass, e, Yle, trial, trial_y, tabeos);
       const CCTK_REAL trial_err = error_func_eq_weak(Yle, e, trial_y);
-      if (trial_err < err_old) {
+      if (isfinite(trial_err) && trial_err < err_old) {
         x1[0] = trial[0];
         x1[1] = trial[1];
         y[0] = trial_y[0];
@@ -278,7 +287,9 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
     n_iter += 1;
   }
 
-  if (n_iter <= nu_2DNR_n_max) {
+  if (isfinite(err) && err <= nu_2DNR_eps_lim && isfinite(x1[0]) &&
+      isfinite(x1[1]) && x1[0] >= min_T && x1[0] <= max_T &&
+      x1[1] >= min_Y && x1[1] <= max_Y) {
     ierr = 0;
   } else {
     ierr = 1;
