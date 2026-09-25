@@ -567,7 +567,8 @@ zFunction(double xi, void *params) {
 // Computes the closure in the lab frame with a rootfinding procedure
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 closure_abort_if_no_fallback(bool use_fallback) {
-  assert(use_fallback && "nuX_M1 closure failed and use_fallback=no");
+  if (!use_fallback)
+    device_abort();
 }
 
 // Computes the closure in the lab frame with a rootfinding procedure
