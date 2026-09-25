@@ -264,10 +264,11 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
 CCTK_HOST CCTK_DEVICE int prepare_closure(const arith_vector &q, Params *p,
                                           PreparedState *s) {
   SourceUpdateContext const &c = *p->ctx;
-  s->E = max(q(0), 0.0);
-  if (s->E < 0) {
+  if (!isfinite(q(0)) || !isfinite(q(1)) || !isfinite(q(2)) ||
+      !isfinite(q(3)) || q(0) < CCTK_REAL(0)) {
     return ROOTS_EBADFUNC;
   }
+  s->E = q(0);
   pack_F_d(-c.alp * c.n_u(1), -c.alp * c.n_u(2), -c.alp * c.n_u(3), q(1),
            q(2), q(3), &s->F_d);
   tensor::contract(c.g_uu, s->F_d, &s->F_u);
@@ -498,7 +499,8 @@ CCTK_HOST CCTK_DEVICE int source_update_nonstiff_attempt(
   arith_vector qold{ctx.Eold, ctx.Fold_d(1), ctx.Fold_d(2), ctx.Fold_d(3)};
 
   PreparedState state;
-  prepare(qold, &p, &state);
+  if (prepare(qold, &p, &state) != ROOTS_SUCCESS)
+    return NUX_M1_SOURCE_FAIL;
   explicit_update(&p, state, Enew, Fnew_d);
 
   const bool state_finite =
