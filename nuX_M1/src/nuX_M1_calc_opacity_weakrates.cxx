@@ -205,7 +205,7 @@ extern "C" void nuX_M1_CalcOpacityWeakRates(CCTK_ARGUMENTS) {
           }
 
           const CCTK_REAL ylep_e =
-              yeL - (nudens_0[0] - nudens_0[1]) / nbL;
+              yeL + (nudens_0[0] - nudens_0[1]) / nbL;
           CCTK_REAL temp_trap = tempL;
           CCTK_REAL ye_trap = yeL;
           int ierr = BetaEquilibriumTrapped(rhoL, nbL, particle_mass, etot,

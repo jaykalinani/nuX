@@ -253,7 +253,7 @@ extern "C" void nuX_M1_CalcOpacityNuRates(CCTK_ARGUMENTS) {
 
           // TODO: Change BetaEq call to accept more lepton fractions if 4
           // species are evolved
-          CCTK_REAL ylep_e = yeL - (nudens_0[0] - nudens_0[1]) / nbL;
+          CCTK_REAL ylep_e = yeL + (nudens_0[0] - nudens_0[1]) / nbL;
           CCTK_REAL temp_trap = tempL;
           CCTK_REAL ye_trap = yeL;
           int ierr = BetaEquilibriumTrapped(rhoL, nbL, particle_mass, etot,
