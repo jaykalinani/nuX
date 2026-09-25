@@ -579,14 +579,12 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
   if (ierr != ROOTS_SUCCESS) {
     failed = true;
   } else {
-    do {
-      if (iter < source_maxiter) {
-        ierr = nuX_Utils::roots::hybridsj_iterate(&solver, fn_nd_val, fn_nd_jac);
-        iter++;
-      }
+    while (iter < source_maxiter) {
+      ierr = nuX_Utils::roots::hybridsj_iterate(&solver, fn_nd_val, fn_nd_jac);
+      ++iter;
 
       if (ierr == ROOTS_ENOPROG || ierr == ROOTS_ENOPROGJ ||
-          ierr == ROOTS_EBADFUNC || iter >= source_maxiter) {
+          ierr == ROOTS_EBADFUNC) {
         failed = true;
         break;
       } else if (ierr != ROOTS_SUCCESS) {
@@ -597,12 +595,17 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
 
       ierr = nuX_Utils::roots::test_delta(solver.dx, solver.x, source_epsabs,
                                           source_epsrel);
-    } while (ierr == ROOTS_CONTINUE);
-
-    if (!failed && ierr != ROOTS_SUCCESS) {
-      assert(false && "Unexpected error in roots::test_delta");
-      failed = true;
+      if (ierr == ROOTS_SUCCESS)
+        break;
+      if (ierr != ROOTS_CONTINUE) {
+        assert(false && "Unexpected error in roots::test_delta");
+        failed = true;
+        break;
+      }
     }
+
+    if (!failed && ierr != ROOTS_SUCCESS)
+      failed = true;
   }
 
   if (failed) {
