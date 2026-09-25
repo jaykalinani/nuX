@@ -20,6 +20,19 @@ using namespace nuX_Utils;
 using namespace Loop;
 using namespace std;
 
+// Error reporting from inside accelerator kernels must remain effective when
+// assertions are compiled out.
+[[noreturn]] CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
+device_abort() {
+#if defined(__CUDA_ARCH__)
+  asm volatile("trap;");
+  while (true) {
+  }
+#else
+  __builtin_trap();
+#endif
+}
+
 enum closure_t : int {
   CLOSURE_EDDINGTON = 0,
   CLOSURE_KERSHAW = 1,

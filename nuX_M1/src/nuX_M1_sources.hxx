@@ -93,6 +93,13 @@ struct SourceUpdateContext {
   CCTK_REAL const kscat;
 };
 
+// A failed stiff solve must not be committed as a radiation or matter update.
+// This remains active in optimized builds, unlike assert().
+[[noreturn]] CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
+source_solver_abort() {
+  device_abort();
+}
+
 #ifdef NUX_M1_SOURCES_IMPLEMENTATION
 
 struct Params {

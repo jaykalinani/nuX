@@ -228,7 +228,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
                                   &Fnew_d, source_thick_limit,
                                   source_scat_limit, source_maxiter,
                                   source_epsabs, source_epsrel);
-          assert(source_status != NUX_M1_SOURCE_FAIL);
+          if (source_status == NUX_M1_SOURCE_FAIL)
+            source_solver_abort();
 
           apply_floor(g_uu, &Enew, &Fnew_d, rad_E_floor, rad_eps);
 
