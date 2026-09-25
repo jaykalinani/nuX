@@ -26,6 +26,16 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
   assert(method_type == PARAMETER_KEYWORD);
   const char *const method =
       *static_cast<const char *const *>(method_p);
+  const bool has_implicit_source =
+      CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
+      CCTK_Equals(method, "IMEX122") ||
+      CCTK_Equals(method, "Implicit Euler");
+  if (!has_implicit_source) {
+    CCTK_PARAMWARN(
+        "nuX_M1 collision terms require an implicit-capable ODESolvers "
+        "method (IMEX42L, IMEX32L, IMEX122, or Implicit Euler); "
+        "explicit-only methods omit the collision evolution");
+  }
   if ((CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L")) &&
       source_limiter >= 0) {
     CCTK_PARAMWARN("nuX_M1::source_limiter must be -1 with IMEX42L and "
