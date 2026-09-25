@@ -581,7 +581,21 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
   if (ierr != ROOTS_SUCCESS) {
     failed = true;
   } else {
-    while (iter < source_maxiter) {
+    // Accept an exact initial root before asking the hybrid solver to build a
+    // dogleg step.  Its step is correctly zero there, so iterating would only
+    // produce a zero-norm QR update.
+    bool converged = true;
+    for (int n = 0; n < 4; ++n) {
+      const CCTK_REAL scale =
+          source_epsabs + source_epsrel * abs(solver.x(n));
+      if (!(scale > CCTK_REAL(0)) || !isfinite(scale) ||
+          !isfinite(solver.f(n)) || abs(solver.f(n)) > scale) {
+        converged = false;
+        break;
+      }
+    }
+
+    while (!converged && iter < source_maxiter) {
       ierr = nuX_Utils::roots::hybridsj_iterate(&solver, fn_nd_val, fn_nd_jac);
       ++iter;
 
@@ -597,8 +611,10 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
 
       ierr = nuX_Utils::roots::test_delta(solver.dx, solver.x, source_epsabs,
                                           source_epsrel);
-      if (ierr == ROOTS_SUCCESS)
+      if (ierr == ROOTS_SUCCESS) {
+        converged = true;
         break;
+      }
       if (ierr != ROOTS_CONTINUE) {
         assert(false && "Unexpected error in roots::test_delta");
         failed = true;
@@ -606,7 +622,7 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
       }
     }
 
-    if (!failed && ierr != ROOTS_SUCCESS)
+    if (!failed && !converged)
       failed = true;
   }
 

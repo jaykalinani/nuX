@@ -966,6 +966,13 @@ hybridsj_iterate(hybridsj_solver<T, N> *const s, const F &f, const DF &df) {
     return detail::qr_decomp_unpack(s->J, &s->q, &s->r);
   }
 
+  // compute_wv normalizes its QR-update vectors by pnorm.  A zero dogleg
+  // step is a stagnation/convergence signal for the caller, not a valid rank-1
+  // update, and must never reach that division.
+  if (!(pnorm > T(0)) || !finite(pnorm)) {
+    return code(status::enoprog);
+  }
+
   detail::compute_qtf(s->q, s->df, &s->qtdf);
   detail::compute_wv(s->qtdf, s->rdx, s->dx, s->diag, pnorm, &s->w, &s->v);
 
