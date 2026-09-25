@@ -601,7 +601,10 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
                     E, F_d);
   auto fn = [&params](auto x) { return zFunction(x, &params); };
   auto fallback_chi = [&]() {
-    CCTK_REAL const z_ed = fn(CCTK_REAL(1.0 / 3.0));
+    // Score the exact endpoint tensors that can be returned.  xi=0 maps to
+    // chi=1/3 for the nonlinear closure families; fn(1/3) instead scores an
+    // intermediate pressure tensor and is not the Eddington candidate.
+    CCTK_REAL const z_ed = fn(CCTK_REAL(0.0));
     CCTK_REAL const z_th = fn(CCTK_REAL(1.0));
     if (isfinite(z_th) && isfinite(z_ed)) {
       return (abs(z_th) < abs(z_ed)) ? CCTK_REAL(1.0) : CCTK_REAL(1.0 / 3.0);
