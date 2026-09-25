@@ -77,12 +77,12 @@ eta_e_gradient(CCTK_REAL rho, CCTK_REAL T, CCTK_REAL *Y, CCTK_REAL eta,
   de_dYe = (e2 - e1) / (Y2[0] - Y1[0]);
 
   CCTK_REAL T1 = fmax(T - T_delta, min_T);
-  mu_l1 = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y1[0]);
-  e1 = tabeos->eps_from_rho_temp_ye(rho, T, Y1[0]);
+  mu_l1 = tabeos->mu_lepton_from_rho_temp_ye(rho, T1, Y[0]);
+  e1 = tabeos->eps_from_rho_temp_ye(rho, T1, Y[0]);
 
   CCTK_REAL T2 = fmin(T + T_delta, max_T);
-  mu_l2 = tabeos->mu_lepton_from_rho_temp_ye(rho, T, Y2[0]);
-  e2 = tabeos->eps_from_rho_temp_ye(rho, T, Y2[0]);
+  mu_l2 = tabeos->mu_lepton_from_rho_temp_ye(rho, T2, Y[0]);
+  e2 = tabeos->eps_from_rho_temp_ye(rho, T2, Y[0]);
 
   CCTK_REAL dmu_l_dT = (mu_l2 - mu_l1) / (T2 - T1);
   de_dT = (e2 - e1) / (T2 - T1);
@@ -132,7 +132,7 @@ jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
 
   CCTK_REAL T2 = T * T;
   CCTK_REAL T3 = T2 * T;
-  // CCTK_REAL T4 = T3*T;
+  CCTK_REAL T4 = T3 * T;
 
   J[0][0] = nu_n_prefactor / n * T2 *
             (3.e0 * eta * (pi2 + eta2) + T * (pi2 + 3.e0 * eta2) * detadt);
@@ -144,7 +144,7 @@ jacobi_eq_weak(CCTK_REAL rho, CCTK_REAL n, CCTK_REAL particle_mass,
                    eta * T * (pi2 + eta2) * detadt)) /
       e_eq;
   J[1][1] =
-      (dedye + nu_e_prefactor / (n * particle_mass) * T3 * eta *
+      (dedye + nu_e_prefactor / (n * particle_mass) * T4 * eta *
                    (pi2 + eta2) * detadye) /
       e_eq;
 
