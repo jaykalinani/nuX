@@ -194,8 +194,10 @@ trapped_equilibrium_2DNR(CCTK_REAL rho, CCTK_REAL n,
   const CCTK_REAL max_Y = tabeos->rgye.max;
 
   // initialize the solution
-  x1[0] = x0[0];
-  x1[1] = x0[1];
+  // Retry factors can place an otherwise valid guess outside the EOS table.
+  // Clamp every generated seed before its first residual/Jacobian evaluation.
+  x1[0] = fmin(fmax(x0[0], min_T), max_T);
+  x1[1] = fmin(fmax(x0[1], min_Y), max_Y);
   bool KKT = false;
 
   // compute the initial residuals
