@@ -27,9 +27,9 @@ STORAGE: fidu_w_lorentz
 
 STORAGE: chi
 
-STORAGE: rN_rhs
-STORAGE: rE_rhs
-STORAGE: rF_rhs
+STORAGE: rN_rhs[1]
+STORAGE: rE_rhs[1]
+STORAGE: rF_rhs[1]
 STORAGE: source_update_delta_N
 STORAGE: source_update_delta_E
 STORAGE: source_update_delta_F
