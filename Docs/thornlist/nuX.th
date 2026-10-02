@@ -162,6 +162,7 @@ CarpetX/ErrorEstimator
 CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
+CarpetX/TestODESolvers2
 CarpetX/TmunuBaseX
 CarpetX/Subcycling
 

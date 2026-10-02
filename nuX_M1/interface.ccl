@@ -97,12 +97,12 @@ CCTK_REAL fidu_w_lorentz TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Effecti
 
 CCTK_REAL chi[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "M1 closure coefficient"
 
-CCTK_REAL rN_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "RHS for the radiation number density"
+CCTK_REAL rN_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TIMELEVELS=4 TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "RHS for the radiation number density"
 
-CCTK_REAL rE_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "RHS for the radiation energy density"
+CCTK_REAL rE_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TIMELEVELS=4 TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "RHS for the radiation energy density"
 
 ##TODO: check for centering
-CCTK_REAL rF_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+CCTK_REAL rF_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TIMELEVELS=4 TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     rFx_rhs, rFy_rhs, rFz_rhs
 } "RHS for the radiation energy fluxes"

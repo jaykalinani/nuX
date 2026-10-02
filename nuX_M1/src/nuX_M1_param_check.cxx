@@ -29,11 +29,12 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
   const bool has_implicit_source =
       CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
       CCTK_Equals(method, "IMEX122") ||
-      CCTK_Equals(method, "Implicit Euler");
+      CCTK_Equals(method, "Implicit Euler") ||
+      CCTK_Equals(method, "RK42-IMEX");
   if (!has_implicit_source) {
     CCTK_PARAMWARN(
         "nuX_M1 collision terms require an implicit-capable ODESolvers "
-        "method (IMEX42L, IMEX32L, IMEX122, or Implicit Euler); "
+        "method (IMEX42L, IMEX32L, IMEX122, Implicit Euler, or RK42-IMEX); "
         "explicit-only methods omit the collision evolution");
   }
   if ((CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L")) &&
