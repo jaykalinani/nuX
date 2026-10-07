@@ -17,6 +17,9 @@ cp "$NUX_SCRIPTS/actions-$ACCELERATOR-$REAL_PRECISION.sub" \
     simfactory/mdb/submitscripts/
 cp "$NUX_SCRIPTS/defs.local.ini" simfactory/etc/
 cp "$NUX_SCRIPTS/nux.th" .
+# Keep unit-test infrastructure out of production executables.  CI uses a
+# private copy of the production ThornList and adds the test thorn there.
+printf '\nnuX/nuX_Tests\n' >>nux.th
 
 if command -v ccache >/dev/null 2>&1; then
     export CCACHE_DIR="${CCACHE_DIR:-$NUXSPACE/.ccache}"
