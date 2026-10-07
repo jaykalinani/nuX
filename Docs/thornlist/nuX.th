@@ -154,6 +154,7 @@ CarpetX/ADMBaseX
 CarpetX/Algo
 CarpetX/Arith
 CarpetX/BoxInBox
+CarpetX/BHClusterTagging
 CarpetX/CarpetX
 CarpetX/CarpetXRegrid
 CarpetX/CoordinatesX
@@ -163,7 +164,6 @@ CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
 CarpetX/TmunuBaseX
-CarpetX/Subcycling
 
 # SpacetimeX thorns
 !TARGET   = $ARR
@@ -182,9 +182,11 @@ SpacetimeX/NewRadX
 SpacetimeX/TestNewRadX
 SpacetimeX/Punctures
 SpacetimeX/PunctureTracker
+SpacetimeX/QuasiLocalMeasures
 SpacetimeX/SphericalHarmonics
 SpacetimeX/SphericalSurface
 SpacetimeX/StaticTrumpet
+SpacetimeX/TGRtensor
 SpacetimeX/TwoPuncturesX
 SpacetimeX/Weyl
 SpacetimeX/WeylScal4
@@ -206,6 +208,40 @@ AsterX/EOSX
 AsterX/ID_TabEOS_HydroQuantities
 AsterX/ReconX
 AsterX/TOVSolverX
+
+# BNSTools thorns
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://github.com/jaykalinani/BNSTools.git
+!REPO_PATH= $2
+!REPO_BRANCH = dev
+!CHECKOUT =
+BNSTools/MeudonBNSX
+BNSTools/MHD_Diagnostics
+BNSTools/NRPyPlusTOVID
+BNSTools/Outflow
+BNSTools/RNSReader
+BNSTools/TriggerX
+BNSTools/VolumeIntegrals_GRMHDX
+BNSTools/VolumeIntegrals_vacuumX
+
+# BHClusterX thorn
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://github.com/jaykalinani/BHClusterX.git
+!REPO_PATH= $2
+!CHECKOUT =
+BHClusterX/BHCluster_Utils
+BHClusterX/BHClusterX
+
+# Particle apparent-horizon finder
+!TARGET   = $ARR
+!TYPE     = git
+!URL      = https://github.com/jaykalinani/ParticleAHFinderX.git
+!REPO_PATH= $2
+!REPO_BRANCH = main
+!CHECKOUT =
+ParticleAHFinderX/ParticleAHFinderX
 
 # nuX thorns
 !TARGET   = $ARR
