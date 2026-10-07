@@ -154,7 +154,6 @@ CarpetX/ADMBaseX
 CarpetX/Algo
 CarpetX/Arith
 CarpetX/BoxInBox
-CarpetX/BHClusterTagging
 CarpetX/CarpetX
 CarpetX/CarpetXRegrid
 CarpetX/CoordinatesX
@@ -224,24 +223,6 @@ BNSTools/RNSReader
 BNSTools/TriggerX
 BNSTools/VolumeIntegrals_GRMHDX
 BNSTools/VolumeIntegrals_vacuumX
-
-# BHClusterX thorn
-!TARGET   = $ARR
-!TYPE     = git
-!URL      = https://github.com/jaykalinani/BHClusterX.git
-!REPO_PATH= $2
-!CHECKOUT =
-BHClusterX/BHCluster_Utils
-BHClusterX/BHClusterX
-
-# Particle apparent-horizon finder
-!TARGET   = $ARR
-!TYPE     = git
-!URL      = https://github.com/jaykalinani/ParticleAHFinderX.git
-!REPO_PATH= $2
-!REPO_BRANCH = main
-!CHECKOUT =
-ParticleAHFinderX/ParticleAHFinderX
 
 # nuX thorns
 !TARGET   = $ARR
