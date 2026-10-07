@@ -29,7 +29,7 @@ void PairPsi(const int l, const BS_REAL y, const BS_REAL z, const BS_REAL eta,
     BS_ASSERT(l == 0);
 
     BS_ASSERT(isfinite(y) and y >= zero);
-    BS_ASSERT(isfinite(y) and z >= zero);
+    BS_ASSERT(isfinite(z) and z >= zero);
     BS_ASSERT(isfinite(eta));
 
     /* The check on eta is necessary because, if eta is very large, the electron
@@ -170,18 +170,28 @@ MyKernelOutput PairKernels(const MyEOSParams* eos_pars,
     constexpr BS_REAL half = 0.5;
 
     // EOS specific parameters
-    const BS_REAL T   = eos_pars->temp;
-    const BS_REAL eta = eos_pars->mu_e / T;
+    const BS_REAL T = eos_pars->temp;
 
     // kernel specific parameters
     const BS_REAL omega       = kernel_pars->omega;
     const BS_REAL omega_prime = kernel_pars->omega_prime;
 
+    MyKernelOutput pair_kernel = {0};
+    if (!isfinite(T) || T <= zero || !isfinite(eos_pars->mu_e) ||
+        !isfinite(omega) || omega <= zero || !isfinite(omega_prime) ||
+        omega_prime <= zero)
+    {
+        return pair_kernel;
+    }
+    const BS_REAL eta = eos_pars->mu_e / T;
+    if (!isfinite(eta))
+    {
+        return pair_kernel;
+    }
+
     BS_REAL pair_phi[4] = {zero};
 
     PairPhi(omega, omega_prime, 0, eta, T, pair_phi);
-
-    MyKernelOutput pair_kernel;
 
     pair_kernel.em[id_nue]  = half * pair_phi[0];
     pair_kernel.em[id_anue] = half * pair_phi[1];
@@ -190,8 +200,26 @@ MyKernelOutput PairKernels(const MyEOSParams* eos_pars,
 
     for (int idx = 0; idx < total_num_species; ++idx)
     {
-        pair_kernel.abs[idx] =
+        // Fermi-integral cancellation can leave a tiny negative production
+        // kernel in strongly blocked states. Repair production first, then
+        // obtain absorption from detailed balance.
+        pair_kernel.em[idx] =
+            isfinite(pair_kernel.em[idx]) && pair_kernel.em[idx] > zero
+                ? pair_kernel.em[idx]
+                : zero;
+        const BS_REAL absorption =
             SafeExp((omega + omega_prime) / T) * pair_kernel.em[idx];
+        if (isfinite(absorption))
+        {
+            pair_kernel.abs[idx] = absorption;
+        }
+        else
+        {
+            // Never pass a nonfinite kernel to the grey integration. Zeroing
+            // both directions preserves detailed balance.
+            pair_kernel.em[idx]  = zero;
+            pair_kernel.abs[idx] = zero;
+        }
     }
 
     return pair_kernel;

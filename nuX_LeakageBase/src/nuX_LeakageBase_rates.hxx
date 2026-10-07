@@ -30,7 +30,7 @@ CCTK_HOST CCTK_DEVICE inline void copy_quadrature(MyQuadrature &dst,
   }
 }
 
-CCTK_HOST CCTK_DEVICE inline void setup_equilibrium_grey_opacity_params(
+CCTK_HOST CCTK_DEVICE inline bool setup_equilibrium_grey_opacity_params(
     GreyOpacityParams &grey_opacity_params, const OpacityFlags &opacity_flags,
     const OpacityParams &opacity_pars, EOSX::eos_3p_tabulated3d *const eos_3p,
     const CCTK_REAL rho, const CCTK_REAL temp, const CCTK_REAL ye,
@@ -38,6 +38,12 @@ CCTK_HOST CCTK_DEVICE inline void setup_equilibrium_grey_opacity_params(
   grey_opacity_params = {};
   grey_opacity_params.opacity_flags = opacity_flags;
   grey_opacity_params.opacity_pars = opacity_pars;
+
+  if (!std::isfinite(rho) || rho <= CCTK_REAL(0) || !std::isfinite(temp) ||
+      temp <= CCTK_REAL(0) || !std::isfinite(ye) || ye < CCTK_REAL(0) ||
+      ye > CCTK_REAL(1) || !std::isfinite(particle_mass) ||
+      particle_mass <= CCTK_REAL(0))
+    return false;
 
   const CCTK_REAL rho_eos =
       std::fmin(std::fmax(rho, eos_3p->rgrho.min), eos_3p->rgrho.max);
@@ -50,18 +56,36 @@ CCTK_HOST CCTK_DEVICE inline void setup_equilibrium_grey_opacity_params(
       rho_eos * nuX_dens_conv / (particle_mass * kBS_MeVtog);
   grey_opacity_params.eos_pars.temp = temp_eos;
   grey_opacity_params.eos_pars.ye = ye_eos;
-  grey_opacity_params.eos_pars.yp = ye_eos;
-  grey_opacity_params.eos_pars.yn = 1.0 - ye_eos;
 
-  eos_3p->mu_pne_from_rho_temp_ye(
-      rho_eos, temp_eos, ye_eos, grey_opacity_params.eos_pars.mu_p,
-      grey_opacity_params.eos_pars.mu_n, grey_opacity_params.eos_pars.mu_e);
+  // NuRates' yn/yp fields are free-nucleon abundances.  Charge neutrality
+  // fixes the total proton fraction to Ye, but that is not the free proton
+  // fraction when the EOS contains nuclei.
+  using tabulated_eos = EOSX::eos_3p_tabulated3d;
+  const auto eos_state = eos_3p->interptable->interpolate<
+      tabulated_eos::EV::MU_P, tabulated_eos::EV::MU_N,
+      tabulated_eos::EV::MU_E, tabulated_eos::EV::XN,
+      tabulated_eos::EV::XP>(std::log(rho_eos), std::log(temp_eos), ye_eos);
+  if (!std::isfinite(eos_state[0]) || !std::isfinite(eos_state[1]) ||
+      !std::isfinite(eos_state[2]))
+    return false;
+  grey_opacity_params.eos_pars.mu_p = eos_state[0];
+  grey_opacity_params.eos_pars.mu_n = eos_state[1];
+  grey_opacity_params.eos_pars.mu_e = eos_state[2];
+  grey_opacity_params.eos_pars.yn =
+      std::isfinite(eos_state[3])
+          ? std::fmin(std::fmax(eos_state[3], CCTK_REAL(0)), CCTK_REAL(1))
+          : CCTK_REAL(1) - ye_eos;
+  grey_opacity_params.eos_pars.yp =
+      std::isfinite(eos_state[4])
+          ? std::fmin(std::fmax(eos_state[4], CCTK_REAL(0)), CCTK_REAL(1))
+          : ye_eos;
 
   grey_opacity_params.distr_pars =
       NuEquilibriumParams(&grey_opacity_params.eos_pars);
   ComputeM1DensitiesEq(&grey_opacity_params.eos_pars,
                        &grey_opacity_params.distr_pars,
                        &grey_opacity_params.m1_pars);
+  return true;
 }
 
 CCTK_HOST CCTK_DEVICE inline CCTK_REAL

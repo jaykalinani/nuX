@@ -25,16 +25,28 @@ CCTK_HOST CCTK_DEVICE inline
 BS_REAL QBrem_BRT06(const BS_REAL nb, const BS_REAL T, const BS_REAL xn,
                     const BS_REAL xp)
 {
+    constexpr BS_REAL zero               = 0;
+    constexpr BS_REAL one                = 1;
     constexpr BS_REAL half               = 0.5;
     constexpr BS_REAL twentyeight_thirds = 28. / 3.;
     constexpr BS_REAL eleven_halves      = 5.5;
     constexpr BS_REAL mb                 = kBS_Mb;
 
     constexpr BS_REAL kBS_Brem_BRT06_Const = 2.0778e+02;
+
+    if (!isfinite(nb) || nb <= zero || !isfinite(T) || T <= zero ||
+        !isfinite(xn) || xn < zero || xn > one || !isfinite(xp) || xp < zero ||
+        xp > one)
+    {
+        return zero;
+    }
+
     const BS_REAL rho                      = nb * mb; // mass density [g nm-3]
-    return kBS_Brem_BRT06_Const * half * kBS_MeV *
-           (POW2(xn) + POW2(xp) + twentyeight_thirds * xn * xp) * POW2(rho) *
-           pow(T, eleven_halves); // [MeV nm-3 s-1]
+    const BS_REAL q_brem =
+        kBS_Brem_BRT06_Const * half * kBS_MeV *
+        (POW2(xn) + POW2(xp) + twentyeight_thirds * xn * xp) * POW2(rho) *
+        pow(T, eleven_halves); // [MeV nm-3 s-1]
+    return isfinite(q_brem) && q_brem > zero ? q_brem : zero;
 }
 
 // Bremsstrahlung kernel from BRT06 Eq.(143) rewritten consistently
@@ -43,11 +55,20 @@ CCTK_HOST CCTK_DEVICE inline
 MyKernelOutput BremKernelsBRT06(BremKernelParams* kernel_params,
                                 MyEOSParams* eos_pars)
 {
+    constexpr BS_REAL zero = 0;
     constexpr BS_REAL half = 0.5;
 
     const BS_REAL omega       = kernel_params->omega;
     const BS_REAL omega_prime = kernel_params->omega_prime;
     const BS_REAL temp        = eos_pars->temp;
+
+    MyKernelOutput brem_kernel = {0};
+    if (!isfinite(temp) || temp <= zero || !isfinite(omega) || omega < zero ||
+        !isfinite(omega_prime) || omega_prime < zero ||
+        omega + omega_prime <= zero)
+    {
+        return brem_kernel;
+    }
 
     const BS_REAL x = half * (omega + omega_prime) / temp;
     const BS_REAL q_nb =
@@ -58,7 +79,10 @@ MyKernelOutput BremKernelsBRT06(BremKernelParams* kernel_params,
     const BS_REAL s_em  = tmp * SafeExp(-x);
     const BS_REAL s_abs = tmp * SafeExp(x);
 
-    MyKernelOutput brem_kernel;
+    if (!isfinite(s_em) || s_em < zero || !isfinite(s_abs) || s_abs < zero)
+    {
+        return brem_kernel;
+    }
     for (int idx = 0; idx < total_num_species; ++idx)
     {
         brem_kernel.abs[idx] = s_abs;

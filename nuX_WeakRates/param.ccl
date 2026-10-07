@@ -14,7 +14,11 @@ BOOLEAN use_plasmon "Include plasmon decay"
 {
 } "yes"
 
-BOOLEAN use_bremsstrahlung "Include the legacy bremsstrahlung fit"
+BOOLEAN use_nonbeta_detailed_balance "Add inverse pair, plasmon, and enabled bremsstrahlung rates through detailed balance"
+{
+} "no"
+
+BOOLEAN use_bremsstrahlung "Include nucleon-nucleon bremsstrahlung"
 {
 } "no"
 

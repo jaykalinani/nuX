@@ -56,8 +56,8 @@ code(const status s) {
 }
 
 template <typename T>
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool finite(
-    const T x) {
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+finite(const T x) {
   using std::isfinite;
   return isfinite(x);
 }
@@ -220,8 +220,7 @@ solver_iterate(brent_solver<T> *const s, const F &f) {
       p = -p;
     }
 
-    if (T(2) * p <
-        std::min(T(3) * m * q - abs(tol * q), abs(e * q))) {
+    if (T(2) * p < std::min(T(3) * m * q - abs(tol * q), abs(e * q))) {
       e = d;
       d = p / q;
     } else {
@@ -278,15 +277,14 @@ test_interval(const T x_lower, const T x_upper, const T epsabs,
 
   const T abs_lower = abs(x_lower);
   const T abs_upper = abs(x_upper);
-  const T min_abs = ((x_lower > T(0) && x_upper > T(0)) ||
-                     (x_lower < T(0) && x_upper < T(0)))
-                        ? std::min(abs_lower, abs_upper)
-                        : T(0);
+  const T min_abs =
+      ((x_lower > T(0) && x_upper > T(0)) || (x_lower < T(0) && x_upper < T(0)))
+          ? std::min(abs_lower, abs_upper)
+          : T(0);
   const T tolerance = epsabs + epsrel * min_abs;
 
-  return (abs(x_upper - x_lower) < tolerance)
-             ? code(status::success)
-             : code(status::continue_iter);
+  return (abs(x_upper - x_lower) < tolerance) ? code(status::success)
+                                              : code(status::continue_iter);
 }
 
 template <typename T, int N>
@@ -587,8 +585,7 @@ givens(const T a, const T b, T *c, T *s) {
 
 template <typename T, int N>
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-givens_gv(Arith::vec<T, N> *v, const int i, const int j, const T c,
-          const T s) {
+givens_gv(Arith::vec<T, N> *v, const int i, const int j, const T c, const T s) {
   const T vi = (*v)(i);
   const T vj = (*v)(j);
   (*v)(i) = c * vi - s * vj;
@@ -763,8 +760,7 @@ gradient_direction(const Arith::mat<T, N> &r, const Arith::vec<T, N> &qtf,
 
 template <typename T, int N>
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-minimum_step(const T gnorm, const Arith::vec<T, N> &diag,
-             Arith::vec<T, N> *g) {
+minimum_step(const T gnorm, const Arith::vec<T, N> &diag, Arith::vec<T, N> *g) {
   for (int i = 0; i < N; ++i) {
     (*g)(i) = ((*g)(i) / gnorm) / diag(i);
   }
@@ -795,9 +791,8 @@ scaled_addition(const T alpha, const Arith::vec<T, N> &newton, const T beta,
 template <typename T, int N>
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline int
 dogleg(const Arith::mat<T, N> &r, const Arith::vec<T, N> &qtf,
-       const Arith::vec<T, N> &diag, const T delta,
-       Arith::vec<T, N> *newton, Arith::vec<T, N> *gradient,
-       Arith::vec<T, N> *p) {
+       const Arith::vec<T, N> &diag, const T delta, Arith::vec<T, N> *newton,
+       Arith::vec<T, N> *gradient, Arith::vec<T, N> *p) {
   int ierr = r_solve(r, qtf, newton);
   if (ierr != code(status::success)) {
     return ierr;
@@ -895,16 +890,37 @@ hybridsj_iterate(hybridsj_solver<T, N> *const s, const F &f, const DF &df) {
     return ierr;
   }
 
-  detail::compute_trial_step(s->x, s->dx, &s->x_trial);
-
-  const T pnorm = detail::scaled_enorm(s->diag, s->dx);
-  if (s->iter == 1 && pnorm < s->delta) {
-    s->delta = pnorm;
+  // A dogleg trial can leave the physical domain even when both the current
+  // state and the solution are admissible.  Treat such a callback failure as
+  // a rejected trust-region trial and shorten the step.  This is especially
+  // important for constrained systems such as the M1 source solve, where an
+  // otherwise useful Newton direction can briefly violate realizability.
+  constexpr int max_domain_backtracks = 12;
+  bool valid_trial = false;
+  for (int backtrack = 0; backtrack <= max_domain_backtracks; ++backtrack) {
+    detail::compute_trial_step(s->x, s->dx, &s->x_trial);
+    ierr = f(s->x_trial, s->f_trial);
+    if (ierr == code(status::success) && finite(s->f_trial)) {
+      valid_trial = true;
+      break;
+    }
+    if (ierr != code(status::success) && ierr != code(status::ebadfunc)) {
+      return ierr;
+    }
+    for (int i = 0; i < N; ++i) {
+      s->dx(i) *= p5;
+    }
+  }
+  if (!valid_trial) {
+    return code(status::ebadfunc);
   }
 
-  ierr = f(s->x_trial, s->f_trial);
-  if (ierr != code(status::success) || !finite(s->f_trial)) {
-    return code(status::ebadfunc);
+  const T pnorm = detail::scaled_enorm(s->diag, s->dx);
+  if (!(pnorm > T(0)) || !finite(pnorm)) {
+    return code(status::enoprog);
+  }
+  if (s->iter == 1 && pnorm < s->delta) {
+    s->delta = pnorm;
   }
 
   detail::compute_df(s->f_trial, s->f, &s->df);
@@ -964,13 +980,6 @@ hybridsj_iterate(hybridsj_solver<T, N> *const s, const F &f, const DF &df) {
     }
 
     return detail::qr_decomp_unpack(s->J, &s->q, &s->r);
-  }
-
-  // compute_wv normalizes its QR-update vectors by pnorm.  A zero dogleg
-  // step is a stagnation/convergence signal for the caller, not a valid rank-1
-  // update, and must never reach that division.
-  if (!(pnorm > T(0)) || !finite(pnorm)) {
-    return code(status::enoprog);
   }
 
   detail::compute_qtf(s->q, s->df, &s->qtdf);

@@ -5,4 +5,4 @@
 SRCS = init_nuX_nurates.cxx
 
 # Subdirectories containing source files
-SUBDIRS = 
+SUBDIRS =

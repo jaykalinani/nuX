@@ -1,3 +1,4 @@
 IMPLEMENTS: nuX_NuRates
 
 INCLUDES HEADER: m1_opacities.hpp IN m1_opacities.hpp
+INCLUDES HEADER: kernels.hpp IN kernels.hpp
