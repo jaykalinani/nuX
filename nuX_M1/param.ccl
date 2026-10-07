@@ -10,6 +10,9 @@ SHARES: nuX_Base
 USES CCTK_INT ngroups
 USES CCTK_INT nspecies
 
+SHARES: ODESolvers
+USES KEYWORD method
+
 #USES INT hydro_excision
 #USES KEYWORD evolution_method
 
@@ -25,6 +28,12 @@ BOOLEAN add_to_Tmunu "Add radiation to the global stress-energy tensor" STEERABL
 BOOLEAN backreact "Couple radiation-matter interaction sources conservatively" STEERABLE=ALWAYS
 {
 } "yes"
+
+KEYWORD imex_backreaction "How to place matter backreaction in an IMEX scheme"
+{
+    "implicit" :: "Include the equal-and-opposite physical collision increment in the implicit tableau"
+    "explicit" :: "Keep matter fixed in the implicit solve and add its collision source to the explicit tableau"
+} "implicit"
 
 KEYWORD bc_type "Which boundary conditions" STEERABLE=ALWAYS
 {
@@ -75,6 +84,14 @@ BOOLEAN include_fluxes "Include radiation advection"
 {
 } "yes"
 
+BOOLEAN store_radial_fluxes "Allocate and calculate radial radiation fluxes"
+{
+} "no"
+
+BOOLEAN store_neutrino_fractions "Allocate and calculate neutrino fractions"
+{
+} "no"
+
 BOOLEAN include_GR_sources "Add GR sources to the radiation RHS" STEERABLE=ALWAYS
 {
 } "yes"
@@ -102,24 +119,28 @@ REAL rad_eps "Impose F_a F^a < (1 - rad_E_eps) E2" STEERABLE=ALWAYS
 
 REAL source_epsabs "Target absolute precision for the nonlinear solver" STEERABLE=ALWAYS
 {
-    [0:* :: "Any target precision"
+    (0:* :: "Any positive target precision"
 } 1.0e-15
 
 REAL source_epsrel "Target relative precision for the nonlinear solver" STEERABLE=ALWAYS
 {
-    (0:* :: "Any target precision"
+    (0:* :: "Any positive target precision"
 } 1e-5
 
 REAL source_limiter "Legacy fractional limiter for non-IMEX source updates" STEERABLE=ALWAYS
 {
     -1    :: "No limiting"
-    [0:1] :: "Not compatible with IMEX42L or IMEX32L stage cancellation"
+    [0:1] :: "Not compatible with an IMEX additive Runge-Kutta update"
 } -1.0
 
 INT source_maxiter "Maximum number of iterations in the nonlinear solver" STEERABLE=ALWAYS
 {
     (0:* :: "Any positive integer"
 } 64
+
+BOOLEAN source_force_nonlinear "Use the nonlinear residual solve for every implicit source update" STEERABLE=ALWAYS
+{
+} "no"
 
 REAL source_thick_limit "Use the optically thick limit if the equilibration time is less than the timestep over this factor" STEERABLE=ALWAYS
 {
@@ -141,8 +162,12 @@ REAL source_scat_limit "Use the scattering limit if the isotropization time is l
     (0:*  :: "Use the optically scattering dominated limit above some scattering optical depth"
 } -1.0
 
+BOOLEAN sawtooth_force_full_dissipation "Use full transport dissipation at detected sawtooth extrema" STEERABLE=ALWAYS
+{
+} "no"
+
 # This is only useful if source_limiter is set to a positive value
-REAL source_Ye_min "Maximum allowed Ye for the matter" STEERABLE=ALWAYS
+REAL source_Ye_min "Minimum allowed Ye for the matter" STEERABLE=ALWAYS
 {
     [0:1] :: "Should be within the allowed Ye range of the EOS"
 } 0.0

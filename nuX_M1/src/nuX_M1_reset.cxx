@@ -19,6 +19,8 @@ extern "C" void nuX_M1_Reset(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_Reset");
   }
 
+  *semi_implicit_stage = 0;
+
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
 

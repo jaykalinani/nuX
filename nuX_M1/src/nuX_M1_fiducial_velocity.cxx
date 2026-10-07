@@ -17,6 +17,41 @@ using namespace Arith;
 using namespace Loop;
 using namespace AsterUtils;
 
+namespace {
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+repair_velocity_and_compute_W(const smat<CCTK_REAL, 3> &g,
+                              vec<CCTK_REAL, 3> *const v) {
+  for (int a = 0; a < 3; ++a) {
+    if (!isfinite((*v)(a))) {
+      *v = vec<CCTK_REAL, 3>::pure(CCTK_REAL(0));
+      return CCTK_REAL(1);
+    }
+  }
+
+  const vec<CCTK_REAL, 3> v_low = calc_contraction(g, *v);
+  CCTK_REAL v2 = calc_contraction(*v, v_low);
+  constexpr CCTK_REAL v2_limit = CCTK_REAL(1) - CCTK_REAL(1.0e-12);
+  if (!isfinite(v2) || v2 < CCTK_REAL(0)) {
+    *v = vec<CCTK_REAL, 3>::pure(CCTK_REAL(0));
+    return CCTK_REAL(1);
+  }
+  if (v2 >= v2_limit) {
+    *v *= sqrt(v2_limit / v2);
+    // Recompute from the rounded repaired components so W is consistent with
+    // the velocity actually stored, as in the vertex Tmunu path.
+    const vec<CCTK_REAL, 3> repaired_v_low = calc_contraction(g, *v);
+    v2 = calc_contraction(*v, repaired_v_low);
+    if (!isfinite(v2) || v2 < CCTK_REAL(0) || v2 >= CCTK_REAL(1)) {
+      *v = vec<CCTK_REAL, 3>::pure(CCTK_REAL(0));
+      v2 = CCTK_REAL(0);
+    }
+  }
+  return CCTK_REAL(1) / sqrt(CCTK_REAL(1) - v2);
+}
+
+} // namespace
+
 extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_FiducialVelocity;
   DECLARE_CCTK_PARAMETERS
@@ -47,22 +82,11 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
             return calc_avg_v2c(gf_g(i, j), p);
           });
 
-          vec<CCTK_REAL, 3> v_up;
-          vec<CCTK_REAL, 3> v_low;
-          CCTK_REAL w_lorentz;
-
-          fidu_velx[ijk] = velx[ijk];
-          fidu_vely[ijk] = vely[ijk];
-          fidu_velz[ijk] = velz[ijk];
-
-          v_up(0) = velx[ijk];
-          v_up(1) = vely[ijk];
-          v_up(2) = velz[ijk];
-
-          v_low = calc_contraction(g_avg, v_up);
-          w_lorentz = calc_wlorentz(v_low, v_up);
-
-          fidu_w_lorentz[ijk] = w_lorentz;
+          vec<CCTK_REAL, 3> v_up{velx[ijk], vely[ijk], velz[ijk]};
+          fidu_w_lorentz[ijk] = repair_velocity_and_compute_W(g_avg, &v_up);
+          fidu_velx[ijk] = v_up(0);
+          fidu_vely[ijk] = v_up(1);
+          fidu_velz[ijk] = v_up(2);
         });
 
   } else if (CCTK_Equals(fiducial_velocity, "mixed")) {
@@ -76,24 +100,23 @@ extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
             return calc_avg_v2c(gf_g(i, j), p);
           });
 
-          // Weight between fluid velocity and zero depending on density
-          const CCTK_REAL fac =
-              1.0 / fmax(dens[ijk], fiducial_velocity_rho_fluid * CGS_GCC);
-
-          fidu_velx[ijk] = velx[ijk] * dens[ijk] * fac;
-          fidu_vely[ijk] = vely[ijk] * dens[ijk] * fac;
-          fidu_velz[ijk] = velz[ijk] * dens[ijk] * fac;
-
-          vec<CCTK_REAL, 3> v_up;
-          v_up(0) = fidu_velx[ijk];
-          v_up(1) = fidu_vely[ijk];
-          v_up(2) = fidu_velz[ijk];
-          const vec<CCTK_REAL, 3> v_low = calc_contraction(g_avg, v_up);
-
-          // Lorentz factor
-          const CCTK_REAL v2 = calc_contraction(v_up, v_low);
-
-          fidu_w_lorentz[ijk] = 1.0 / sqrt(1.0 - v2);
+          // Weight continuously between the fluid velocity and zero in the
+          // atmosphere, then enforce the same timelike-domain invariant used
+          // by the vertex stress-energy construction.
+          const CCTK_REAL local_dens = isfinite(dens[ijk])
+                                           ? fmax(dens[ijk], CCTK_REAL(0))
+                                           : CCTK_REAL(0);
+          const CCTK_REAL transition_dens =
+              fmax(fiducial_velocity_rho_fluid * CGS_GCC, CCTK_REAL(0));
+          const CCTK_REAL denom = fmax(local_dens, transition_dens);
+          const CCTK_REAL weight =
+              denom > CCTK_REAL(0) ? local_dens / denom : CCTK_REAL(0);
+          vec<CCTK_REAL, 3> v_up{weight * velx[ijk], weight * vely[ijk],
+                                 weight * velz[ijk]};
+          fidu_w_lorentz[ijk] = repair_velocity_and_compute_W(g_avg, &v_up);
+          fidu_velx[ijk] = v_up(0);
+          fidu_vely[ijk] = v_up(1);
+          fidu_velz[ijk] = v_up(2);
         });
 
   } else {

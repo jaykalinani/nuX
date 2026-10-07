@@ -4,11 +4,11 @@ IMPLEMENTS: nuX_Base
 
 PUBLIC:
 
-CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="nuX_M1::rN_rhs" checkpoint="yes" dependents="nuX_Base::rP nuX_M1::rJ nuX_M1::rHt nuX_M1::rH nuX_M1::rnnu nuX_M1::chi nuX_M1::opacs nuX_M1::nueave nuX_M1::fluidsources nuX_M1::nu_flux_x nuX_M1::nu_flux_y nuX_M1::nu_flux_z"' "Neutrino density in the lab frame"
+CCTK_REAL rN[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="nuX_M1::rN_rhs" checkpoint="yes" dependents="nuX_Base::rP nuX_M1::rJ nuX_M1::rHt nuX_M1::rH nuX_M1::rnnu nuX_M1::chi nuX_M1::opacs nuX_M1::nueave nuX_M1::fluidsources"' "Neutrino density in the lab frame"
 
-CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="nuX_M1::rE_rhs" checkpoint="yes" dependents="nuX_Base::rP nuX_M1::rJ nuX_M1::rHt nuX_M1::rH nuX_M1::rnnu nuX_M1::chi nuX_M1::opacs nuX_M1::nueave nuX_M1::fluidsources nuX_M1::nu_flux_x nuX_M1::nu_flux_y nuX_M1::nu_flux_z"' "Radiation energy density in the lab frame"
+CCTK_REAL rE[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="nuX_M1::rE_rhs" checkpoint="yes" dependents="nuX_Base::rP nuX_M1::rJ nuX_M1::rHt nuX_M1::rH nuX_M1::rnnu nuX_M1::chi nuX_M1::opacs nuX_M1::nueave nuX_M1::fluidsources"' "Radiation energy density in the lab frame"
 
-CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="nuX_M1::rF_rhs" checkpoint="yes" dependents="nuX_Base::rP nuX_M1::rJ nuX_M1::rHt nuX_M1::rH nuX_M1::rnnu nuX_M1::chi nuX_M1::opacs nuX_M1::nueave nuX_M1::fluidsources nuX_M1::nu_flux_x nuX_M1::nu_flux_y nuX_M1::nu_flux_z"'
+CCTK_REAL rF[nspecies*ngroups] TYPE=GF CENTERING={ccc} TAGS='rhs="nuX_M1::rF_rhs" checkpoint="yes" dependents="nuX_Base::rP nuX_M1::rJ nuX_M1::rHt nuX_M1::rH nuX_M1::rnnu nuX_M1::chi nuX_M1::opacs nuX_M1::nueave nuX_M1::fluidsources"'
 {
     rFx, rFy, rFz
 } "Radiation energy flux in the lab frame"

@@ -197,6 +197,7 @@ nuX_M1::closure_epsilon      = 1e-5
 nuX_M1::closure_maxiter      = 1000
 nuX_M1::include_GR_sources   = "no"
 nuX_M1::include_fluxes       = "yes"
+nuX_M1::store_radial_fluxes  = "yes"
 nuX_M1::opacity_corr_fac_max = 1.0
 nuX_M1::reset_to_equilibrium = "no"
 nuX_M1::source_epsabs        = 1e-8

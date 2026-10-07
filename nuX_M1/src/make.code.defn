@@ -10,13 +10,16 @@ nuX_M1_calc_opacity_nurates.cxx \
 nuX_M1_calc_opacity_weakrates.cxx \
 nuX_M1_calc_opacity_fakerates.cxx \
 nuX_M1_calc_backreaction_rhs.cxx \
+nuX_M1_apply_semi_implicit_backreaction.cxx \
 nuX_M1_calc_radial_fluxes.cxx \
 nuX_M1_calc_source_rhs.cxx \
 nuX_M1_fiducial_velocity.cxx \
 nuX_M1_init.cxx \
 nuX_M1_init_fluxes_rhs.cxx \
 nuX_M1_param_check.cxx \
+nuX_M1_repair_state.cxx \
 nuX_M1_reset.cxx \
+nuX_M1_semi_implicit.cxx \
 nuX_M1_set_equilibrium_nurates.cxx \
 nuX_M1_set_equilibrium_weakrates.cxx \
 nuX_M1_setmask.cxx \

@@ -201,6 +201,7 @@ nuX_M1::closure_epsilon      = 1e-3
 nuX_M1::closure_maxiter      = 1000
 nuX_M1::include_GR_sources   = "yes"
 nuX_M1::include_fluxes       = "yes"
+nuX_M1::store_radial_fluxes  = "yes"
 nuX_M1::reset_to_equilibrium = "no"
 nuX_M1::rates_lib            = "FakeRates"
 nuX_M1::verbose              = "no"

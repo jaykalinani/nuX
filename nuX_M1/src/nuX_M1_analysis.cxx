@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cassert>
-#include <sstream>
 #include <cmath>
 #include <loop_device.hxx>
 
@@ -57,22 +56,33 @@ extern "C" void nuX_M1_Analysis(CCTK_ARGUMENTS) {
         const CCTK_REAL gyy_cc = tensor::interp_v2c(gf_gyy, p);
         const CCTK_REAL gyz_cc = tensor::interp_v2c(gf_gyz, p);
         const CCTK_REAL gzz_cc = tensor::interp_v2c(gf_gzz, p);
-        const CCTK_REAL volform_ijk = sqrt(nuX_Utils::metric::spatial_det(
-            gxx_cc, gxy_cc, gxz_cc, gyy_cc, gyz_cc, gzz_cc));
+        const CCTK_REAL detg = nuX_Utils::metric::spatial_det(
+            gxx_cc, gxy_cc, gxz_cc, gyy_cc, gyz_cc, gzz_cc);
+        const CCTK_REAL volform_ijk =
+            isfinite(detg) && detg > 0.0 ? sqrt(detg) : 0.0;
 
-        CCTK_REAL const nb = rho[ijk] / mb;
-        ynue[ijk] = rnnu[ijke] / volform_ijk / nb;
-        ynua[ijk] = rnnu[ijka] / volform_ijk / nb;
-        ynux[ijk] = rnnu[ijkx] / volform_ijk / nb;
+        const CCTK_REAL nb =
+            isfinite(rho[ijk]) && rho[ijk] > 0.0 && isfinite(mb) && mb > 0.0
+                ? rho[ijk] / mb
+                : 0.0;
+        const CCTK_REAL inv_baryon_volume =
+            nb > 0.0 && volform_ijk > 0.0 ? 1.0 / (volform_ijk * nb) : 0.0;
+        ynue[ijk] = rnnu[ijke] * inv_baryon_volume;
+        ynua[ijk] = rnnu[ijka] * inv_baryon_volume;
+        ynux[ijk] = rnnu[ijkx] * inv_baryon_volume;
 
         CCTK_REAL const egas = rho[ijk] * (1 + eps[ijk]);
-        CCTK_REAL const enue = rJ[ijke] / volform_ijk;
-        CCTK_REAL const enua = rJ[ijka] / volform_ijk;
-        CCTK_REAL const enux = rJ[ijkx] / volform_ijk;
+        const CCTK_REAL inv_volform =
+            volform_ijk > 0.0 ? 1.0 / volform_ijk : 0.0;
+        CCTK_REAL const enue = rJ[ijke] * inv_volform;
+        CCTK_REAL const enua = rJ[ijka] * inv_volform;
+        CCTK_REAL const enux = rJ[ijkx] * inv_volform;
         CCTK_REAL const etot = egas + enue + enua + enux;
-        znue[ijk] = enue / etot;
-        znua[ijk] = enua / etot;
-        znux[ijk] = enux / etot;
+        const CCTK_REAL inv_etot =
+            isfinite(etot) && etot > 0.0 ? 1.0 / etot : 0.0;
+        znue[ijk] = enue * inv_etot;
+        znua[ijk] = enua * inv_etot;
+        znux[ijk] = enux * inv_etot;
       });
 }
 
