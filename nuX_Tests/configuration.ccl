@@ -1,0 +1,5 @@
+REQUIRES nuX_M1 nuX_NuRates nuX_WeakRates
+
+PROVIDES nuX_Tests
+{
+}

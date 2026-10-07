@@ -1,0 +1,5 @@
+RESTRICTED:
+
+BOOLEAN run_tests "Run the host-side nuX numerical unit tests"
+{
+} "no"

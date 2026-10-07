@@ -1,0 +1,21 @@
+if (run_tests)
+{
+  SCHEDULE nuX_M1_UnitTests AT CCTK_WRAGH
+  {
+    LANG: C
+    OPTIONS: GLOBAL
+  } "Test M1 source algebra, weak equilibrium, and realizability"
+
+  SCHEDULE nuX_NuRates_TestKernels AT CCTK_WRAGH AFTER nuX_M1_UnitTests
+  {
+    LANG: C
+    OPTIONS: GLOBAL
+  } "Test NuRates pair and bremsstrahlung kernels"
+
+  SCHEDULE nuX_WeakRates_TestRates AT CCTK_WRAGH \
+      AFTER nuX_NuRates_TestKernels
+  {
+    LANG: C
+    OPTIONS: GLOBAL
+  } "Test WeakRates finite rates and detailed balance"
+}

@@ -1,0 +1,60 @@
+ActiveThorns = "
+  ADMBaseX
+  AsterMasks
+  AsterX
+  CarpetX
+  HydroBaseX
+  IOUtil
+  ODESolvers
+  nuX_Base
+  nuX_FakeRates
+  nuX_M1_Seeds
+  nuX_Tests
+  TmunuBaseX
+"
+
+Cactus::cctk_itlast = 0
+Cactus::terminate = "iteration"
+Cactus::presync_mode = "mixed-error"
+
+ADMBaseX::initial_data = "Cartesian Minkowski"
+ADMBaseX::initial_lapse = "one"
+ADMBaseX::initial_shift = "zero"
+ADMBaseX::initial_dtlapse = "none"
+ADMBaseX::initial_dtshift = "none"
+
+CarpetX::xmin = -1.0
+CarpetX::ymin = -1.0
+CarpetX::zmin = -1.0
+CarpetX::xmax = 1.0
+CarpetX::ymax = 1.0
+CarpetX::zmax = 1.0
+CarpetX::ncells_x = 4
+CarpetX::ncells_y = 4
+CarpetX::ncells_z = 4
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
+CarpetX::max_num_levels = 1
+CarpetX::periodic = yes
+CarpetX::periodic_x = yes
+CarpetX::periodic_y = yes
+CarpetX::periodic_z = yes
+CarpetX::boundary_x = none
+CarpetX::boundary_y = none
+CarpetX::boundary_z = none
+CarpetX::boundary_upper_x = none
+CarpetX::boundary_upper_y = none
+CarpetX::boundary_upper_z = none
+
+IO::out_dir = $parfile
+IO::parfile_write = no
+
+AsterX::update_tmunu = no
+nuX_M1::add_to_Tmunu = no
+nuX_M1::backreact = no
+nuX_M1::rates_lib = "FakeRates"
+nuX_M1_Seeds::initialize_asterx_vector_potential = yes
+ODESolvers::method = "IMEX42L"
+
+nuX_Tests::run_tests = yes
