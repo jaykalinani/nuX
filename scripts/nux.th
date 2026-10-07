@@ -135,6 +135,7 @@ CarpetX/TmunuBaseX
 !CHECKOUT =
 SpacetimeX/Cowling
 SpacetimeX/KerrSchildX
+SpacetimeX/SphericalSurface
 
 # AsterX nuX branch
 !TARGET   = $ARR
