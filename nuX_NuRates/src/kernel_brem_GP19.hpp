@@ -217,7 +217,6 @@ BS_REAL gp19_LowDensity_and_LowTemperatureExtrapolation(const BS_REAL nb_below,
                                                         const BS_REAL T_below,
                                                         const BS_REAL w)
 {
-    constexpr BS_REAL nb_min   = GP19_nb_axis[0];    // [fm-3]
     constexpr BS_REAL Thalf    = 0.5;                // [MeV]
     constexpr BS_REAL T2       = 2.0;                // [MeV]
     constexpr BS_REAL T4       = 4.0;                // [MeV]
@@ -354,6 +353,7 @@ CCTK_HOST CCTK_DEVICE inline
 MyKernelOutput BremKernelAbsGP19(const BremKernelParams* bremParams,
                                  const MyEOSParams* eos)
 {
+    constexpr BS_REAL zero    = 0;
     constexpr BS_REAL three   = 3;
     constexpr BS_REAL nm2fm_3 = 1e-18;
 
@@ -366,6 +366,14 @@ MyKernelOutput BremKernelAbsGP19(const BremKernelParams* bremParams,
     // table. w_original is used in calculation of the datailed balance,
     // where clipping is not necessary and indeed unphysical.
     const BS_REAL w_original = w;
+
+    MyKernelOutput brem_kernel = {0};
+    if (!isfinite(nb_nm) || nb_nm <= zero || !isfinite(Ye) || Ye < zero ||
+        Ye > 1 || !isfinite(T) || T <= zero || !isfinite(w_original) ||
+        w_original <= zero)
+    {
+        return brem_kernel;
+    }
 
     BS_REAL nb = nb_nm * nm2fm_3; // [fm^-3]
 
@@ -461,12 +469,11 @@ MyKernelOutput BremKernelAbsGP19(const BremKernelParams* bremParams,
     // Ensure that the result is non-negative. It can become negative due to
     // extrapolation when evaluated at high temperatures, but can be safely set
     // to zero since it is very small in that regime.
-    s_abs = fabs(s_abs);
+    s_abs = isfinite(s_abs) && s_abs > zero ? s_abs : zero;
 
     // Production kernel from detailed balance
     const BS_REAL s_em = s_abs * SafeExp(-w_original / T);
 
-    MyKernelOutput brem_kernel;
     for (int idx = 0; idx < total_num_species; ++idx)
     {
         brem_kernel.abs[idx] = s_abs;

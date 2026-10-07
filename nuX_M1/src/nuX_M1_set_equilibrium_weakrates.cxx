@@ -9,6 +9,7 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_opacity_utils.hxx"
 #include "nuX_rate_units.hxx"
 #include "nuX_utils.hxx"
 #include "nuX_weakrates.hxx"
@@ -44,34 +45,63 @@ extern "C" void nuX_M1_SetToEquilibriumWeakRates(CCTK_ARGUMENTS) {
 
   auto eos_3p = global_eos_3p_tab3d;
   auto weakrates = nuX_WeakRates::global_weakrates;
+  if (!eos_3p)
+    CCTK_ERROR("nuX_M1_SetToEquilibriumWeakRates requires a tabulated EOS");
+  if (!weakrates)
+    CCTK_ERROR("nuX_M1_SetToEquilibriumWeakRates requires nuX_WeakRates");
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
-        const CCTK_REAL rho_cgs =
-            rho[ijk] * rate_units::code_density_to_g_nm3 /
-            rate_units::per_cm3_to_per_nm3;
-        if (nuX_m1_mask[ijk] || rho_cgs < equilibrium_rho_min)
+        const CCTK_REAL rho_raw = rho[ijk];
+        const CCTK_REAL temp_raw = temperature[ijk];
+        const CCTK_REAL ye_raw = Ye[ijk];
+        if (nuX_m1_mask[ijk] || !isfinite(rho_raw) || rho_raw <= 0.0 ||
+            !isfinite(temp_raw) || temp_raw <= 0.0 || !isfinite(ye_raw) ||
+            ye_raw < 0.0 || ye_raw > 1.0)
           return;
 
+        const CCTK_REAL rho_cgs = rho_raw * rate_units::code_density_to_g_nm3 /
+                                  rate_units::per_cm3_to_per_nm3;
+        if (rho_cgs < equilibrium_rho_min)
+          return;
+        const CCTK_REAL rho_eos =
+            fmin(fmax(rho_raw, eos_3p->rgrho.min), eos_3p->rgrho.max);
+        const CCTK_REAL temp_eos =
+            fmin(fmax(temp_raw, eos_3p->rgtemp.min), eos_3p->rgtemp.max);
+        const CCTK_REAL ye_eos =
+            fmin(fmax(ye_raw, eos_3p->rgye.min), eos_3p->rgye.max);
+
         CCTK_REAL mu_p, mu_n, mu_e;
-        eos_3p->mu_pne_from_rho_temp_ye(rho[ijk], temperature[ijk], Ye[ijk],
-                                        mu_p, mu_n, mu_e);
+        eos_3p->mu_pne_from_rho_temp_ye(rho_eos, temp_eos, ye_eos, mu_p, mu_n,
+                                        mu_e);
 
         const nuX_WeakRates::EOSState weak_eos = {
-            rho_cgs, temperature[ijk], Ye[ijk], particle_mass,
-            mu_e, mu_p, mu_n, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+            rho_eos * rate_units::code_density_to_g_nm3 /
+                rate_units::per_cm3_to_per_nm3,
+            temp_eos,
+            ye_eos,
+            particle_mass,
+            mu_e,
+            mu_p,
+            mu_n,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0};
         const auto densities = weakrates->equilibrium_densities(weak_eos);
 
         CCTK_REAL nudens_0[3], nudens_1[3];
         for (int ig = 0; ig < nspecies * ngroups; ++ig) {
-          nudens_0[ig] =
-              densities.number[ig] * rate_units::per_cm3_to_per_nm3 /
-              rate_units::fm3_to_nm3;
-          nudens_1[ig] =
-              densities.energy[ig] * rate_units::per_cm3_to_per_nm3 /
-              rate_units::code_energy_density_to_mev_nm3;
+          nudens_0[ig] = densities.number[ig] * rate_units::per_cm3_to_per_nm3 /
+                         rate_units::transport_number_density_to_nm3;
+          nudens_1[ig] = densities.energy[ig] * rate_units::per_cm3_to_per_nm3 /
+                         rate_units::code_energy_density_to_mev_nm3;
+          fallback_equilibrium_moments(nudens_0[ig], nudens_1[ig],
+                                       CCTK_REAL(0), CCTK_REAL(0));
         }
 
         tensor::metric<4> g_dd;
@@ -88,9 +118,13 @@ extern "C" void nuX_M1_SetToEquilibriumWeakRates(CCTK_ARGUMENTS) {
         fidu.get(p, &u_u);
         tensor::contract(g_dd, u_u, &u_d);
 
-        const CCTK_REAL volform = sqrt(nuX_Utils::metric::spatial_det(
-            g_dd(1, 1), g_dd(1, 2), g_dd(1, 3), g_dd(2, 2), g_dd(2, 3),
-            g_dd(3, 3)));
+        const CCTK_REAL detg =
+            nuX_Utils::metric::spatial_det(g_dd(1, 1), g_dd(1, 2), g_dd(1, 3),
+                                           g_dd(2, 2), g_dd(2, 3), g_dd(3, 3));
+        if (!isfinite(detg) || detg <= 0.0 || !isfinite(fidu_w_lorentz[ijk]) ||
+            fidu_w_lorentz[ijk] < 1.0)
+          return;
+        const CCTK_REAL volform = sqrt(detg);
 
         for (int ig = 0; ig < nspecies * ngroups; ++ig) {
           const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
@@ -112,8 +146,8 @@ extern "C" void nuX_M1_SetToEquilibriumWeakRates(CCTK_ARGUMENTS) {
 
           rE[i4D] = E;
           unpack_F_d(F_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
-          rN[i4D] = max(volform * nudens_0[ig] * fidu_w_lorentz[ijk],
-                        rad_N_floor);
+          rN[i4D] =
+              max(volform * nudens_0[ig] * fidu_w_lorentz[ijk], rad_N_floor);
 
           assert(isfinite(rN[i4D]));
           assert(isfinite(rE[i4D]));

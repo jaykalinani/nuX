@@ -60,9 +60,11 @@ extern "C" void nuX_M1_CalcSourceRHS(CCTK_ARGUMENTS) {
         const CCTK_REAL W_ijk = fidu_w_lorentz[ijk];
 
         tensor::metric<4> g_dd;
+        tensor::inv_metric<4> g_uu;
         tensor::generic<CCTK_REAL, 4, 1> n_u;
         tensor::generic<CCTK_REAL, 4, 2> gamma_ud;
         geom.get_metric(p, &g_dd);
+        geom.get_inv_metric(p, &g_uu);
         geom.get_normal(p, &n_u);
         geom.get_space_proj(p, &gamma_ud);
         const CCTK_REAL volform_ijk = sqrt(
@@ -84,12 +86,14 @@ extern "C" void nuX_M1_CalcSourceRHS(CCTK_ARGUMENTS) {
           assert(isfinite(rFy[i4D]));
           assert(isfinite(rFz[i4D]));
 
+          CCTK_REAL E_source = rE[i4D];
           tensor::generic<CCTK_REAL, 4, 1> F_d;
           pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
+          repair_moments(g_uu, &E_source, &F_d, rad_E_floor, rad_eps);
 
-          const CCTK_REAL Gamma = compute_Gamma(
-              W_ijk, v_u, rJ[i4D], rE[i4D], F_d, rad_E_floor, rad_eps);
+          const CCTK_REAL Gamma = compute_Gamma(W_ijk, v_u, rJ[i4D], E_source,
+                                                F_d, rad_E_floor, rad_eps);
 
           tensor::generic<CCTK_REAL, 4, 1> H_d;
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
@@ -103,9 +107,12 @@ extern "C" void nuX_M1_CalcSourceRHS(CCTK_ARGUMENTS) {
           rFx_rhs[i4D] = tS_d(1);
           rFy_rhs[i4D] = tS_d(2);
           rFz_rhs[i4D] = tS_d(3);
-          rN_rhs[i4D] =
-              alp_ijk *
-              (volform_ijk * eta_0[i4D] - abs_0[i4D] * rN[i4D] / Gamma);
+          // Match the repaired baseline used by every nonzero diagonal stage.
+          // The floor itself is numerical and is therefore not included in
+          // the collision rate copied below for matter backreaction.
+          const CCTK_REAL N_source = max(rN[i4D], rad_N_floor);
+          rN_rhs[i4D] = calc_rN_source(alp_ijk, volform_ijk, eta_0[i4D],
+                                       abs_0[i4D], N_source, Gamma);
 
           assert(isfinite(rN_rhs[i4D]));
           assert(isfinite(rE_rhs[i4D]));

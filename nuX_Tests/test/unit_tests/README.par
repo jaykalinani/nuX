@@ -1,0 +1,3 @@
+# This metadata-only file keeps the testsuite reference directory in Git.
+# The test is pass/fail by process status and direct numerical assertions; it
+# intentionally has no diagnostic or regression-output oracle.

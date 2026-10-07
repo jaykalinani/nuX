@@ -43,6 +43,20 @@ extern "C" void nuX_M1_InitFluxesRHS(CCTK_ARGUMENTS) {
           }
         });
   }
+
+  if (source_diagnostics) {
+    const int diagnostic_comps = 15 * groupspec;
+    grid.loop_all_device<1, 1, 1>(
+        grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+          for (int comp = 0; comp < diagnostic_comps; ++comp) {
+            const int idx = layout.linear(p.i, p.j, p.k, comp);
+            transport_saw_left[idx] = 0.0;
+            transport_saw_right[idx] = 0.0;
+            transport_dissipation_left[idx] = 0.0;
+            transport_dissipation_right[idx] = 0.0;
+          }
+        });
+  }
 }
 
 } // namespace nuX_M1

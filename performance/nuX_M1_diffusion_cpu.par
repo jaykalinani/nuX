@@ -134,7 +134,8 @@ nuX_M1::include_GR_sources = "no"
 nuX_M1::include_fluxes = "yes"
 nuX_M1::opacity_corr_fac_max = 1.0
 nuX_M1::reset_to_equilibrium = "no"
-nuX_M1::source_epsabs = 1e-8
+nuX_M1::source_epsabs = 1e-15
+nuX_M1::source_force_nonlinear = yes
 nuX_M1::verbose = "no"
 
 nuX_M1_Seeds::nuX_test_case = "diff_limit_gaussian"

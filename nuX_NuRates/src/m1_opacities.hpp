@@ -253,7 +253,7 @@ void AddBetaReactionToIntegrand(int n, BS_REAL* nu_array,
             abs_em_beta = StimAbsOpacity(nu, &grey_pars->opacity_pars,
                                          &grey_pars->eos_pars); // [s^-1]
 
-            for (int j = 0; i < 2 * n; ++j)
+            for (int j = 0; j < 2 * n; ++j)
             {
                 out->m1_mat_em[id_nue][i][j] += abs_em_beta.em[id_nue];
                 out->m1_mat_em[id_anue][i][j] += abs_em_beta.em[id_anue];
@@ -273,7 +273,7 @@ void AddBetaReactionToIntegrand(int n, BS_REAL* nu_array,
             abs_em_beta = AbsOpacity(nu, &grey_pars->opacity_pars,
                                      &grey_pars->eos_pars); // [s^-1]
 
-            for (int j = 0; i < 2 * n; ++j)
+            for (int j = 0; j < 2 * n; ++j)
             {
                 out->m1_mat_em[id_nue][i][j] += abs_em_beta.em[id_nue];
                 out->m1_mat_em[id_anue][i][j] += abs_em_beta.em[id_anue];
@@ -2004,7 +2004,8 @@ void NeutrinoDens(BS_REAL mu_n, BS_REAL mu_p, BS_REAL mu_e, BS_REAL temp, BS_REA
   // convert to code units
   // Primitive::UnitSystem nurates_units = Primitive::MakeNGS();
 
-  // Note that the number densities are always in EOS units
+  // Convert the physical nm^-3 result to the legacy transport unit used by
+  // evolved rN. This is not a conversion to physical fm^-3.
   // BS_REAL const unit_num_dens = eos_units.NumberDensityConversion(nurates_units);
   // BS_REAL const unit_ene_dens = code_units.EnergyDensityConversion(nurates_units);
 

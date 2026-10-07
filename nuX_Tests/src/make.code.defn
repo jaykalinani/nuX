@@ -1,0 +1,7 @@
+SRCS = \
+m1_driver.cxx \
+m1_source_math.cxx \
+nurates.cxx \
+weakrates.cxx
+
+SUBDIRS =

@@ -1,5 +1,3 @@
-#include <cassert>
-
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Functions.h"
@@ -19,28 +17,35 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
     }
   }
 
-  int method_type;
-  const void *const method_p =
-      CCTK_ParameterGet("method", "ODESolvers", &method_type);
-  assert(method_p);
-  assert(method_type == PARAMETER_KEYWORD);
-  const char *const method =
-      *static_cast<const char *const *>(method_p);
-  const bool has_implicit_source =
+  const bool is_imex =
       CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
-      CCTK_Equals(method, "IMEX122") ||
-      CCTK_Equals(method, "Implicit Euler");
+      CCTK_Equals(method, "IMEX122") || CCTK_Equals(method, "Implicit Euler");
+  const bool is_semi_implicit = CCTK_Equals(method, "semi-implicit");
+  const bool has_implicit_source = is_imex || is_semi_implicit;
+  const bool supports_backreaction =
+      CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
+      is_semi_implicit;
   if (!has_implicit_source) {
     CCTK_PARAMWARN(
         "nuX_M1 collision terms require an implicit-capable ODESolvers "
-        "method (IMEX42L, IMEX32L, IMEX122, or Implicit Euler); "
+        "method (semi-implicit, IMEX42L, IMEX32L, IMEX122, or Implicit "
+        "Euler); "
         "explicit-only methods omit the collision evolution");
   }
-  if ((CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L")) &&
-      source_limiter >= 0) {
-    CCTK_PARAMWARN("nuX_M1::source_limiter must be -1 with IMEX42L and "
-                   "IMEX32L; limiting individual diagonal source updates "
-                   "destroys the L-stable stage cancellation");
+  if (backreact && !supports_backreaction) {
+    CCTK_PARAMWARN(
+        "nuX_M1::backreact requires ODESolvers::method=semi-implicit, "
+        "IMEX42L, or IMEX32L");
+  }
+
+  if (is_imex && source_limiter >= 0) {
+    CCTK_PARAMWARN("nuX_M1::source_limiter must be -1 with IMEX methods; "
+                   "limiting individual diagonal source updates changes "
+                   "the additive Runge-Kutta method");
+  }
+
+  if (!(rad_eps >= 0.0 && rad_eps < 1.0)) {
+    CCTK_PARAMWARN("nuX_M1::rad_eps must satisfy 0 <= rad_eps < 1");
   }
 
   if (CCTK_Equals(rates_lib, "FakeRates")) {

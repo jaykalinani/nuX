@@ -55,36 +55,19 @@ interp_c2v(const Loop::GF3D2layout &layout, const T *gf,
   } else if constexpr (interp_order == 4) {
     const Loop::vect<T, 4> wt = {-1 / T(16), +9 / T(16), +9 / T(16),
                                  -1 / T(16)};
-
-    for (int dir = 0; dir < Loop::dim; ++dir) {
-      const int jdir = (dir == 0) ? 1 : ((dir == 1) ? 2 : 0);
-      const int kdir = (dir == 0) ? 2 : ((dir == 1) ? 0 : 1);
-      T gf_i[4][4] = {};
-
-      for (int dk = 0; dk < 4; ++dk) {
-        for (int dj = 0; dj < 4; ++dj) {
-          for (int di = 0; di < 4; ++di) {
-            int offset[Loop::dim] = {};
-            offset[dir] = di - 2;
-            offset[jdir] = dj - 2;
-            offset[kdir] = dk - 2;
-            gf_i[dk][dj] +=
-                wt[di] * gf[layout.linear(p.i + offset[0], p.j + offset[1],
-                                           p.k + offset[2], component)];
-          }
-        }
-      }
-
-      T gf_j[4] = {};
-      for (int dk = 0; dk < 4; ++dk)
-        for (int dj = 0; dj < 4; ++dj)
-          gf_j[dk] += wt[dj] * gf_i[dk][dj];
-
-      for (int dk = 0; dk < 4; ++dk)
-        gf_avg += wt[dk] * gf_j[dk];
-    }
-
-    return gf_avg / T(3);
+    // A tensor-product interpolation is invariant under permutations of the
+    // coordinate directions.  The previous implementation evaluated this
+    // same 64-point sum three times and averaged the identical results.  A
+    // single direct sum avoids the redundant loads and per-thread temporary
+    // arrays, which is important for accelerator register pressure.
+    for (int dk = 0; dk < 4; ++dk)
+      for (int dj = 0; dj < 4; ++dj)
+        for (int di = 0; di < 4; ++di)
+          gf_avg +=
+              wt[di] * wt[dj] * wt[dk] *
+              gf[layout.linear(p.i + di - 2, p.j + dj - 2, p.k + dk - 2,
+                               component)];
+    return gf_avg;
   }
 }
 

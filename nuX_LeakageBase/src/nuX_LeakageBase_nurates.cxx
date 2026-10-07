@@ -51,9 +51,14 @@ extern "C" void nuX_LeakageBase_CalcOpacityNuRates(CCTK_ARGUMENTS) {
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
         GreyOpacityParams grey_params;
-        setup_equilibrium_grey_opacity_params(
-            grey_params, opacity_flags, opacity_params, eos_3p, rho[ijk],
-            temperature[ijk], Ye[ijk], particle_mass);
+        if (!setup_equilibrium_grey_opacity_params(
+                grey_params, opacity_flags, opacity_params, eos_3p, rho[ijk],
+                temperature[ijk], Ye[ijk], particle_mass)) {
+          kappa_0_nue[ijk] = kappa_0_nua[ijk] = kappa_0_nux[ijk] = 0.0;
+          kappa_1_nue[ijk] = kappa_1_nua[ijk] = kappa_1_nux[ijk] = 0.0;
+          abs_0_nue[ijk] = abs_0_nua[ijk] = abs_0_nux[ijk] = 0.0;
+          return;
+        }
 
         MyQuadrature device_quadrature;
         copy_quadrature(device_quadrature, quadrature);
@@ -123,9 +128,15 @@ extern "C" void nuX_LeakageBase_RatesNuRates(CCTK_ARGUMENTS) {
         const int ijk = layout_cc.linear(p.i, p.j, p.k);
         constexpr CCTK_REAL heavy_species_factor = 4.0;
         GreyOpacityParams grey_params;
-        setup_equilibrium_grey_opacity_params(
-            grey_params, opacity_flags, opacity_params, eos_3p, rho[ijk],
-            temperature[ijk], Ye[ijk], particle_mass);
+        if (!setup_equilibrium_grey_opacity_params(
+                grey_params, opacity_flags, opacity_params, eos_3p, rho[ijk],
+                temperature[ijk], Ye[ijk], particle_mass)) {
+          R_free_nue[ijk] = R_free_nua[ijk] = R_free_nux[ijk] = 0.0;
+          Q_free_nue[ijk] = Q_free_nua[ijk] = Q_free_nux[ijk] = 0.0;
+          R_eff_nue[ijk] = R_eff_nua[ijk] = R_eff_nux[ijk] = 0.0;
+          Q_eff_nue[ijk] = Q_eff_nua[ijk] = Q_eff_nux[ijk] = 0.0;
+          return;
+        }
 
         MyQuadrature device_quadrature;
         copy_quadrature(device_quadrature, quadrature);

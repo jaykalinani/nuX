@@ -30,12 +30,13 @@
 
 // MeV to nm^2 g s^-2
 inline constexpr double kBS_MeV_double = 1.6021766341182763e+8;
-inline constexpr BS_REAL kBS_MeV       = kBS_MeV_double;
+inline constexpr BS_REAL kBS_MeV = kBS_MeV_double;
 
 // erg to MeV
 inline constexpr double erg_to_MeV = 6.241509e+5;
 
-// fm^-3 to nm^-3
+// Legacy transport number-density unit to nm^-3. This is intentionally not
+// the physical fm^-3 conversion (which is 1.0e18); evolved rN uses this scale.
 inline constexpr BS_REAL nuX_ndens_conv = 1.0e9;
 
 // CU to nm^-3
@@ -58,7 +59,6 @@ inline constexpr BS_REAL nuX_time_conv = 4.9257949707731345e-06;
 
 // CU to nm
 inline constexpr BS_REAL nuX_length_conv = 1476625038050.1248;
-
 
 ////////////////////////
 // PHYSICAL CONSTANTS //
@@ -108,14 +108,13 @@ inline constexpr double kBS_Gf =
 // Nuclear saturation number density
 inline constexpr BS_REAL kBS_Saturation_n = 0.15e+18; // [nm^-3]
 
-
 ////////////////////////////////////////
 // COUPLING CONSTANTS AND FORM FACTORS//
 ////////////////////////////////////////
 
-inline constexpr double kBS_Ga      = 1.23;
-inline constexpr double kBS_Gv      = 1.;
-inline constexpr double kBS_Gs      = 0.;
+inline constexpr double kBS_Ga = 1.23;
+inline constexpr double kBS_Gv = 1.;
+inline constexpr double kBS_Gs = 0.;
 inline constexpr double kBS_SinThW2 = 0.2325;
 
 // Neutral current nucleon form factors (kBS_Q^2=0)
@@ -123,7 +122,6 @@ inline constexpr double kBS_Hnv = -0.5;
 inline constexpr double kBS_Hna = -0.5 * kBS_Ga;
 inline constexpr double kBS_Hpv = 0.5 - 2. * kBS_SinThW2;
 inline constexpr double kBS_Hpa = 0.5 * kBS_Ga;
-
 
 //////////////////////////////
 // BETA-PROCESSES CONSTANTS //
@@ -133,7 +131,6 @@ inline constexpr double kBS_Hpa = 0.5 * kBS_Ga;
 inline constexpr BS_REAL kBS_Beta_Const =
     (POW3(kBS_Clight) * POW2(kBS_Gf0 * kBS_Hbar)) *
     (POW2(kBS_Gv) + 3. * POW2(kBS_Ga)) / kBS_Pi;
-
 
 ///////////////////////////////////////////
 // NEUTRINO-NUCLEON SCATTERING CONSTANTS //
@@ -161,13 +158,12 @@ inline constexpr BS_REAL kBS_Iso_c0_n = kBS_Iso_Const * kBS_Iso_h0_n;
 // 1st Legendre coefficient (neutrons)
 inline constexpr BS_REAL kBS_Iso_c1_n = kBS_Iso_Const * kBS_Iso_h1_n;
 
-
 //////////////////////////////////////////////
 // NUCLEON-NUCLEON BREMSSTRAHLUNG CONSTANTS //
 //////////////////////////////////////////////
 
-inline constexpr BS_REAL kBS_Brem_Xmin   = 1.0e-10;
-inline constexpr BS_REAL kBS_Brem_Ymin   = 1.0e-10;
+inline constexpr BS_REAL kBS_Brem_Xmin = 1.0e-10;
+inline constexpr BS_REAL kBS_Brem_Ymin = 1.0e-10;
 inline constexpr BS_REAL kBS_Brem_Etamin = 1.0e-10;
 
 inline constexpr BS_REAL kBS_Brem_Aux1 =
@@ -181,7 +177,6 @@ inline constexpr BS_REAL kBS_Brem_Const =
 
 // (3*5*7*11)/2^{11} / 4 (C in BRT06 Eq.143 divided by four)
 inline constexpr BS_REAL kBS_Brem_C4BRT06 = 0.1409912109375;
-
 
 ////////////////////////////
 // PAIR PROCESS CONSTANTS //
@@ -206,7 +201,6 @@ inline constexpr BS_REAL kBS_Pair_Alpha1_1 = kBS_Pair_Alpha1X;
 inline constexpr BS_REAL kBS_Pair_Alpha2_0 = kBS_Pair_Alpha2E;
 inline constexpr BS_REAL kBS_Pair_Alpha2_1 = kBS_Pair_Alpha2X;
 
-
 /////////////////////////////////////////////////////
 // NEUTRINO-ELECTRON/POSITRON SCATTERING CONSTANTS //
 /////////////////////////////////////////////////////
@@ -215,19 +209,18 @@ inline constexpr BS_REAL kBS_NEPS_Const = 2. * POW2(kBS_Gf0) * kBS_Clight *
                                           POW2(kBS_Hbar * kBS_Clight) /
                                           (3. * kBS_Pi);
 
-inline constexpr BS_REAL kBS_NEPS_BPlus  = POW2(2. * kBS_SinThW2 + 1.);
+inline constexpr BS_REAL kBS_NEPS_BPlus = POW2(2. * kBS_SinThW2 + 1.);
 inline constexpr BS_REAL kBS_NEPS_BMinus = POW2(2. * kBS_SinThW2 - 1.);
-inline constexpr BS_REAL kBS_NEPS_BZero  = 4. * POW2(kBS_SinThW2);
-
+inline constexpr BS_REAL kBS_NEPS_BZero = 4. * POW2(kBS_SinThW2);
 
 /////////////////////////////
 // MISCELLANEOUS CONSTANTS //
 /////////////////////////////
 
 // Cut-off values for safe exponential evaluation
-inline constexpr BS_REAL kBS_ExpUppLim = std::is_same_v<BS_REAL, float>  ? 80 :
-                                         std::is_same_v<BS_REAL, double> ? 700 :
-                                                                           80;
+inline constexpr BS_REAL kBS_ExpUppLim = std::is_same_v<BS_REAL, float>    ? 80
+                                         : std::is_same_v<BS_REAL, double> ? 700
+                                                                           : 80;
 inline constexpr BS_REAL kBS_ExpLowLim = -kBS_ExpUppLim;
 
 inline constexpr BS_REAL kBS_HClight6FourPiSquared =
@@ -268,6 +261,5 @@ inline constexpr BS_REAL kBS_Pi2OneEighth = 1.15383506784998943054096521314981;
 // (pi / 2)^2.5
 inline constexpr BS_REAL kBS_PiHalfToFiveHalves =
     3.09242868139914350627854469835251;
-
 
 #endif // BNS_NURATES_SRC_CONSTANTS_HPP_

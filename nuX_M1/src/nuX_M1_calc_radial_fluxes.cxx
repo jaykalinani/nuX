@@ -6,8 +6,8 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_utils.hxx"
 #include "nuX_M1_closure.hxx"
+#include "nuX_utils.hxx"
 
 namespace nuX_M1 {
 
@@ -127,9 +127,13 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
 
           assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
           const CCTK_REAL Gamma = alp_cc * fnu_u(0);
-          const CCTK_REAL nnu = rN[i4D] / Gamma;
-
-          radial_flux_0[i4D] = alp_cc * irr * nnu * tensor::dot(fnu_u, r_d);
+          if (!isfinite(Gamma) || !(Gamma > 0.0)) {
+            radial_flux_0[i4D] = 0.0;
+          } else {
+            const CCTK_REAL nnu = rN[i4D] / Gamma;
+            const CCTK_REAL flux = alp_cc * irr * nnu * tensor::dot(fnu_u, r_d);
+            radial_flux_0[i4D] = isfinite(flux) ? flux : 0.0;
+          }
         }
       });
 }

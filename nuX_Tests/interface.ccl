@@ -1,0 +1,7 @@
+# Interface definition for the CI-only nuX test thorn
+
+IMPLEMENTS: nuX_Tests
+
+USES INCLUDE HEADER: nuX_M1_sources.hxx nuX_M1_weak_equil.hxx
+USES INCLUDE HEADER: kernels.hpp
+USES INCLUDE HEADER: nuX_weakrates.hxx

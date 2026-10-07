@@ -1,5 +1,4 @@
 #include <cassert>
-#include <cstring>
 #include <cmath>
 
 #include <loop_device.hxx>
@@ -9,13 +8,13 @@
 #include "cctk_Parameters.h"
 
 #include <mat.hxx>
-#include <vec.hxx>
-#include <sum.hxx>
 #include <simd.hxx>
+#include <sum.hxx>
+#include <vec.hxx>
 
+#include "aster_utils.hxx"
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
-#include "aster_utils.hxx"
 
 #define PINDEX1D(ig, iv) ((iv) + (ig) * 5)
 
@@ -48,12 +47,21 @@ face_speed(int dir, const tensor::inv_metric<3> &gamma,
            CCTK_REAL alpha_cell) {
 
   // NOTE: gamma is a 3-metric (indices 0..2) like in THC.
-  const CCTK_REAL root = alpha_cell * sqrt(gamma(dir, dir));
+  const CCTK_REAL gamma_uu_dir = gamma(dir, dir);
+  const CCTK_REAL beta_dir = beta_u(dir + 1);
+  if (!(isfinite(alpha_cell) && alpha_cell > 0 && isfinite(gamma_uu_dir) &&
+        gamma_uu_dir > 0 && isfinite(beta_dir)))
+    device_abort();
 
-  const CCTK_REAL lamP = -beta_u(dir + 1) + root;
-  const CCTK_REAL lamM = -beta_u(dir + 1) - root;
+  const CCTK_REAL root = alpha_cell * sqrt(gamma_uu_dir);
 
-  return fmax(fabs(lamP), fabs(lamM));
+  const CCTK_REAL lamP = -beta_dir + root;
+  const CCTK_REAL lamM = -beta_dir - root;
+  const CCTK_REAL speed = fmax(fabs(lamP), fabs(lamM));
+  if (!isfinite(speed))
+    device_abort();
+
+  return speed;
 }
 
 //---------------------------------------------------------------------
@@ -133,7 +141,9 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
           const int i4D = layout_cc.linear(i, j, k, ig);
 
           // Assemble radiation tensors at cell centre
+          CCTK_REAL E_transport = rE[i4D];
           pack_F_d(beta_x, beta_y, beta_z, rFx[i4D], rFy[i4D], rFz[i4D], &F_d);
+          repair_moments(g_uu, &E_transport, &F_d, rad_E_floor, rad_eps);
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
           pack_P_dd(beta_x, beta_y, beta_z, rPxx[i4D], rPxy[i4D], rPxz[i4D],
                     rPyy[i4D], rPyz[i4D], rPzz[i4D], &P_dd);
@@ -144,10 +154,10 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
 
           assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
 
-          const CCTK_REAL Gamma = compute_Gamma(W, v_u, rJ[i4D], rE[i4D], F_d,
-                                                rad_E_floor, rad_eps);
+          const CCTK_REAL Gamma = compute_Gamma(W, v_u, rJ[i4D], E_transport,
+                                                F_d, rad_E_floor, rad_eps);
 
-          const CCTK_REAL nnu = rN[i4D] / Gamma; // fmax(Gamma, 1.0);
+          const CCTK_REAL nnu = max(rN[i4D], rad_N_floor) / Gamma;
 
           const int comp_n = PINDEX1D(ig, 0);
           const int comp_fx = PINDEX1D(ig, 1);
@@ -164,7 +174,7 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
           nu_flux_dir[layout_cc.linear(i, j, k, comp_fz)] =
               calc_F_flux(alpha, beta_u, F_d, P_ud, dir + 1, 3);
           nu_flux_dir[layout_cc.linear(i, j, k, comp_e)] =
-              calc_E_flux(alpha, beta_u, rE[i4D], F_u, dir + 1);
+              calc_E_flux(alpha, beta_u, E_transport, F_u, dir + 1);
         } // ig
       });
 }
@@ -183,7 +193,80 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
 // This mimics the original 1D sweep algorithm, but recast into a
 // per-cell GPU kernel using local stencils (no dynamic allocations).
 //---------------------------------------------------------------------
-template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
+template <bool store_source_diagnostics> struct TransportDiagnostics {
+  TransportDiagnostics(CCTK_REAL *, CCTK_REAL *, CCTK_REAL *, CCTK_REAL *) {}
+
+  template <typename Layout>
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  clear(const Layout &, const int, const int, const int, const int,
+        const int) const {}
+
+  template <typename Layout>
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  store_left(const Layout &, const int, const int, const int, const int,
+             const int, const int, const int, const bool,
+             const CCTK_REAL) const {}
+
+  template <typename Layout>
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  store_right(const Layout &, const int, const int, const int, const int,
+              const int, const int, const int, const bool,
+              const CCTK_REAL) const {}
+};
+
+template <> struct TransportDiagnostics<true> {
+  CCTK_REAL *const saw_left;
+  CCTK_REAL *const saw_right;
+  CCTK_REAL *const dissipation_left;
+  CCTK_REAL *const dissipation_right;
+
+  TransportDiagnostics(CCTK_REAL *const saw_left, CCTK_REAL *const saw_right,
+                       CCTK_REAL *const dissipation_left,
+                       CCTK_REAL *const dissipation_right)
+      : saw_left(saw_left), saw_right(saw_right),
+        dissipation_left(dissipation_left),
+        dissipation_right(dissipation_right) {}
+
+  template <typename Layout>
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  clear(const Layout &layout, const int i, const int j, const int k,
+        const int dir, const int groupspec) const {
+    for (int ig = 0; ig < groupspec; ++ig)
+      for (int iv = 0; iv < 5; ++iv) {
+        const int component = iv + 5 * (ig + groupspec * dir);
+        const int index = layout.linear(i, j, k, component);
+        saw_left[index] = 0.0;
+        saw_right[index] = 0.0;
+        dissipation_left[index] = 0.0;
+        dissipation_right[index] = 0.0;
+      }
+  }
+
+  template <typename Layout>
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  store_left(const Layout &layout, const int i, const int j, const int k,
+             const int dir, const int groupspec, const int ig, const int iv,
+             const bool saw, const CCTK_REAL dissipation) const {
+    const int component = iv + 5 * (ig + groupspec * dir);
+    const int index = layout.linear(i, j, k, component);
+    saw_left[index] = saw ? 1.0 : 0.0;
+    dissipation_left[index] = dissipation;
+  }
+
+  template <typename Layout>
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  store_right(const Layout &layout, const int i, const int j, const int k,
+              const int dir, const int groupspec, const int ig, const int iv,
+              const bool saw, const CCTK_REAL dissipation) const {
+    const int component = iv + 5 * (ig + groupspec * dir);
+    const int index = layout.linear(i, j, k, component);
+    saw_right[index] = saw ? 1.0 : 0.0;
+    dissipation_right[index] = dissipation;
+  }
+};
+
+template <int dir, bool store_source_diagnostics>
+void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_UpdateRHSFromFluxes;
   DECLARE_CCTK_PARAMETERS;
 
@@ -195,6 +278,9 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
   const CCTK_REAL idx = 1.0 / dx;
 
   const int groupspec = ngroups * nspecies;
+  const TransportDiagnostics<store_source_diagnostics> diagnostics(
+      transport_saw_left, transport_saw_right, transport_dissipation_left,
+      transport_dissipation_right);
 
   // RHS components (cell-centred)
   CCTK_REAL *r_rhs[5] = {rN_rhs, rFx_rhs, rFy_rhs, rFz_rhs, rE_rhs};
@@ -221,6 +307,7 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
 
         // Optional mask: skip cells where transport should not act
         if (nuX_m1_mask[idxC]) {
+          diagnostics.clear(layout_cc, i, j, k, dir, groupspec);
           return;
         }
 
@@ -228,10 +315,6 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
         const int di = (dir == 0);
         const int dj = (dir == 1);
         const int dk = (dir == 2);
-
-        auto idx_cell = [&](int ii, int jj, int kk) {
-          return layout_cc.linear(ii, jj, kk);
-        };
 
         // 1D indices around this cell along direction `dir`
         // Treat this cell as "j".
@@ -372,10 +455,14 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                   0.5 * (f_j + f_jp1 - cmx_R * (u_jp1 - u_j));
               const CCTK_REAL flux_high_R = 0.5 * (f_j + f_jp1);
 
-              const CCTK_REAL Aeff_R = (saw_R ? 1.0 : A_R);
+              const CCTK_REAL Aeff_R =
+                  (saw_R && sawtooth_force_full_dissipation ? 1.0 : A_R);
 
               F_R = flux_high_R -
                     Aeff_R * (1.0 - phi_R) * (flux_high_R - flux_low_R);
+
+              diagnostics.store_right(layout_cc, i, j, k, dir, groupspec, ig,
+                                      iv, saw_R, Aeff_R * (1.0 - phi_R));
             }
 
             //----------------------------------------------------------------
@@ -415,10 +502,14 @@ template <int dir> void M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
                   0.5 * (f_jm1 + f_jL - cmx_L * (u_j - u_jm1));
               const CCTK_REAL flux_high_L = 0.5 * (f_jm1 + f_jL);
 
-              const CCTK_REAL Aeff_L = (saw_L ? 1.0 : A_L);
+              const CCTK_REAL Aeff_L =
+                  (saw_L && sawtooth_force_full_dissipation ? 1.0 : A_L);
 
               F_L = flux_high_L -
                     Aeff_L * (1.0 - phi_L) * (flux_high_L - flux_low_L);
+
+              diagnostics.store_left(layout_cc, i, j, k, dir, groupspec, ig, iv,
+                                     saw_L, Aeff_L * (1.0 - phi_L));
             }
 
             //----------------------------------------------------------------
@@ -455,10 +546,18 @@ extern "C" void nuX_M1_UpdateRHSFromFluxes(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_UpdateRHSFromFluxes");
   }
 
-  // Build limited numerical fluxes and apply divergence to the RHS
-  M1_UpdateRHSFromFluxes<0>(cctkGH);
-  M1_UpdateRHSFromFluxes<1>(cctkGH);
-  M1_UpdateRHSFromFluxes<2>(cctkGH);
+  // Build limited numerical fluxes and apply divergence to the RHS. Compile a
+  // diagnostics-free production kernel so optional debug fields do not add
+  // pointer captures or live state when they are disabled.
+  if (source_diagnostics) {
+    M1_UpdateRHSFromFluxes<0, true>(cctkGH);
+    M1_UpdateRHSFromFluxes<1, true>(cctkGH);
+    M1_UpdateRHSFromFluxes<2, true>(cctkGH);
+  } else {
+    M1_UpdateRHSFromFluxes<0, false>(cctkGH);
+    M1_UpdateRHSFromFluxes<1, false>(cctkGH);
+    M1_UpdateRHSFromFluxes<2, false>(cctkGH);
+  }
 }
 
 } // namespace nuX_M1

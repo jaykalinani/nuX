@@ -3,6 +3,8 @@ IMPLEMENTS: nuX_M1
 INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX nuX_Base
 
 INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx 
+INCLUDES HEADER: nuX_M1_sources.hxx IN nuX_M1_sources.hxx
+INCLUDES HEADER: nuX_M1_weak_equil.hxx IN nuX_M1_weak_equil.hxx
 
 USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
 USES INCLUDE HEADER: nuX_baryon_mass.hxx nuX_metric.hxx nuX_pow.hxx nuX_rate_units.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx
@@ -24,7 +26,6 @@ USES FUNCTION ODESolvers_GetStepDeltaTime
 
 CCTK_INT FUNCTION ODESolvers_InPreImplicitStage()
 USES FUNCTION ODESolvers_InPreImplicitStage
-
 
 # === Public grid functions ===
 
@@ -107,13 +108,62 @@ CCTK_REAL rF_rhs[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} T
     rFx_rhs, rFy_rhs, rFz_rhs
 } "RHS for the radiation energy fluxes"
 
-CCTK_REAL source_update_delta_N[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Stage-local radiation number source increment"
+# Base radiation state used by the legacy two-pass semi-implicit update.
+CCTK_REAL rN_base[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Radiation number density at the beginning of the split step"
 
-CCTK_REAL source_update_delta_E[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Stage-local radiation energy source increment"
+CCTK_REAL rE_base[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Radiation energy density at the beginning of the split step"
+
+CCTK_REAL rF_base[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    rFx_base, rFy_base, rFz_base
+} "Radiation energy flux at the beginning of the split step"
+
+CCTK_INT semi_implicit_stage TYPE=SCALAR TAGS='checkpoint="no"' "Legacy semi-implicit predictor/corrector stage"
+
+CCTK_REAL source_update_delta_N[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Stage-local radiation number collision workspace"
+
+CCTK_REAL source_update_delta_E[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Stage-local radiation energy collision workspace"
 
 CCTK_REAL source_update_delta_F[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     source_update_delta_Fx, source_update_delta_Fy, source_update_delta_Fz
-} "Stage-local radiation flux source increment"
+} "Stage-local radiation flux collision workspace"
 
 CCTK_REAL source_limiter_theta TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Limiter applied to the radiation-matter source update"
+
+## Optional source/equilibrium diagnostics. Storage is enabled only when
+## source_diagnostics=yes.
+CCTK_REAL source_solver_diagnostics[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    source_method, source_status, source_iterations, source_residual, source_step
+} "Implicit source method/status, iteration count, and scaled convergence measures"
+
+CCTK_REAL source_collision_delta[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    source_collision_delta_N, source_collision_delta_E,
+    source_collision_delta_Fx, source_collision_delta_Fy, source_collision_delta_Fz
+} "Accepted physical collision increment"
+
+CCTK_REAL source_repair_delta[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    source_repair_delta_N, source_repair_delta_E,
+    source_repair_delta_Fx, source_repair_delta_Fy, source_repair_delta_Fz
+} "Numerical floor and realizability repair increment"
+
+CCTK_REAL equilibrium_diagnostics[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    equilibrium_status, equilibrium_lepton_residual, equilibrium_energy_residual
+} "Trapped-equilibrium status and conservation residuals"
+
+CCTK_REAL radiation_state_diagnostics[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    comoving_flux_factor
+} "Comoving radiation flux factor sqrt(H_a H^a)/J"
+
+## The final array index is component + 5*(species/group + groupspec*dir),
+## where component=(N,Fx,Fy,Fz,E) and dir=(x,y,z).
+CCTK_REAL transport_diagnostics[nuX_Base::nspecies*nuX_Base::ngroups*15] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
+{
+    transport_saw_left, transport_saw_right,
+    transport_dissipation_left, transport_dissipation_right
+} "Sawtooth flags and effective interface dissipation"

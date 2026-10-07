@@ -105,9 +105,10 @@ BS_REAL BremKernelS(BS_REAL x, BS_REAL y, BS_REAL eta_star)
         fu_threshold = ten_minus_fourteen;
     }
 
-    // @TODO: check this fix! Doing this to prevent s_d from being a large
-    // negative number
-    f_u = (fabs(f_u) < fu_threshold) ? fu_threshold : f_u;
+    // Roundoff in the fitted expression can make f_u slightly negative. A
+    // negative value subsequently enters fractional powers and produces NaNs,
+    // so impose the positive asymptotic floor used by the fit.
+    f_u = isfinite(f_u) && f_u > fu_threshold ? f_u : fu_threshold;
 
     const BS_REAL s_d = three * kBS_PiHalfToFiveHalves *
                         pow(eta_star, -five_halves) *
@@ -241,6 +242,7 @@ BS_REAL BremSingleChannelAbsKernel(const BS_REAL n_nuc, const BS_REAL m_nuc,
                                    BremKernelParams* kernel_params,
                                    MyEOSParams* eos_params)
 {
+    constexpr BS_REAL zero          = 0;
     constexpr BS_REAL two          = 2;
     constexpr BS_REAL three        = 3;
     constexpr BS_REAL half         = 0.5;
@@ -251,6 +253,13 @@ BS_REAL BremSingleChannelAbsKernel(const BS_REAL n_nuc, const BS_REAL m_nuc,
     constexpr BS_REAL c1 = 1.63;
     constexpr BS_REAL c2 = 1.94;
 
+    // A channel with no nucleons contributes exactly zero. Evaluating the
+    // HR98 fit at n_nuc=0 instead produces a singular degeneracy parameter.
+    if (!isfinite(n_nuc) || n_nuc <= zero || !isfinite(m_nuc) || m_nuc <= zero)
+    {
+        return zero;
+    }
+
     // EOS parameters
     // Temperature
     const BS_REAL T = eos_params->temp; // [MeV]
@@ -260,6 +269,12 @@ BS_REAL BremSingleChannelAbsKernel(const BS_REAL n_nuc, const BS_REAL m_nuc,
     const BS_REAL omega = kernel_params->omega; // [MeV]
     // Primed neutrino energy
     const BS_REAL omega_prime = kernel_params->omega_prime; //  [MeV]
+
+    if (!isfinite(T) || T <= zero || !isfinite(omega) || omega < zero ||
+        !isfinite(omega_prime) || omega_prime < zero)
+    {
+        return zero;
+    }
 
     // Dimensionless neutrino energy sum
     const BS_REAL x = (omega + omega_prime) / T;
@@ -285,7 +300,9 @@ BS_REAL BremSingleChannelAbsKernel(const BS_REAL n_nuc, const BS_REAL m_nuc,
     const BS_REAL gb = BremKernelG(y, eta_star);
 
     // Differential absorption kernel, Eqn. (35)
-    return gamma / (POW2(x) + POW2(half * gamma * gb)) * sb / T;
+    const BS_REAL kernel =
+        gamma / (POW2(x) + POW2(half * gamma * gb)) * sb / T;
+    return isfinite(kernel) && kernel > zero ? kernel : zero;
 }
 
 /* Compute the angular independent part of the absorption kernels for the
@@ -294,6 +311,7 @@ CCTK_HOST CCTK_DEVICE inline
 BS_REAL BremAllChannelsAbsKernel(BremKernelParams* kernel_params,
                                  MyEOSParams* eos_params)
 {
+    constexpr BS_REAL zero               = 0;
     constexpr BS_REAL twentyeight_thirds = 28. / 3.;
     constexpr BS_REAL one                = 1;
     constexpr BS_REAL three              = 3;
@@ -302,6 +320,13 @@ BS_REAL BremAllChannelsAbsKernel(BremKernelParams* kernel_params,
     const BS_REAL nb = eos_params->nb; // baryon number density [nm^-3]
     const BS_REAL xn = eos_params->yn; // neutron abundance/mass fraction
     const BS_REAL xp = eos_params->yp; // proton abundance/mass fraction
+
+    if (!isfinite(nb) || nb <= zero || !isfinite(eos_params->temp) ||
+        eos_params->temp <= zero || !isfinite(xn) || xn < zero || xn > one ||
+        !isfinite(xp) || xp < zero || xp > one)
+    {
+        return zero;
+    }
 
     const BS_REAL x_mean =
         sqrt(xn * xp); // geometric mean of nucleon abundances/mass fractions
@@ -334,7 +359,7 @@ BS_REAL BremAllChannelsAbsKernel(BremKernelParams* kernel_params,
             s_abs_tot / POW6((one + cbrt(nb / kBS_Saturation_n) / three));
     }
 
-    return s_abs_tot;
+    return isfinite(s_abs_tot) && s_abs_tot > zero ? s_abs_tot : zero;
 }
 
 /* Compute a specific Legendre coefficient in the expansion of production and
@@ -343,6 +368,7 @@ CCTK_HOST CCTK_DEVICE inline
 MyKernelOutput BremKernelsLegCoeff(BremKernelParams* kernel_params,
                                    MyEOSParams* eos_params)
 {
+    constexpr BS_REAL zero  = 0;
     constexpr BS_REAL one   = 1;
     constexpr BS_REAL three = 3;
 
@@ -356,6 +382,14 @@ MyKernelOutput BremKernelsLegCoeff(BremKernelParams* kernel_params,
 
     // EOS parameters
     const BS_REAL temp = eos_params->temp; // temperature [MeV]
+
+    MyKernelOutput brem_kernel = {0};
+    if (!isfinite(temp) || temp <= zero || !isfinite(omega) || omega < zero ||
+        !isfinite(omega_prime) || omega_prime < zero ||
+        omega + omega_prime <= zero || l < 0 || l > 1)
+    {
+        return brem_kernel;
+    }
 
     // dimensionless neutrino energy sum
     const BS_REAL x = (omega + omega_prime) / temp;
@@ -380,8 +414,6 @@ MyKernelOutput BremKernelsLegCoeff(BremKernelParams* kernel_params,
 
     // production kernel from detailed balance
     BS_REAL s_em = s_abs * SafeExp(-x);
-
-    MyKernelOutput brem_kernel;
 
     for (int idx = 0; idx < total_num_species; ++idx)
     {

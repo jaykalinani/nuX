@@ -124,7 +124,6 @@ CarpetX/ErrorEstimator
 CarpetX/HydroBaseX
 CarpetX/Loop
 CarpetX/ODESolvers
-CarpetX/Subcycling
 CarpetX/TmunuBaseX
 
 # SpacetimeX nuX branch
@@ -161,7 +160,11 @@ AsterX/TOVSolverX
 !REPO_PATH= $2
 !REPO_BRANCH = dev
 !CHECKOUT =
+BNSTools/MHD_Diagnostics
 BNSTools/NRPyPlusTOVID
+BNSTools/Outflow
+BNSTools/VolumeIntegrals_GRMHDX
+BNSTools/VolumeIntegrals_vacuumX
 
 # The workflow checkout supplies the nuX odesolvers branch or pull request.
 !TARGET   = $ARR

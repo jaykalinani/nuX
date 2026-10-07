@@ -4,12 +4,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <loop_device.hxx>
 
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
-
-#include <cctk_Parameters.h>
 
 #define NUX_M1_SOURCE_OK 0
 #define NUX_M1_SOURCE_THIN 1
@@ -39,9 +38,8 @@ using namespace std;
 struct SourceUpdateContext {
   CCTK_HOST CCTK_DEVICE SourceUpdateContext(
       cGH const *_cctkGH, int const _i, int const _j, int const _k,
-      int const _ig, CCTK_REAL _closure_epsilon,
-      CCTK_INT _closure_maxiter, bool _closure_use_fallback,
-      CCTK_REAL const _cdt, CCTK_REAL const _alp,
+      int const _ig, CCTK_REAL _closure_epsilon, CCTK_INT _closure_maxiter,
+      bool _closure_use_fallback, CCTK_REAL const _cdt, CCTK_REAL const _alp,
       tensor::metric<4> const &_g_dd, tensor::inv_metric<4> const &_g_uu,
       tensor::generic<CCTK_REAL, 4, 1> const &_n_d,
       tensor::generic<CCTK_REAL, 4, 1> const &_n_u,
@@ -52,8 +50,7 @@ struct SourceUpdateContext {
       tensor::generic<CCTK_REAL, 4, 1> const &_v_u,
       tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _W,
       CCTK_REAL const _Eold, tensor::generic<CCTK_REAL, 4, 1> const &_Fold_d,
-      CCTK_REAL const _Estar,
-      tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d,
+      CCTK_REAL const _Estar, tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d,
       CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig),
         closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
@@ -61,8 +58,7 @@ struct SourceUpdateContext {
         g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u), gamma_ud(_gamma_ud),
         u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u), proj_ud(_proj_ud), W(_W),
         Eold(_Eold), Fold_d(_Fold_d), Estar(_Estar), Fstar_d(_Fstar_d),
-        eta(_eta), kabs(_kabs),
-        kscat(_kscat) {}
+        eta(_eta), kabs(_kabs), kscat(_kscat) {}
   cGH const *cctkGH;
   int const i;
   int const j;
@@ -93,14 +89,39 @@ struct SourceUpdateContext {
   CCTK_REAL const kscat;
 };
 
-// A failed stiff solve must not be committed as a radiation or matter update.
+struct SourceSolveDiagnostics {
+  CCTK_INT method = NUX_M1_SOURCE_FAIL;
+  CCTK_INT status = -1;
+  CCTK_INT iterations = 0;
+  CCTK_REAL scaled_residual = 0.0;
+  CCTK_REAL scaled_step = 0.0;
+};
+
+// Collision-source solutions must remain in the physical lab-frame moment
+// cone.  The transport safety margin rad_eps is applied later as a numerical
+// repair; it is intentionally not part of this physical acceptance test.
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+source_state_is_realizable(tensor::inv_metric<4> const &g_uu, CCTK_REAL const E,
+                           tensor::generic<CCTK_REAL, 4, 1> const &F_d) {
+  if (!isfinite(E) || E < 0.0)
+    return false;
+  for (int a = 0; a < 4; ++a)
+    if (!isfinite(F_d(a)))
+      return false;
+
+  const CCTK_REAL F2 = tensor::dot(g_uu, F_d, F_d);
+  const CCTK_REAL tol = spacelike_norm_roundoff_tolerance(g_uu, F_d, E);
+  return isfinite(F2) && F2 >= -tol && F2 <= E * E + tol;
+}
+
+// A failed stiff solve must never be converted into an apparently valid
+// radiation update.  Cactus error reporting is host-only, while this routine
+// is called inside accelerator kernels, so use a device-safe hard failure.
 // This remains active in optimized builds, unlike assert().
 [[noreturn]] CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 source_solver_abort() {
   device_abort();
 }
-
-#ifdef NUX_M1_SOURCES_IMPLEMENTATION
 
 struct Params {
   CCTK_HOST CCTK_DEVICE Params(SourceUpdateContext const &ctx,
@@ -142,15 +163,15 @@ double sign(double x) {
 
 // Low level kernel computing the Jacobian matrix
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-__source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
-                            double kapa, double kaps, double vup[4],
-                            double vdown[4], double v2, double W, double alpha,
-                            double cdt, arith_matrix &J) {
+source_jacobian_fixed_chi(double *qpre, double Fup[4], double F2, double chi,
+                          double kapa, double kaps, double vup[4],
+                          double vdown[4], double v2, double W, double alpha,
+                          double cdt, arith_matrix &J) {
   const double kapas = kapa + kaps;
   const double alpW = alpha * W;
 
-  const double dthin = radM1_set_dthin(chi);
-  const double dthick = radM1_set_dthick(chi);
+  double dthin = radM1_set_dthin(chi);
+  double dthick = radM1_set_dthick(chi);
 
   const double vx = vdown[1];
   const double vy = vdown[2];
@@ -160,8 +181,21 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
 
   const double vdotF =
       Fup[1] * vdown[1] + Fup[2] * vdown[2] + Fup[3] * vdown[3];
-  const double normF = sqrt(F2);
-  const double inormF = (normF > 0 ? 1 / normF : 0);
+  const double normF = sqrt(max(F2, 0.0));
+  // The source-Jacobian equations in the THC_M1 paper contain E/F, not the
+  // historical min(E/F,1) clamp.
+  // At F/E -> 0 the closure is isotropic (chi=1/3, dthin=0), so all
+  // direction-dependent terms have the regular Eddington limit. Enforce that
+  // analytic limit explicitly instead of multiplying a singular E/F by a
+  // numerically small dthin.
+  const bool isotropic =
+      normF <= 64.0 * std::numeric_limits<double>::epsilon() *
+                   max(abs(qpre[0]), std::numeric_limits<double>::min());
+  if (isotropic) {
+    dthin = 0.0;
+    dthick = 1.0;
+  }
+  const double inormF = (!isotropic && normF > 0 ? 1 / normF : 0);
   const double vdothatf = vdotF * inormF;
   const double vdothatf2 = (vdothatf) * (vdothatf);
   const double hatfx = qpre[1] * inormF; // hatf_i
@@ -171,7 +205,7 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
   const double hatfupy = Fup[2] * inormF;
   const double hatfupz = Fup[3] * inormF;
   const double e = qpre[0];
-  const double eonormF = min(e * inormF, 1.0); // with factor dthin ...
+  const double eonormF = isotropic ? 0.0 : e * inormF;
 
   // drvts of J
   double JdE = W2 + dthin * vdothatf2 * W2 +
@@ -261,22 +295,39 @@ __source_jacobian_low_level(double *qpre, double Fup[4], double F2, double chi,
     }
 }
 
+#ifdef NUX_M1_SOURCES_IMPLEMENTATION
+
 CCTK_HOST CCTK_DEVICE int prepare_closure(const arith_vector &q, Params *p,
                                           PreparedState *s) {
   SourceUpdateContext const &c = *p->ctx;
-  if (!isfinite(q(0)) || !isfinite(q(1)) || !isfinite(q(2)) ||
-      !isfinite(q(3)) || q(0) < CCTK_REAL(0)) {
+  s->E = q(0);
+  if (!isfinite(s->E) || s->E < 0.0 || !nuX_Utils::roots::finite(q)) {
     return ROOTS_EBADFUNC;
   }
-  s->E = q(0);
-  pack_F_d(-c.alp * c.n_u(1), -c.alp * c.n_u(2), -c.alp * c.n_u(3), q(1),
-           q(2), q(3), &s->F_d);
+  pack_F_d(-c.alp * c.n_u(1), -c.alp * c.n_u(2), -c.alp * c.n_u(3), q(1), q(2),
+           q(3), &s->F_d);
+  if (!source_state_is_realizable(c.g_uu, s->E, s->F_d)) {
+    return ROOTS_EBADFUNC;
+  }
   tensor::contract(c.g_uu, s->F_d, &s->F_u);
+  const CCTK_REAL F2 = tensor::dot(c.g_uu, s->F_d, s->F_d);
+  const CCTK_REAL F2_tol =
+      spacelike_norm_roundoff_tolerance(c.g_uu, s->F_d, s->E);
+  if (!isfinite(F2) || F2 < -F2_tol) {
+    return ROOTS_EBADFUNC;
+  }
 
-  calc_closure(c.cctkGH, c.i, c.j, c.k, c.ig, p->closure, c.g_dd, c.g_uu,
-               c.n_d, c.W, c.u_u, c.v_d, c.proj_ud, s->E, s->F_d, &p->chi,
-               &s->P_dd, c.closure_epsilon, c.closure_maxiter,
-               c.closure_use_fallback);
+  calc_closure(c.cctkGH, c.i, c.j, c.k, c.ig, p->closure, c.g_dd, c.g_uu, c.n_d,
+               c.W, c.u_u, c.v_d, c.proj_ud, s->E, s->F_d, &p->chi, &s->P_dd,
+               c.closure_epsilon, c.closure_maxiter, c.closure_use_fallback);
+
+  if (!isfinite(p->chi)) {
+    return ROOTS_EBADFUNC;
+  }
+  for (int a = 0; a < 4; ++a)
+    for (int b = a; b < 4; ++b)
+      if (!isfinite(s->P_dd(a, b)))
+        return ROOTS_EBADFUNC;
 
   return ROOTS_SUCCESS;
 }
@@ -288,10 +339,19 @@ CCTK_HOST CCTK_DEVICE int prepare_sources(Params *p, PreparedState *s) {
   s->J = calc_J_from_rT(s->T_dd, c.u_u);
   calc_H_from_rT(s->T_dd, c.u_u, c.proj_ud, &s->H_d);
 
+  if (!comoving_state_is_acceptable(p->closure, c.g_uu, s->J, s->H_d))
+    return ROOTS_EBADFUNC;
+
   calc_rad_sources(c.eta, c.kabs, c.kscat, c.u_d, s->J, s->H_d, &s->S_d);
 
   s->Edot = calc_rE_source(c.alp, c.n_u, s->S_d);
   calc_rF_source(c.alp, c.gamma_ud, s->S_d, &s->tS_d);
+
+  if (!isfinite(s->J) || !isfinite(s->Edot))
+    return ROOTS_EBADFUNC;
+  for (int a = 0; a < 4; ++a)
+    if (!isfinite(s->H_d(a)) || !isfinite(s->S_d(a)) || !isfinite(s->tS_d(a)))
+      return ROOTS_EBADFUNC;
 
   return ROOTS_SUCCESS;
 }
@@ -330,7 +390,7 @@ CCTK_HOST CCTK_DEVICE int impl_func_val(const arith_vector &q, Params *p,
 
   EVALUATE_ZFUNC
 
-  return ROOTS_SUCCESS;
+  return nuX_Utils::roots::finite(f) ? ROOTS_SUCCESS : ROOTS_EBADFUNC;
 }
 
 // Jacobian of the implicit function
@@ -357,12 +417,12 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(const arith_vector &q, Params *p,
   double m_alpha = c.alp;                                                      \
   double m_cdt = c.cdt;                                                        \
                                                                                \
-  __source_jacobian_low_level(m_q, m_Fup, m_F2, m_chi, m_kabs, m_kscat, m_vup, \
-                              m_vdw, m_v2, m_W, m_alpha, m_cdt, J);
+  source_jacobian_fixed_chi(m_q, m_Fup, m_F2, m_chi, m_kabs, m_kscat, m_vup,   \
+                            m_vdw, m_v2, m_W, m_alpha, m_cdt, J);
 
   EVALUATE_ZJAC
 
-  return ROOTS_SUCCESS;
+  return nuX_Utils::roots::finite(J) ? ROOTS_SUCCESS : ROOTS_EBADFUNC;
 }
 
 // Function and Jacobian evaluation
@@ -378,7 +438,9 @@ CCTK_HOST CCTK_DEVICE int impl_func_val_jac(const arith_vector &q, Params *p,
   EVALUATE_ZFUNC
   EVALUATE_ZJAC
 
-  return ROOTS_SUCCESS;
+  return nuX_Utils::roots::finite(f) && nuX_Utils::roots::finite(J)
+             ? ROOTS_SUCCESS
+             : ROOTS_EBADFUNC;
 }
 
 #undef EVALUATE_ZFUNC
@@ -451,8 +513,15 @@ source_uses_thick_limit(CCTK_REAL const cdt, CCTK_REAL const kabs,
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
 source_uses_scat_limit(CCTK_REAL const cdt, CCTK_REAL const kscat,
                        CCTK_REAL const source_scat_limit) {
-  return source_scat_limit > CCTK_REAL(0) &&
-         cdt * kscat > source_scat_limit;
+  return source_scat_limit > CCTK_REAL(0) && cdt * kscat > source_scat_limit;
+}
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+source_uses_thermalized_number_limit(CCTK_REAL const proper_dt,
+                                     CCTK_REAL const kabs,
+                                     CCTK_REAL const source_therm_limit) {
+  return source_therm_limit > CCTK_REAL(0) &&
+         proper_dt * kabs >= source_therm_limit;
 }
 
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
@@ -467,32 +536,34 @@ source_can_use_no_source_fallback(
 }
 
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
-source_apply_no_source_fallback(
-    CCTK_REAL const Estar, tensor::generic<CCTK_REAL, 4, 1> const &Fstar_d,
-    CCTK_REAL *chi, CCTK_REAL *Enew,
-    tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
+source_apply_no_source_fallback(CCTK_REAL const Estar,
+                                tensor::generic<CCTK_REAL, 4, 1> const &Fstar_d,
+                                CCTK_REAL *chi, CCTK_REAL *Enew,
+                                tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
   *Enew = Estar;
   *Fnew_d = Fstar_d;
   *chi = CCTK_REAL(1.0 / 3.0);
 }
 
-CCTK_HOST CCTK_DEVICE int source_update_nonstiff(
-    SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
-    CCTK_REAL *Enew,
-    tensor::generic<CCTK_REAL, 4, 1> *Fnew_d);
+CCTK_HOST CCTK_DEVICE int
+source_update_nonstiff(SourceUpdateContext const &ctx, closure_t closure_fun,
+                       CCTK_REAL *chi, CCTK_REAL *Enew,
+                       tensor::generic<CCTK_REAL, 4, 1> *Fnew_d);
 
-CCTK_HOST CCTK_DEVICE int source_update(
-    SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
-    CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
-    CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit,
-    CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel);
+CCTK_HOST CCTK_DEVICE int
+source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
+              CCTK_REAL *chi, CCTK_REAL *Enew,
+              tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
+              CCTK_INT source_force_nonlinear, CCTK_REAL source_thick_limit,
+              CCTK_REAL source_scat_limit, CCTK_INT source_maxiter,
+              CCTK_REAL source_epsabs, CCTK_REAL source_epsrel,
+              SourceSolveDiagnostics *diagnostics = nullptr);
 
 #ifdef NUX_M1_SOURCES_IMPLEMENTATION
 
 CCTK_HOST CCTK_DEVICE int source_update_nonstiff_attempt(
     SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
-    CCTK_REAL *Enew,
-    tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
+    CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
 
   Params p(ctx, closure_fun, *chi);
 
@@ -503,10 +574,10 @@ CCTK_HOST CCTK_DEVICE int source_update_nonstiff_attempt(
     return NUX_M1_SOURCE_FAIL;
   explicit_update(&p, state, Enew, Fnew_d);
 
-  const bool state_finite =
-      isfinite(*Enew) && isfinite(Fnew_d->at(0)) && isfinite(Fnew_d->at(1)) &&
-      isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
-  if (!state_finite) {
+  const bool state_finite = isfinite(*Enew) && isfinite(Fnew_d->at(0)) &&
+                            isfinite(Fnew_d->at(1)) &&
+                            isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
+  if (!state_finite || !source_state_is_realizable(ctx.g_uu, *Enew, *Fnew_d)) {
     return NUX_M1_SOURCE_FAIL;
   }
 
@@ -521,10 +592,10 @@ CCTK_HOST CCTK_DEVICE int source_update_nonstiff_attempt(
   return NUX_M1_SOURCE_THIN;
 }
 
-CCTK_HOST CCTK_DEVICE int source_update_nonstiff(
-    SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
-    CCTK_REAL *Enew,
-    tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
+CCTK_HOST CCTK_DEVICE int
+source_update_nonstiff(SourceUpdateContext const &ctx, closure_t closure_fun,
+                       CCTK_REAL *chi, CCTK_REAL *Enew,
+                       tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
 
   int ierr =
       source_update_nonstiff_attempt(ctx, closure_fun, chi, Enew, Fnew_d);
@@ -532,16 +603,23 @@ CCTK_HOST CCTK_DEVICE int source_update_nonstiff(
     return ierr;
   }
 
+  // This helper is called only from the legacy, non-strict path. Preserve its
+  // historical Eddington retry there; strict mode bypasses this helper and
+  // enters the nonlinear solve directly.
   if (!closure_is_eddington(closure_fun)) {
     ierr = source_update_nonstiff_attempt(ctx, CLOSURE_EDDINGTON, chi, Enew,
                                           Fnew_d);
     if (ierr != NUX_M1_SOURCE_FAIL) {
-      return (ierr == NUX_M1_SOURCE_OK) ? NUX_M1_SOURCE_EDDINGTON : ierr;
+      return NUX_M1_SOURCE_EDDINGTON;
     }
   }
 
-  if (source_can_use_no_source_fallback(ctx.cdt, ctx.kabs, ctx.kscat, ctx.Estar,
-                                        ctx.Fstar_d)) {
+  const CCTK_REAL proper_dt = ctx.alp * ctx.cdt / ctx.W;
+  // This path is entered only when strict nonlinear mode is disabled. For a
+  // genuinely nonstiff failed explicit update, retaining the provisional state
+  // is safer than propagating a nonfinite state.
+  if (source_can_use_no_source_fallback(proper_dt, ctx.kabs, ctx.kscat,
+                                        ctx.Estar, ctx.Fstar_d)) {
     source_apply_no_source_fallback(ctx.Estar, ctx.Fstar_d, chi, Enew, Fnew_d);
     return NUX_M1_SOURCE_EDDINGTON;
   }
@@ -549,17 +627,45 @@ CCTK_HOST CCTK_DEVICE int source_update_nonstiff(
   return NUX_M1_SOURCE_FAIL;
 }
 
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+source_solver_converged(
+    const nuX_Utils::roots::hybridsj_solver<CCTK_REAL, 4> &solver,
+    const arith_vector &baseline, const CCTK_REAL epsabs,
+    const CCTK_REAL epsrel, CCTK_REAL *const scaled_residual,
+    CCTK_REAL *const scaled_step) {
+  *scaled_residual = 0.0;
+  *scaled_step = 0.0;
+  for (int n = 0; n < 4; ++n) {
+    const CCTK_REAL scale =
+        epsabs + epsrel * max(abs(solver.x(n)), abs(baseline(n)));
+    if (!(scale > 0.0) || !isfinite(scale) || !isfinite(solver.f(n)) ||
+        !isfinite(solver.dx(n))) {
+      *scaled_residual = std::numeric_limits<CCTK_REAL>::infinity();
+      *scaled_step = std::numeric_limits<CCTK_REAL>::infinity();
+      return false;
+    }
+    *scaled_residual = max(*scaled_residual, abs(solver.f(n)) / scale);
+    *scaled_step = max(*scaled_step, abs(solver.dx(n)) / scale);
+  }
+  return *scaled_residual <= 1.0 && *scaled_step <= 1.0;
+}
+
 CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
     SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
     CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
-    CCTK_INT source_maxiter, CCTK_REAL source_epsabs,
-    CCTK_REAL source_epsrel) {
+    CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel,
+    SourceSolveDiagnostics *diagnostics) {
 
   Params p(ctx, closure_fun, *chi);
 
   // Initial guess for the solution
   arith_vector q_initial_guess{*Enew, Fnew_d->at(1), Fnew_d->at(2),
                                Fnew_d->at(3)};
+  // Scale convergence against the repaired provisional state that defines the
+  // implicit residual, not against the analytic thick-limit initial guess.
+  // A poor or very large initial guess must not relax the requested tolerance.
+  const arith_vector q_baseline{ctx.Estar, ctx.Fstar_d(1), ctx.Fstar_d(2),
+                                ctx.Fstar_d(3)};
 
   auto fn_nd_val = [&p](arith_vector q, arith_vector &f) -> int {
     return impl_func_val(q, &p, f);
@@ -567,8 +673,8 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
   auto fn_nd_jac = [&p](arith_vector q, arith_matrix &J) -> int {
     return impl_func_jac(q, &p, J);
   };
-  auto fn_nd_val_jac =
-      [&p](arith_vector q, arith_vector &f, arith_matrix &J) -> int {
+  auto fn_nd_val_jac = [&p](arith_vector q, arith_vector &f,
+                            arith_matrix &J) -> int {
     return impl_func_val_jac(q, &p, f, J);
   };
 
@@ -577,28 +683,27 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
       nuX_Utils::roots::hybridsj_set(&solver, fn_nd_val_jac, q_initial_guess);
   int iter = 0;
   bool failed = false;
+  CCTK_REAL scaled_residual = std::numeric_limits<CCTK_REAL>::infinity();
+  CCTK_REAL scaled_step = std::numeric_limits<CCTK_REAL>::infinity();
 
   if (ierr != ROOTS_SUCCESS) {
     failed = true;
   } else {
-    // Accept an exact initial root before asking the hybrid solver to build a
-    // dogleg step.  Its step is correctly zero there, so iterating would only
-    // produce a zero-norm QR update.
-    bool converged = true;
-    for (int n = 0; n < 4; ++n) {
-      const CCTK_REAL scale =
-          source_epsabs + source_epsrel * abs(solver.x(n));
-      if (!(scale > CCTK_REAL(0)) || !isfinite(scale) ||
-          !isfinite(solver.f(n)) || abs(solver.f(n)) > scale) {
-        converged = false;
-        break;
-      }
-    }
-
+    bool converged =
+        source_solver_converged(solver, q_baseline, source_epsabs,
+                                source_epsrel, &scaled_residual, &scaled_step);
     while (!converged && iter < source_maxiter) {
       ierr = nuX_Utils::roots::hybridsj_iterate(&solver, fn_nd_val, fn_nd_jac);
       ++iter;
-
+      // A successful step can land exactly on a root.  In that case the next
+      // dogleg construction may report no progress because both the residual
+      // and step are zero.  Test the accepted state before interpreting the
+      // solver status so an exact solution is not rejected.
+      converged = source_solver_converged(solver, q_baseline,
+                                          source_epsabs, source_epsrel,
+                                          &scaled_residual, &scaled_step);
+      if (converged)
+        break;
       if (ierr == ROOTS_ENOPROG || ierr == ROOTS_ENOPROGJ ||
           ierr == ROOTS_EBADFUNC) {
         failed = true;
@@ -608,22 +713,14 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
         failed = true;
         break;
       }
-
-      ierr = nuX_Utils::roots::test_delta(solver.dx, solver.x, source_epsabs,
-                                          source_epsrel);
-      if (ierr == ROOTS_SUCCESS) {
-        converged = true;
-        break;
-      }
-      if (ierr != ROOTS_CONTINUE) {
-        assert(false && "Unexpected error in roots::test_delta");
-        failed = true;
-        break;
-      }
     }
+    failed = failed || !converged;
+  }
 
-    if (!failed && !converged)
-      failed = true;
+  if (diagnostics != nullptr) {
+    diagnostics->iterations = iter;
+    diagnostics->scaled_residual = scaled_residual;
+    diagnostics->scaled_step = scaled_step;
   }
 
   if (failed) {
@@ -644,7 +741,7 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
   const bool state_finite = isfinite(*Enew) && isfinite(Fnew_d->at(0)) &&
                             isfinite(Fnew_d->at(1)) &&
                             isfinite(Fnew_d->at(2)) && isfinite(Fnew_d->at(3));
-  if (!state_finite) {
+  if (!state_finite || !source_state_is_realizable(ctx.g_uu, *Enew, *Fnew_d)) {
     return NUX_M1_SOURCE_FAIL;
   }
 
@@ -663,33 +760,115 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
 // The source term is S^a = (eta - ka J) u^a - (ka + ks) H^a and includes
 // also emission.
 
-CCTK_HOST CCTK_DEVICE int source_update(
-    SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
-    CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
-    CCTK_REAL source_thick_limit, CCTK_REAL source_scat_limit,
-    CCTK_INT source_maxiter, CCTK_REAL source_epsabs, CCTK_REAL source_epsrel) {
+CCTK_HOST CCTK_DEVICE int
+source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
+              CCTK_REAL *chi, CCTK_REAL *Enew,
+              tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
+              CCTK_INT source_force_nonlinear, CCTK_REAL source_thick_limit,
+              CCTK_REAL source_scat_limit, CCTK_INT source_maxiter,
+              CCTK_REAL source_epsabs, CCTK_REAL source_epsrel,
+              SourceSolveDiagnostics *diagnostics) {
 
-  // Non stiff limit, use explicit update
-  if (source_is_nonstiff(ctx.cdt, ctx.kabs, ctx.kscat)) {
-    return source_update_nonstiff(ctx, closure_fun, chi, Enew, Fnew_d);
+  if (diagnostics != nullptr)
+    *diagnostics = SourceSolveDiagnostics{};
+
+  // Collision timescales are measured in the fluid proper time.
+  const CCTK_REAL proper_dt = ctx.alp * ctx.cdt / ctx.W;
+
+  // The caller supplies the analytic relaxation state. Keep both physical
+  // guesses available: the provisional state is closest to the solution in
+  // the nonstiff limit, while the analytic state is closest in the stiff
+  // limit. A retry below changes only the starting point, never the closure or
+  // the nonlinear residual being solved.
+  const CCTK_REAL analytic_guess_E = *Enew;
+  const tensor::generic<CCTK_REAL, 4, 1> analytic_guess_F_d = *Fnew_d;
+  const bool prefer_provisional_guess =
+      source_is_nonstiff(proper_dt, ctx.kabs, ctx.kscat);
+  bool nonstiff_shortcut_failed = false;
+
+  if (!source_force_nonlinear) {
+    // Non stiff limit, use explicit update
+    if (source_is_nonstiff(proper_dt, ctx.kabs, ctx.kscat)) {
+      const int status =
+          source_update_nonstiff(ctx, closure_fun, chi, Enew, Fnew_d);
+      if (diagnostics != nullptr)
+        diagnostics->method = status;
+      if (diagnostics != nullptr)
+        diagnostics->status = status == NUX_M1_SOURCE_FAIL
+                                  ? -1
+                                  : (status == NUX_M1_SOURCE_EDDINGTON ? 1 : 0);
+      if (status != NUX_M1_SOURCE_FAIL)
+        return status;
+
+      // The explicit nonstiff shortcut is optional. Near its threshold it can
+      // produce a non-realizable state even though the diagonal implicit
+      // equation has a valid solution. Restore the physical provisional state
+      // and solve that equation instead of aborting the evolution.
+      *Enew = ctx.Estar;
+      *Fnew_d = ctx.Fstar_d;
+      nonstiff_shortcut_failed = true;
+    }
+
+    // Our scheme cannot capture this dynamics (tau << dt), so we go
+    // directly to the equilibrium
+    if (source_uses_thick_limit(proper_dt, ctx.kabs, ctx.kscat,
+                                source_thick_limit)) {
+      if (diagnostics != nullptr)
+        diagnostics->method = NUX_M1_SOURCE_EQUIL;
+      if (diagnostics != nullptr)
+        diagnostics->status = 0;
+      return NUX_M1_SOURCE_EQUIL;
+    }
+
+    // This handles the scattering dominated limit
+    if (source_uses_scat_limit(proper_dt, ctx.kscat, source_scat_limit)) {
+      if (diagnostics != nullptr)
+        diagnostics->method = NUX_M1_SOURCE_SCAT;
+      if (diagnostics != nullptr)
+        diagnostics->status = 0;
+      return NUX_M1_SOURCE_SCAT;
+    }
   }
 
-  // Our scheme cannot capture this dynamics (tau << dt), so we go
-  // directly to the equilibrium
-  if (source_uses_thick_limit(ctx.cdt, ctx.kabs, ctx.kscat,
-                              source_thick_limit)) {
-    return NUX_M1_SOURCE_EQUIL;
+  // In the nonstiff limit the accepted solution differs from the provisional
+  // state only by O(proper_dt * opacity).  The analytic equilibrium guess can
+  // instead be far away because it assumes an isotropic pressure tensor.  If
+  // a nonlinear solve is explicitly requested, start it from the provisional
+  // state in this limit while retaining the same residual solve used at every
+  // nonzero IMEX diagonal stage.
+  if (source_force_nonlinear && prefer_provisional_guess) {
+    *Enew = ctx.Estar;
+    *Fnew_d = ctx.Fstar_d;
   }
 
-  // This handles the scattering dominated limit
-  if (source_uses_scat_limit(ctx.cdt, ctx.kscat, source_scat_limit)) {
-    return NUX_M1_SOURCE_SCAT;
+  int ierr = source_update_implicit_attempt(ctx, closure_fun, chi, Enew, Fnew_d,
+                                            source_maxiter, source_epsabs,
+                                            source_epsrel, diagnostics);
+
+  // The M1 residual can be strongly conditioned by a large fluid Lorentz
+  // factor. If the preferred physical guess stalls, retry the identical
+  // nonlinear problem from the other asymptotic state. Unlike the historical
+  // Eddington/no-source fallbacks, this does not change the source model or
+  // accept a state with a failed residual.
+  if (ierr == NUX_M1_SOURCE_FAIL &&
+      (source_force_nonlinear || nonstiff_shortcut_failed)) {
+    if (prefer_provisional_guess) {
+      *Enew = analytic_guess_E;
+      *Fnew_d = analytic_guess_F_d;
+    } else {
+      *Enew = ctx.Estar;
+      *Fnew_d = ctx.Fstar_d;
+    }
+    ierr = source_update_implicit_attempt(ctx, closure_fun, chi, Enew, Fnew_d,
+                                          source_maxiter, source_epsabs,
+                                          source_epsrel, diagnostics);
   }
 
-  int ierr = source_update_implicit_attempt(
-      ctx, closure_fun, chi, Enew, Fnew_d, source_maxiter, source_epsabs,
-      source_epsrel);
   if (ierr != NUX_M1_SOURCE_FAIL) {
+    if (diagnostics != nullptr)
+      diagnostics->method = ierr;
+    if (diagnostics != nullptr)
+      diagnostics->status = 0;
     return ierr;
   }
 
@@ -697,14 +876,20 @@ CCTK_HOST CCTK_DEVICE int source_update(
   printf("hybridsj failed in the implicit solve!\n");
 #endif
 
-  if (!closure_is_eddington(closure_fun)) {
+  // Strict mode must solve the same closure equations at every diagonal
+  // stage. Do not silently change the model after a failed nonlinear solve.
+  if (!source_force_nonlinear && !closure_is_eddington(closure_fun)) {
 #ifdef WARN_FOR_SRC_FIX
     printf("Eddington closure\n");
 #endif
     ierr = source_update_implicit_attempt(ctx, CLOSURE_EDDINGTON, chi, Enew,
-                                          Fnew_d, source_maxiter,
-                                          source_epsabs, source_epsrel);
+                                          Fnew_d, source_maxiter, source_epsabs,
+                                          source_epsrel, diagnostics);
     if (ierr == NUX_M1_SOURCE_OK) {
+      if (diagnostics != nullptr)
+        diagnostics->method = NUX_M1_SOURCE_EDDINGTON;
+      if (diagnostics != nullptr)
+        diagnostics->status = 1;
       return NUX_M1_SOURCE_EDDINGTON;
     }
   }
@@ -712,12 +897,21 @@ CCTK_HOST CCTK_DEVICE int source_update(
 #ifdef WARN_FOR_SRC_FIX
   printf("using initial guess\n");
 #endif
-  if (source_can_use_no_source_fallback(ctx.cdt, ctx.kabs, ctx.kscat,
+  if (!source_force_nonlinear &&
+      source_can_use_no_source_fallback(proper_dt, ctx.kabs, ctx.kscat,
                                         ctx.Estar, ctx.Fstar_d)) {
     source_apply_no_source_fallback(ctx.Estar, ctx.Fstar_d, chi, Enew, Fnew_d);
+    if (diagnostics != nullptr)
+      diagnostics->method = NUX_M1_SOURCE_EDDINGTON;
+    if (diagnostics != nullptr)
+      diagnostics->status = 1;
     return NUX_M1_SOURCE_EDDINGTON;
   }
 
+  if (diagnostics != nullptr)
+    diagnostics->method = NUX_M1_SOURCE_FAIL;
+  if (diagnostics != nullptr)
+    diagnostics->status = -1;
   return NUX_M1_SOURCE_FAIL;
 }
 

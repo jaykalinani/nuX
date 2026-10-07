@@ -24,5 +24,12 @@ if test -n "${GITHUB_ENV:-}"; then
 fi
 
 cat "$TEST_OUTPUT_DIR/summary.log"
+# A zero-test run also reports zero failures, so require the complete nuX
+# arrangement suite to have run and passed.  This checks ordinary Cactus
+# pass/fail tests and does not depend on optional diagnostic grid functions.
+grep -q '^    Total available tests    -> 5$' \
+    "$TEST_OUTPUT_DIR/summary.log"
+grep -q '^    Number of tests passed   -> 5$' \
+    "$TEST_OUTPUT_DIR/summary.log"
 grep -q '^    Number failed            -> 0$' \
     "$TEST_OUTPUT_DIR/summary.log"

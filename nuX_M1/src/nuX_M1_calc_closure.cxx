@@ -5,8 +5,8 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
-#include "nuX_utils.hxx"
 #include "nuX_M1_closure.hxx"
+#include "nuX_utils.hxx"
 
 namespace nuX_M1 {
 
@@ -14,7 +14,31 @@ using namespace nuX_Utils;
 using namespace std;
 using namespace Loop;
 
-extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
+template <bool store_source_diagnostics> struct ClosureDiagnostics {
+  explicit ClosureDiagnostics(CCTK_REAL *) {}
+
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void clear(const int) const {}
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void store(const int,
+                                                      const CCTK_REAL) const {}
+};
+
+template <> struct ClosureDiagnostics<true> {
+  CCTK_REAL *const comoving_flux_factor;
+
+  explicit ClosureDiagnostics(CCTK_REAL *const comoving_flux_factor)
+      : comoving_flux_factor(comoving_flux_factor) {}
+
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void clear(const int i4D) const {
+    comoving_flux_factor[i4D] = 0.0;
+  }
+
+  CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE void
+  store(const int i4D, const CCTK_REAL value) const {
+    comoving_flux_factor[i4D] = value;
+  }
+};
+
+template <bool store_source_diagnostics> void CalcClosure(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcClosure;
   DECLARE_CCTK_PARAMETERS;
 
@@ -46,6 +70,8 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
   tensor::fluid_velocity_field_const fidu(layout_vc, layout_cc, alp, betax,
                                           betay, betaz, fidu_w_lorentz,
                                           fidu_velx, fidu_vely, fidu_velz);
+  const ClosureDiagnostics<store_source_diagnostics> diagnostics(
+      comoving_flux_factor);
 
   grid.loop_all_device<1, 1, 1>(
       grid.nghostzones,
@@ -67,6 +93,7 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
             rPzz[i4D] = 0;
             rnnu[i4D] = 0;
             chi[i4D] = 0;
+            diagnostics.clear(i4D);
           }
           return;
         }
@@ -92,8 +119,6 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
         tensor::contract(g_dd, v_u, &v_d);
 
         tensor::generic<CCTK_REAL, 4, 1> H_d;
-        tensor::generic<CCTK_REAL, 4, 1> H_u;
-        tensor::generic<CCTK_REAL, 4, 1> fnu_u;
         tensor::generic<CCTK_REAL, 4, 1> F_d;
         tensor::generic<CCTK_REAL, 4, 1> beta_u;
         tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
@@ -107,15 +132,13 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
                    rFz[i4D], &F_d);
 
           CCTK_REAL E_closure = rE[i4D];
-          if (E_closure <= rad_E_floor &&
-              tensor::dot(g_uu, F_d, F_d) == CCTK_REAL(0.0)) {
-            E_closure = CCTK_REAL(0.0);
-          }
+          repair_moments(g_uu, &E_closure, &F_d, rad_E_floor, rad_eps);
 
           assert(isfinite(E_closure));
-          assert(isfinite(rFx[i4D]));
-          assert(isfinite(rFy[i4D]));
-          assert(isfinite(rFz[i4D]));
+          assert(isfinite(F_d(0)));
+          assert(isfinite(F_d(1)));
+          assert(isfinite(F_d(2)));
+          assert(isfinite(F_d(3)));
           assert(isfinite(tensor::dot(g_uu, F_d, F_d)));
           assert(isfinite(W));
 
@@ -131,11 +154,22 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           assert(isfinite(rPyz[i4D]));
           assert(isfinite(rPzz[i4D]));
 
-          assemble_rT(n_d, rE[i4D], F_d, P_dd, &rT_dd);
+          assemble_rT(n_d, E_closure, F_d, P_dd, &rT_dd);
 
           rJ[i4D] = calc_J_from_rT(rT_dd, u_u);
           calc_H_from_rT(rT_dd, u_u, proj_ud, &H_d);
-          apply_floor(g_uu, &rJ[i4D], &H_d, rad_E_floor, rad_eps);
+
+          // J and H_a are projections of the same stress tensor used to store
+          // P_ab. Repairing them independently here, as THC does, would make
+          // the stored comoving moments inconsistent with that tensor. The
+          // variable M1 closures must preserve the comoving moment cone. The
+          // fixed Eddington closure is only a diffusion approximation and does
+          // not preserve that cone for arbitrary flux-dominated lab states;
+          // those can occur at the radiation floor in diffusion tests.
+          const CCTK_REAL H2 = tensor::dot(g_uu, H_d, H_d);
+          if (!comoving_state_is_acceptable(closure_fun, g_uu, rJ[i4D],
+                                             H_d))
+            device_abort();
 
           unpack_H_d(H_d, &rHt[i4D], &rHx[i4D], &rHy[i4D], &rHz[i4D]);
           assert(isfinite(rHt[i4D]));
@@ -143,15 +177,25 @@ extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
           assert(isfinite(rHy[i4D]));
           assert(isfinite(rHz[i4D]));
 
-          tensor::contract(g_uu, H_d, &H_u);
-          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
-          CCTK_REAL const Gamma =
-              compute_Gamma(W, v_u, rJ[i4D], rE[i4D], F_d,
-                            rad_E_floor, rad_eps);
+          diagnostics.store(i4D,
+                            rJ[i4D] > rad_E_floor && isfinite(H2) && H2 > 0.0
+                                ? sqrt(H2) / rJ[i4D]
+                                : 0.0);
+
+          CCTK_REAL const Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
+                                                rad_E_floor, rad_eps);
           assert(Gamma > 0);
-          rnnu[i4D] = rN[i4D] / Gamma;
+          rnnu[i4D] = max(rN[i4D], rad_N_floor) / Gamma;
         }
       });
+}
+
+extern "C" void nuX_M1_CalcClosure(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_PARAMETERS;
+  if (source_diagnostics)
+    CalcClosure<true>(cctkGH);
+  else
+    CalcClosure<false>(cctkGH);
 }
 
 } // namespace nuX_M1

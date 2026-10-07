@@ -16,28 +16,34 @@ namespace nuX_LeakageBase {
 using namespace Loop;
 using namespace nuX_Utils;
 
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline
-nuX_WeakRates::EOSState make_weakrates_eos(
-    EOSX::eos_3p_tabulated3d *const eos_3p, const CCTK_REAL rho,
-    const CCTK_REAL temperature, const CCTK_REAL ye,
-    const CCTK_REAL particle_mass) {
+CCTK_HOST
+    CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline nuX_WeakRates::EOSState
+    make_weakrates_eos(EOSX::eos_3p_tabulated3d *const eos_3p,
+                       const CCTK_REAL rho, const CCTK_REAL temperature,
+                       const CCTK_REAL ye, const CCTK_REAL particle_mass) {
+  if (!isfinite(rho) || rho <= 0.0 || !isfinite(temperature) ||
+      temperature <= 0.0 || !isfinite(ye) || ye < 0.0 || ye > 1.0 ||
+      !isfinite(particle_mass) || particle_mass <= 0.0) {
+    return {};
+  }
   using tabulated_eos = EOSX::eos_3p_tabulated3d;
-  const CCTK_REAL lr =
-      log(fmin(fmax(rho, eos_3p->rgrho.min), eos_3p->rgrho.max));
-  const CCTK_REAL lt =
-      log(fmin(fmax(temperature, eos_3p->rgtemp.min), eos_3p->rgtemp.max));
-  const auto eos_state =
-      eos_3p->interptable
-          ->interpolate<tabulated_eos::EV::MU_E, tabulated_eos::EV::MU_P,
-                        tabulated_eos::EV::MU_N, tabulated_eos::EV::XA,
-                        tabulated_eos::EV::XH, tabulated_eos::EV::XN,
-                        tabulated_eos::EV::XP, tabulated_eos::EV::ABAR,
-                        tabulated_eos::EV::ZBAR>(lr, lt, ye);
+  const CCTK_REAL rho_eos =
+      fmin(fmax(rho, eos_3p->rgrho.min), eos_3p->rgrho.max);
+  const CCTK_REAL temp_eos =
+      fmin(fmax(temperature, eos_3p->rgtemp.min), eos_3p->rgtemp.max);
+  const CCTK_REAL ye_eos = fmin(fmax(ye, eos_3p->rgye.min), eos_3p->rgye.max);
+  const CCTK_REAL lr = log(rho_eos);
+  const CCTK_REAL lt = log(temp_eos);
+  const auto eos_state = eos_3p->interptable->interpolate<
+      tabulated_eos::EV::MU_E, tabulated_eos::EV::MU_P, tabulated_eos::EV::MU_N,
+      tabulated_eos::EV::XA, tabulated_eos::EV::XH, tabulated_eos::EV::XN,
+      tabulated_eos::EV::XP, tabulated_eos::EV::ABAR, tabulated_eos::EV::ZBAR>(
+      lr, lt, ye_eos);
 
-  return {rho * rate_units::code_density_to_g_nm3 /
+  return {rho_eos * rate_units::code_density_to_g_nm3 /
               rate_units::per_cm3_to_per_nm3,
-          temperature,
-          ye,
+          temp_eos,
+          ye_eos,
           particle_mass,
           eos_state[0],
           eos_state[1],
@@ -77,32 +83,29 @@ extern "C" void nuX_LeakageBase_CalcOpacityWeakRates(CCTK_ARGUMENTS) {
             eos_3p, rho[ijk], temperature[ijk], Ye[ijk], particle_mass);
         const auto coeffs = weakrates->compute_rates(weak_eos);
 
-        kappa_0_nue[ijk] =
-            (coeffs.kappa_0_a[0] + coeffs.kappa_0_s[0]) *
-            rate_units::per_cm_to_per_nm * rate_units::code_length_to_nm;
-        kappa_0_nua[ijk] =
-            (coeffs.kappa_0_a[1] + coeffs.kappa_0_s[1]) *
-            rate_units::per_cm_to_per_nm * rate_units::code_length_to_nm;
-        kappa_0_nux[ijk] =
-            (coeffs.kappa_0_a[2] + coeffs.kappa_0_s[2]) *
-            rate_units::per_cm_to_per_nm * rate_units::code_length_to_nm;
-        kappa_1_nue[ijk] =
-            (coeffs.kappa_a[0] + coeffs.kappa_s[0]) *
-            rate_units::per_cm_to_per_nm * rate_units::code_length_to_nm;
-        kappa_1_nua[ijk] =
-            (coeffs.kappa_a[1] + coeffs.kappa_s[1]) *
-            rate_units::per_cm_to_per_nm * rate_units::code_length_to_nm;
-        kappa_1_nux[ijk] =
-            (coeffs.kappa_a[2] + coeffs.kappa_s[2]) *
-            rate_units::per_cm_to_per_nm * rate_units::code_length_to_nm;
-        abs_0_nue[ijk] = coeffs.kappa_0_a[0] *
-                         rate_units::per_cm_to_per_nm *
+        kappa_0_nue[ijk] = (coeffs.kappa_0_a[0] + coeffs.kappa_0_s[0]) *
+                           rate_units::per_cm_to_per_nm *
+                           rate_units::code_length_to_nm;
+        kappa_0_nua[ijk] = (coeffs.kappa_0_a[1] + coeffs.kappa_0_s[1]) *
+                           rate_units::per_cm_to_per_nm *
+                           rate_units::code_length_to_nm;
+        kappa_0_nux[ijk] = (coeffs.kappa_0_a[2] + coeffs.kappa_0_s[2]) *
+                           rate_units::per_cm_to_per_nm *
+                           rate_units::code_length_to_nm;
+        kappa_1_nue[ijk] = (coeffs.kappa_a[0] + coeffs.kappa_s[0]) *
+                           rate_units::per_cm_to_per_nm *
+                           rate_units::code_length_to_nm;
+        kappa_1_nua[ijk] = (coeffs.kappa_a[1] + coeffs.kappa_s[1]) *
+                           rate_units::per_cm_to_per_nm *
+                           rate_units::code_length_to_nm;
+        kappa_1_nux[ijk] = (coeffs.kappa_a[2] + coeffs.kappa_s[2]) *
+                           rate_units::per_cm_to_per_nm *
+                           rate_units::code_length_to_nm;
+        abs_0_nue[ijk] = coeffs.kappa_0_a[0] * rate_units::per_cm_to_per_nm *
                          rate_units::code_length_to_nm;
-        abs_0_nua[ijk] = coeffs.kappa_0_a[1] *
-                         rate_units::per_cm_to_per_nm *
+        abs_0_nua[ijk] = coeffs.kappa_0_a[1] * rate_units::per_cm_to_per_nm *
                          rate_units::code_length_to_nm;
-        abs_0_nux[ijk] = coeffs.kappa_0_a[2] *
-                         rate_units::per_cm_to_per_nm *
+        abs_0_nux[ijk] = coeffs.kappa_0_a[2] * rate_units::per_cm_to_per_nm *
                          rate_units::code_length_to_nm;
       });
 }
@@ -137,29 +140,28 @@ extern "C" void nuX_LeakageBase_RatesWeakRates(CCTK_ARGUMENTS) {
 
         CCTK_REAL r_free[3], q_free[3], number[3], energy[3];
         for (int isp = 0; isp < 3; ++isp) {
-          r_free[isp] =
-              coeffs.eta_0[isp] * rate_units::per_cm3_to_per_nm3 /
-              rate_units::fm3_to_nm3 * rate_units::code_time_to_s;
-          q_free[isp] =
-              coeffs.eta[isp] * rate_units::per_cm3_to_per_nm3 /
-              rate_units::code_energy_density_to_mev_nm3 *
-              rate_units::code_time_to_s;
-          number[isp] =
-              equilibrium.number[isp] * rate_units::per_cm3_to_per_nm3 /
-              rate_units::fm3_to_nm3;
-          energy[isp] =
-              equilibrium.energy[isp] * rate_units::per_cm3_to_per_nm3 /
-              rate_units::code_energy_density_to_mev_nm3;
+          r_free[isp] = coeffs.eta_0[isp] * rate_units::per_cm3_to_per_nm3 /
+                        rate_units::transport_number_density_to_nm3 *
+                        rate_units::code_time_to_s;
+          q_free[isp] = coeffs.eta[isp] * rate_units::per_cm3_to_per_nm3 /
+                        rate_units::code_energy_density_to_mev_nm3 *
+                        rate_units::code_time_to_s;
+          number[isp] = equilibrium.number[isp] *
+                        rate_units::per_cm3_to_per_nm3 /
+                        rate_units::transport_number_density_to_nm3;
+          energy[isp] = equilibrium.energy[isp] *
+                        rate_units::per_cm3_to_per_nm3 /
+                        rate_units::code_energy_density_to_mev_nm3;
         }
 
-        const CCTK_REAL kappa_0[3] = {
-            kappa_0_nue[ijk], kappa_0_nua[ijk], kappa_0_nux[ijk]};
-        const CCTK_REAL kappa_1[3] = {
-            kappa_1_nue[ijk], kappa_1_nua[ijk], kappa_1_nux[ijk]};
-        const CCTK_REAL tau_0[3] = {
-            optd_0_nue[ijk], optd_0_nua[ijk], optd_0_nux[ijk]};
-        const CCTK_REAL tau_1[3] = {
-            optd_1_nue[ijk], optd_1_nua[ijk], optd_1_nux[ijk]};
+        const CCTK_REAL kappa_0[3] = {kappa_0_nue[ijk], kappa_0_nua[ijk],
+                                      kappa_0_nux[ijk]};
+        const CCTK_REAL kappa_1[3] = {kappa_1_nue[ijk], kappa_1_nua[ijk],
+                                      kappa_1_nux[ijk]};
+        const CCTK_REAL tau_0[3] = {optd_0_nue[ijk], optd_0_nua[ijk],
+                                    optd_0_nux[ijk]};
+        const CCTK_REAL tau_1[3] = {optd_1_nue[ijk], optd_1_nua[ijk],
+                                    optd_1_nux[ijk]};
 
         R_free_nue[ijk] = store_free_rates ? r_free[0] : 0.0;
         R_free_nua[ijk] = store_free_rates ? r_free[1] : 0.0;

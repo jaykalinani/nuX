@@ -12,7 +12,6 @@ ActiveThorns = "
   IOUtil
   KerrSchildX
   ODESolvers
-  Subcycling
   TmunuBaseX
   nuX_FakeRates
   nuX_M1
