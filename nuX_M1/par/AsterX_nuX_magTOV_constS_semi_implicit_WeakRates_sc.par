@@ -1,0 +1,518 @@
+# AsterX + nuX magnetized APRLDP TOV
+# WeakRates comparison run with semi-implicit integration, CarpetX 2:1 time subcycling,
+# PPM zone flattening enabled, and PPM shock detection disabled.
+
+# -----------------------------------------------------------------------------
+# Active thorns
+# -----------------------------------------------------------------------------
+ActiveThorns = "
+ADMBaseX
+AsterMasks
+AsterSeeds
+AsterX
+BoxInBox
+CarpetX
+Con2PrimFactory
+CoordinatesX
+EOSX
+Formaline
+HydroBaseX
+ID_TabEOS_HydroQuantities
+IOUtil
+MHD_Diagnostics
+NRPyPlusTOVID
+nuX_Base
+nuX_M1
+nuX_M1_Seeds
+nuX_Utils
+nuX_WeakRates
+ODESolvers
+ReconX
+TimerReport
+TmunuBaseX
+VolumeIntegrals_GRMHDX
+Z4c
+"
+
+# -----------------------------------------------------------------------------
+# Global variables
+# -----------------------------------------------------------------------------
+$itlast = 100000000
+$final_time = 100000
+# Match the magTOV_Z4c_AMR domain and base-grid setup.
+# With 6 levels this gives dx_fine = 1024/128/2^(6-1) = 0.25.
+$xmin = -512.0
+$xmax = +512.0
+$ncells = 128
+$max_grid_size = 64
+$nlevels = 6
+$error_threshold = 0.9
+$dtfac = 0.25
+$out_every = 64
+
+# =============================================================================
+# Grid
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# BoxInBox
+# -----------------------------------------------------------------------------
+BoxInBox::num_regions = 1
+
+# Region 1
+BoxInBox::shape_1 = "cube"
+BoxInBox::num_levels_1 = $nlevels
+BoxInBox::position_x_1 = 0.0
+BoxInBox::radius_1 = [-1.0, 256.0, 128.0, 64.0, 32.0, 16.0]
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::xmin = $xmin
+CarpetX::ymin = $xmin
+CarpetX::zmin = $xmin
+
+CarpetX::xmax = $xmax
+CarpetX::ymax = $xmax
+CarpetX::zmax = $xmax
+
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+
+CarpetX::max_tile_size_x = 1024000
+CarpetX::max_tile_size_y = 1024000
+CarpetX::max_tile_size_z = 1024000
+
+CarpetX::blocking_factor_x = 8
+CarpetX::blocking_factor_y = 8
+CarpetX::blocking_factor_z = 8
+
+CarpetX::max_grid_size_x = $max_grid_size
+CarpetX::max_grid_size_y = $max_grid_size
+CarpetX::max_grid_size_z = $max_grid_size
+
+CarpetX::boundary_x = "neumann"
+CarpetX::boundary_y = "neumann"
+CarpetX::boundary_z = "neumann"
+CarpetX::boundary_upper_x = "neumann"
+CarpetX::boundary_upper_y = "neumann"
+CarpetX::boundary_upper_z = "neumann"
+
+CarpetX::ghost_size = 3
+
+CarpetX::max_num_levels = $nlevels
+CarpetX::regrid_every = 0
+CarpetX::regrid_error_threshold = $error_threshold
+
+CarpetX::refine_grid_layout = no
+
+CarpetX::prolongation_type = "poly-cons3lfb"
+CarpetX::prolongation_order = 5
+CarpetX::prolongate_per_group = yes
+CarpetX::interpolation_order = 4
+
+# =============================================================================
+# Time integration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Cactus
+# -----------------------------------------------------------------------------
+Cactus::cctk_show_schedule = no
+Cactus::presync_mode = "mixed-error"
+Cactus::terminate = "never"
+Cactus::cctk_itlast = $itlast
+Cactus::cctk_final_time = $final_time
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::verbose = no
+CarpetX::poison_undefined_values = yes
+CarpetX::poison_undefined_arrays = yes
+CarpetX::dtfac = $dtfac
+CarpetX::use_subcycling = yes
+CarpetX::restrict_during_sync = no
+
+# -----------------------------------------------------------------------------
+# ODESolvers
+# -----------------------------------------------------------------------------
+ODESolvers::verbose = no
+ODESolvers::method = "semi-implicit"
+
+# =============================================================================
+# Initial data
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# NRPyPlusTOVID
+# -----------------------------------------------------------------------------
+NRPyPlusTOVID::NRPyTOV_Cowling = "no"
+NRPyPlusTOVID::TOV_filename = "/work/hdd/bgmi/jkalinan/TOV_ID/constS/APRLDP_TOV_s1/outputTOV_APRLDP_s1.txt"
+NRPyPlusTOVID::rho_atmosphere = 1e-13
+NRPyPlusTOVID::K_atmosphere = 1
+NRPyPlusTOVID::Gamma_atmosphere = 1
+
+# -----------------------------------------------------------------------------
+# ADMBaseX
+# -----------------------------------------------------------------------------
+ADMBaseX::initial_data = "NRPyPlusTOVID"
+ADMBaseX::initial_lapse = "NRPyPlusTOVID"
+ADMBaseX::initial_shift = "NRPyPlusTOVID"
+ADMBaseX::initial_dtlapse = "zero"
+ADMBaseX::initial_dtshift = "zero"
+
+# -----------------------------------------------------------------------------
+# HydroBaseX
+# -----------------------------------------------------------------------------
+HydroBaseX::initial_hydro = "NRPyPlusTOVID"
+
+# -----------------------------------------------------------------------------
+# AsterSeeds
+# -----------------------------------------------------------------------------
+AsterSeeds::test_type = "3DTest"
+AsterSeeds::test_case = "magTOV"
+AsterSeeds::Afield_config = "internal dipole"
+AsterSeeds::Ab = 19352.125690118974 # Illinois A_b / sqrt(4*pi), matching dynamical B
+AsterSeeds::press_cut = 0.04
+AsterSeeds::press_max = 0.000144915631222202
+AsterSeeds::Avec_kappa = 2.0
+AsterSeeds::dipole_x = [0.0]
+
+# -----------------------------------------------------------------------------
+# ID_TabEOS_HydroQuantities
+# -----------------------------------------------------------------------------
+ID_TabEOS_HydroQuantities::Y_e_filename = "/work/hdd/bgmi/jkalinan/TOV_ID/constS/APRLDP_TOV_s1/Ye_beq_APRLDP_s1.txt"
+ID_TabEOS_HydroQuantities::id_temp_ent_type = "constant entropy"
+ID_TabEOS_HydroQuantities::id_entropy = 1.0
+
+# =============================================================================
+# AsterX evolution
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# AsterX
+# -----------------------------------------------------------------------------
+AsterX::debug_mode = "no"
+AsterX::flux_type = "HLLE"
+AsterX::use_uct = "yes"
+AsterX::vector_potential_gauge = "generalized Lorenz"
+AsterX::lorenz_damp_fac = 1.5/($dtfac*((2*$xmax)/$ncells))
+AsterX::local_spatial_order = 4
+AsterX::update_tmunu = "yes"
+AsterX::tmunu_interp_order = 4
+AsterX::local_estimate_error = "no"
+AsterX::recon_type = "z_vec"
+AsterX::use_entropy_fix = "no"
+AsterX::use_pplim = "yes"
+AsterX::use_deriv_shock_detector = "no"
+AsterX::hydro_correction_order = 2
+AsterX::mag_correction_order = 2
+AsterX::prolongate_dbstag = "no"
+AsterX::freeze_evolution = no
+
+# -----------------------------------------------------------------------------
+# Con2PrimFactory
+# -----------------------------------------------------------------------------
+Con2PrimFactory::unit_test = "no"
+Con2PrimFactory::c2p_prime = "RePrimAnd"
+Con2PrimFactory::c2p_second = "Palenzuela"
+Con2PrimFactory::c2p_tol = 1e-8
+Con2PrimFactory::max_iter = 1000
+Con2PrimFactory::B_lim = 1e8
+Con2PrimFactory::sigma_max = 1e4
+Con2PrimFactory::inv_beta_max = 1e5
+Con2PrimFactory::vw_lim = 10
+Con2PrimFactory::Ye_lenient = "yes"
+Con2PrimFactory::use_temperature = "yes"
+
+# Atmosphere for tabulated EOS
+Con2PrimFactory::thermal_eos_atmo = "yes"
+Con2PrimFactory::rho_abs_min = 1e-13
+Con2PrimFactory::atmo_tol = 1e-3
+Con2PrimFactory::t_atmo = 9.9770006382257168e-03
+Con2PrimFactory::Ye_atmo = 0.5
+Con2PrimFactory::tauFluid_atmo = 1e-30
+
+Con2PrimFactory::r_atmo = 500000
+Con2PrimFactory::n_rho_atmo = 6
+Con2PrimFactory::n_temp_atmo = 0.8759226975726387
+
+Con2PrimFactory::alp_thresh = 0.1
+Con2PrimFactory::rho_BH = 1e-1
+Con2PrimFactory::eps_BH = 1.0
+Con2PrimFactory::vwlim_BH = 0.4
+
+# -----------------------------------------------------------------------------
+# EOSX
+# -----------------------------------------------------------------------------
+EOSX::evolution_eos = "Tabulated3d"
+EOSX::particle_mass = 930.18478708
+EOSX::EOSTable_filename = "/work/hdd/bgmi/jkalinan/TOV_ID/constS/APRLDP_TOV_s1/APRLDP_3335_rho393_temp133_ye66_gitM180edd5_20190225_adj_mineps0.h5"
+EOSX::rho_max = 1e8
+EOSX::eps_max = 1e8
+EOSX::eps_min = 1e-20
+
+# -----------------------------------------------------------------------------
+# ReconX
+# -----------------------------------------------------------------------------
+ReconX::reconstruct_with_temperature = "yes"
+ReconX::reconstruction_method = "ppm"
+#ReconX::loworder_method = "ppm"
+ReconX::ppm_zone_flattening = "yes"
+ReconX::ppm_shock_detection = "no"
+
+# =============================================================================
+# nuX evolution
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# nuX_M1
+# -----------------------------------------------------------------------------
+nuX_M1::add_to_Tmunu = "yes"
+nuX_M1::backreact = "yes"
+nuX_M1::bc_type = "flat"
+nuX_M1::closure = "Minerbo"
+nuX_M1::closure_epsilon = 1e-5
+nuX_M1::closure_maxiter = 1000
+nuX_M1::fiducial_velocity = "fluid"
+nuX_M1::include_fluxes = "yes"
+nuX_M1::store_radial_fluxes = "yes"
+nuX_M1::include_GR_sources = "yes"
+nuX_M1::grsource_spatial_order = 4
+nuX_M1::mindiss = 0.1
+nuX_M1::minmod_theta = 1.0
+nuX_M1::source_epsabs = 1e-8
+nuX_M1::source_epsrel = 1e-5
+nuX_M1::source_limiter = 0.5
+nuX_M1::source_maxiter = 100
+nuX_M1::source_thick_limit = 20.0
+nuX_M1::source_therm_limit = -1.0
+nuX_M1::source_scat_limit = -1.0
+nuX_M1::source_Ye_min = 0.005
+nuX_M1::source_Ye_max = 0.655
+nuX_M1::opacity_tau_trap = 1.0
+nuX_M1::opacity_tau_delta = 1.0
+nuX_M1::opacity_corr_fac_max = 3.0
+nuX_M1::set_to_equilibrium = "no"
+nuX_M1::reset_to_equilibrium = "no"
+nuX_M1::rates_lib = "WeakRates"
+nuX_M1::verbose = "no"
+
+# -----------------------------------------------------------------------------
+# nuX_WeakRates
+# -----------------------------------------------------------------------------
+nuX_WeakRates::use_beta = "yes"
+nuX_WeakRates::use_pair_procs = "yes"
+nuX_WeakRates::use_plasmon = "yes"
+nuX_WeakRates::use_nonbeta_detailed_balance = "no"
+nuX_WeakRates::use_bremsstrahlung = "yes"
+nuX_WeakRates::use_elastic = "yes"
+
+# -----------------------------------------------------------------------------
+# nuX_M1_Seeds
+# -----------------------------------------------------------------------------
+nuX_M1_Seeds::verbose = "no"
+nuX_M1_Seeds::nuX_test_case = "none"
+
+# =============================================================================
+# Spacetime evolution
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Z4c
+# -----------------------------------------------------------------------------
+Z4c::calc_ADM_vars = yes
+Z4c::calc_ADMRHS_vars = no
+Z4c::calc_constraints = yes
+Z4c::chi_floor = 1.0e-6
+Z4c::alphaG_floor = 1.0e-8
+Z4c::epsdiss = 0.32
+Z4c::veta_central = 1.0 / 1.7199
+Z4c::boundary_conditions = "NewRadX"
+
+# =============================================================================
+# Analysis
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# MHD_Diagnostics
+# -----------------------------------------------------------------------------
+MHD_Diagnostics::diagnostics_compute_every = 4*$out_every
+MHD_Diagnostics::derivatives_compute_every = 4*$out_every
+
+# -----------------------------------------------------------------------------
+# VolumeIntegrals_GRMHDX
+# -----------------------------------------------------------------------------
+VolumeIntegrals_GRMHDX::NumIntegrals = 11
+VolumeIntegrals_GRMHDX::VolIntegral_out_every = 0
+VolumeIntegrals_GRMHDX::enable_file_output = 1
+VolumeIntegrals_GRMHDX::outVolIntegral_dir = "$parfile/volume_integration"
+VolumeIntegrals_GRMHDX::verbose = 0
+
+VolumeIntegrals_GRMHDX::set_origin_with_VIX = "yes"
+VolumeIntegrals_GRMHDX::mb_VIX = 930.18478708
+
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[1] = "centerofmass"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[2] = "thermal_energy"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[3] = "kinetic_energy"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[4] = "kinetic_energy_total"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[5] = "magnetic_energy_total"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[6] = "density_weighted_norm_B_field"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[7] = "volume_average_norm_B_ab"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[8] = "volume_average_norm_B_cd"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[9] = "em_energy_ab"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[10] = "em_energy_cd"
+VolumeIntegrals_GRMHDX::Integration_quantity_keyword[11] = "restmass"
+
+VolumeIntegrals_GRMHDX::dens_atmo = 1.001e-11
+VolumeIntegrals_GRMHDX::dens_a = 1.0e-11
+VolumeIntegrals_GRMHDX::dens_b = 1.0e-4
+VolumeIntegrals_GRMHDX::dens_c = 1.0e-4
+
+# =============================================================================
+# Checkpoint
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::checkpoint_method = "openpmd"
+CarpetX::recover_method = "openpmd"
+
+# -----------------------------------------------------------------------------
+# IO
+# -----------------------------------------------------------------------------
+IO::checkpoint_dir = "../checkpoint_semi_implicit_B4PI_BREMSON_2H_20261007"
+IO::recover_dir = "../checkpoint_semi_implicit_B4PI_BREMSON_2H_20261007"
+IO::checkpoint_ID = no
+IO::checkpoint_every = 24*$out_every
+IO::checkpoint_every_walltime_hours = 1.9
+IO::checkpoint_on_terminate = yes
+IO::recover = "autoprobe"
+
+# =============================================================================
+# Output
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# CarpetX
+# -----------------------------------------------------------------------------
+CarpetX::out_performance_every = 24*$out_every
+CarpetX::out_metadata = no
+CarpetX::out_norm_omit_unstable = yes
+CarpetX::out_norm_every = $out_every
+CarpetX::out_norm_vars = "
+    ADMBaseX::lapse
+    ADMBaseX::metric
+    ADMBaseX::shift
+    AsterX::diagnostics
+    HydroBaseX::Bvec
+    HydroBaseX::Ye
+    HydroBaseX::entropy
+    HydroBaseX::eps
+    HydroBaseX::press
+    HydroBaseX::rho
+    HydroBaseX::temperature
+    HydroBaseX::vel
+    MHD_Diagnostics::normB
+    MHD_Diagnostics::normcurlB
+    MHD_Diagnostics::sigma4Trace
+    MHD_Diagnostics::sigma4bb
+    nuX_M1::chi
+    nuX_M1::fluidsources
+    nuX_M1::opacs
+    nuX_M1::radial_fluxes
+    nuX_Base::rE
+    nuX_Base::rF
+    nuX_Base::rN
+    nuX_Base::rP
+"
+
+CarpetX::out_silo_compression_options = "METHOD=GZIP"
+CarpetX::out_silo_vars = "
+    HydroBaseX::rho
+    nuX_Base::rE
+"
+
+CarpetX::openpmd_format = "ADIOS2_BP5"
+CarpetX::out_openpmd_2d_every = $out_every
+CarpetX::out_openpmd_2d_vars = "
+    ADMBaseX::lapse
+    ADMBaseX::metric
+    ADMBaseX::shift
+    AsterX::con2prim_flag
+    AsterX::cons_vector
+    AsterX::diagnostics
+    AsterX::LOflag
+    AsterX::rhs_vector
+    AsterX::theta_tot
+    HydroBaseX::Bvec
+    HydroBaseX::Ye
+    HydroBaseX::entropy
+    HydroBaseX::eps
+    HydroBaseX::press
+    HydroBaseX::rho
+    HydroBaseX::temperature
+    HydroBaseX::vel
+    nuX_M1::chi
+    nuX_M1::fidu_vel
+    nuX_M1::fidu_w_lorentz
+    nuX_M1::fluidsources
+    nuX_M1::nueave
+    nuX_M1::nuX_m1_mask
+    nuX_M1::opacs
+    nuX_M1::radial_fluxes
+    nuX_Base::rE
+    nuX_Base::rF
+    nuX_M1::rH
+    nuX_M1::rHt
+    nuX_M1::rJ
+    nuX_Base::rN
+    nuX_Base::rP
+    nuX_M1::rnnu
+    Z4c::HC
+    Z4c::MtC
+"
+
+IO::out_xyplane_z = 0
+IO::out_xzplane_y = 0
+IO::out_yzplane_x = 0
+
+CarpetX::out_tsv_every = $out_every
+CarpetX::out_tsv_vars = "
+    AsterX::Avec_x
+    AsterX::Avec_y
+    AsterX::Avec_z
+    AsterX::dB
+    HydroBaseX::Bvec
+    HydroBaseX::press
+    HydroBaseX::rho
+    HydroBaseX::temperature
+    HydroBaseX::Ye
+    HydroBaseX::vel
+    ADMBaseX::lapse
+    ADMBaseX::shift
+    ADMBaseX::metric
+    nuX_Base::rN
+    nuX_Base::rE
+    nuX_Base::rF
+    nuX_M1::opacs
+    nuX_M1::radial_fluxes
+"
+
+# -----------------------------------------------------------------------------
+# IO
+# -----------------------------------------------------------------------------
+IO::out_dir = $parfile
+IO::out_every = 8*$out_every
+
+# -----------------------------------------------------------------------------
+# TimerReport
+# -----------------------------------------------------------------------------
+TimerReport::out_every = 4*$out_every
+TimerReport::out_filename = "TimerReport"
+TimerReport::output_all_timers_together = yes
+TimerReport::output_all_timers_readable = yes
+TimerReport::n_top_timers = 100
