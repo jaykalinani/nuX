@@ -71,7 +71,6 @@ ExternalLibraries/LAPACK
 ExternalLibraries/libjpeg
 ExternalLibraries/MPI
 ExternalLibraries/OpenSSL
-ExternalLibraries/OpenBLAS
 ExternalLibraries/PETSc
 ExternalLibraries/pthreads
 ExternalLibraries/zlib
