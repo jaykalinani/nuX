@@ -40,7 +40,7 @@ if ((build_status != 0)); then
     # GitHub does not expose public Actions logs without authentication. Keep
     # the useful compiler diagnostics visible in the job annotation instead.
     build_errors=$(
-        { grep -E '(^|: )(fatal )?error:|undefined (reference|symbol)|No rule to make target|make(\[[0-9]+\])?: \*\*\*' \
+        { grep -Ei '(^|: )(fatal )?error:|CST error|No thorn|Either remove|undefined (reference|symbol)|No rule to make target|make(\[[0-9]+\])?: \*\*\*' \
             build.log || true; } | tail -n 12 | tr '\n' ' '
     )
     printf '::error title=Cactus build failed (%s)::%s\n' \
