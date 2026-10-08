@@ -1,4 +1,6 @@
 #include "m1_unit_tests.hxx"
+#define NUX_M1_CLOSURE_IMPLEMENTATION
+#define NUX_M1_SOURCES_IMPLEMENTATION
 #include "nuX_M1_sources.hxx"
 
 #include <algorithm>
@@ -264,14 +266,26 @@ int check_source_solve(cGH const *cctkGH) {
     failures += !std::isfinite(residual(n)) || std::abs(residual(n)) > scale;
   }
 
-  // A deliberately invalid initial state must be reported as a failure, not
-  // accepted merely because a Newton increment happens to be small.
+  // A deliberately invalid analytic initial guess must not be accepted as a
+  // solution.  Strict mode retries from the valid provisional state, so
+  // require that recovery to converge to the actual implicit root.
   Enew = -1.0;
   pack_F_d(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, &Fnew_d);
   const int invalid_status =
       source_update(ctx, CLOSURE_EDDINGTON, &chi, &Enew, &Fnew_d, true, -1.0,
                     -1.0, 2, 1.0e-15, 1.0e-8);
-  failures += invalid_status != NUX_M1_SOURCE_FAIL;
+  failures += invalid_status == NUX_M1_SOURCE_FAIL;
+  failures += !std::isfinite(Enew) || Enew < 0.0;
+  const arith_vector recovered{Enew, Fnew_d(1), Fnew_d(2), Fnew_d(3)};
+  failures +=
+      fixed_chi_residual(ctx, recovered, chi, &residual) != ROOTS_SUCCESS;
+  for (int n = 0; n < 4; ++n) {
+    const CCTK_REAL baseline = n == 0 ? ctx.Estar : ctx.Fstar_d(n);
+    const CCTK_REAL scale =
+        1.0e-15 +
+        1.0e-8 * std::max(std::abs(recovered(n)), std::abs(baseline));
+    failures += !std::isfinite(residual(n)) || std::abs(residual(n)) > scale;
+  }
   return failures;
 }
 
