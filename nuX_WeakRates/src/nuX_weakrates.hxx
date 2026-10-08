@@ -46,6 +46,8 @@ struct EquilibriumDensities {
 
 namespace detail {
 
+using std::isfinite;
+
 inline constexpr CCTK_REAL eta0 = 1.0e-3;
 inline constexpr CCTK_REAL pi = 3.141592653589793238462643383279502884;
 inline constexpr CCTK_REAL mev_to_erg = 1.60217733e-6;
