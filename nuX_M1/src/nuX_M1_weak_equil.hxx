@@ -3,11 +3,17 @@
 
 #include <cctk.h>
 
+#include <cmath>
 #include <limits>
 
 #include "setup_eos.hxx"
 
 namespace nuX_M1 {
+
+using std::abs;
+using std::fmax;
+using std::fmin;
+using std::isfinite;
 
 // The equilibrium equations are written in EOS/code units:
 //
