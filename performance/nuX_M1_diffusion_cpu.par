@@ -16,7 +16,6 @@ ActiveThorns = "
   HydroBaseX
   IOUtil
   ODESolvers
-  Subcycling
   TimerReport
   TmunuBaseX
   nuX_FakeRates
