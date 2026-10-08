@@ -3,7 +3,13 @@
 
 #include <cctk.h>
 
+#include <cmath>
+
 namespace nuX_M1 {
+
+using std::fmax;
+using std::fmin;
+using std::isfinite;
 
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
 equilibrium_moments_are_valid(const CCTK_REAL number,
