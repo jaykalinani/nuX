@@ -5,6 +5,7 @@
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
 
+#define NUX_M1_CLOSURE_IMPLEMENTATION
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
 

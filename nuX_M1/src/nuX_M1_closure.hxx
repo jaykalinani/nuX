@@ -527,7 +527,7 @@ closure_abort_if_no_fallback(bool use_fallback) {
 }
 
 // Computes the closure in the lab frame with a rootfinding procedure
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
+static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
     closure_t closure_fun, tensor::metric<4> const &g_dd,
     tensor::inv_metric<4> const &g_uu,
@@ -667,7 +667,7 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
 
 #endif // NUX_M1_CLOSURE_IMPLEMENTATION
 
-CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
+static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
     cGH const *cctkGH, int const i, int const j, int const k, int const ig,
     closure_t closure_fun, tensor::metric<4> const &g_dd,
     tensor::inv_metric<4> const &g_uu,

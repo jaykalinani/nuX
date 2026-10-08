@@ -289,8 +289,8 @@ source_jacobian_fixed_chi(double *qpre, double Fup[4], double F2, double chi,
 
 #ifdef NUX_M1_SOURCES_IMPLEMENTATION
 
-CCTK_HOST CCTK_DEVICE int prepare_closure(const arith_vector &q, Params *p,
-                                          PreparedState *s) {
+static CCTK_HOST CCTK_DEVICE int
+prepare_closure(const arith_vector &q, Params *p, PreparedState *s) {
   SourceUpdateContext const &c = *p->ctx;
   s->E = q(0);
   if (!isfinite(s->E) || s->E < 0.0 || !nuX_Utils::roots::finite(q)) {
@@ -324,7 +324,8 @@ CCTK_HOST CCTK_DEVICE int prepare_closure(const arith_vector &q, Params *p,
   return ROOTS_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare_sources(Params *p, PreparedState *s) {
+static CCTK_HOST CCTK_DEVICE int
+prepare_sources(Params *p, PreparedState *s) {
   SourceUpdateContext const &c = *p->ctx;
   assemble_rT(c.n_d, s->E, s->F_d, s->P_dd, &s->T_dd);
 
@@ -348,8 +349,8 @@ CCTK_HOST CCTK_DEVICE int prepare_sources(Params *p, PreparedState *s) {
   return ROOTS_SUCCESS;
 }
 
-CCTK_HOST CCTK_DEVICE int prepare(const arith_vector &q, Params *p,
-                                  PreparedState *s) {
+static CCTK_HOST CCTK_DEVICE int
+prepare(const arith_vector &q, Params *p, PreparedState *s) {
   int ierr = prepare_closure(q, p, s);
   if (ierr != ROOTS_SUCCESS) {
     return ierr;
@@ -365,8 +366,8 @@ CCTK_HOST CCTK_DEVICE int prepare(const arith_vector &q, Params *p,
 
 // Function to rootfind for
 //    f(q) = q - q^* - dt S[q]
-CCTK_HOST CCTK_DEVICE int impl_func_val(const arith_vector &q, Params *p,
-                                        arith_vector &f) {
+static CCTK_HOST CCTK_DEVICE int
+impl_func_val(const arith_vector &q, Params *p, arith_vector &f) {
   PreparedState s;
   int ierr = prepare(q, p, &s);
   if (ierr != ROOTS_SUCCESS) {
@@ -386,8 +387,8 @@ CCTK_HOST CCTK_DEVICE int impl_func_val(const arith_vector &q, Params *p,
 }
 
 // Jacobian of the implicit function
-CCTK_HOST CCTK_DEVICE int impl_func_jac(const arith_vector &q, Params *p,
-                                        arith_matrix &J) {
+static CCTK_HOST CCTK_DEVICE int
+impl_func_jac(const arith_vector &q, Params *p, arith_matrix &J) {
   PreparedState s;
   int ierr = prepare(q, p, &s);
   if (ierr != ROOTS_SUCCESS) {
@@ -418,8 +419,9 @@ CCTK_HOST CCTK_DEVICE int impl_func_jac(const arith_vector &q, Params *p,
 }
 
 // Function and Jacobian evaluation
-CCTK_HOST CCTK_DEVICE int impl_func_val_jac(const arith_vector &q, Params *p,
-                                            arith_vector &f, arith_matrix &J) {
+static CCTK_HOST CCTK_DEVICE int
+impl_func_val_jac(const arith_vector &q, Params *p, arith_vector &f,
+                  arith_matrix &J) {
   PreparedState s;
   int ierr = prepare(q, p, &s);
   if (ierr != ROOTS_SUCCESS) {
@@ -462,7 +464,7 @@ void thermal_equilibrium(
 }
 #endif
 
-CCTK_HOST CCTK_DEVICE void
+static CCTK_HOST CCTK_DEVICE void
 explicit_update(Params *p, PreparedState const &s, CCTK_REAL *Enew,
                 tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
   SourceUpdateContext const &c = *p->ctx;
@@ -537,12 +539,12 @@ source_apply_no_source_fallback(CCTK_REAL const Estar,
   *chi = CCTK_REAL(1.0 / 3.0);
 }
 
-CCTK_HOST CCTK_DEVICE int
+static CCTK_HOST CCTK_DEVICE int
 source_update_nonstiff(SourceUpdateContext const &ctx, closure_t closure_fun,
                        CCTK_REAL *chi, CCTK_REAL *Enew,
                        tensor::generic<CCTK_REAL, 4, 1> *Fnew_d);
 
-CCTK_HOST CCTK_DEVICE int
+static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE int
 source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
               CCTK_REAL *chi, CCTK_REAL *Enew,
               tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
@@ -552,7 +554,8 @@ source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
 
 #ifdef NUX_M1_SOURCES_IMPLEMENTATION
 
-CCTK_HOST CCTK_DEVICE int source_update_nonstiff_attempt(
+static CCTK_HOST CCTK_DEVICE int
+source_update_nonstiff_attempt(
     SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
     CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
 
@@ -583,7 +586,7 @@ CCTK_HOST CCTK_DEVICE int source_update_nonstiff_attempt(
   return NUX_M1_SOURCE_THIN;
 }
 
-CCTK_HOST CCTK_DEVICE int
+static CCTK_HOST CCTK_DEVICE int
 source_update_nonstiff(SourceUpdateContext const &ctx, closure_t closure_fun,
                        CCTK_REAL *chi, CCTK_REAL *Enew,
                        tensor::generic<CCTK_REAL, 4, 1> *Fnew_d) {
@@ -641,7 +644,8 @@ source_solver_converged(
   return *scaled_residual <= 1.0 && *scaled_step <= 1.0;
 }
 
-CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
+static CCTK_HOST CCTK_DEVICE int
+source_update_implicit_attempt(
     SourceUpdateContext const &ctx, closure_t closure_fun, CCTK_REAL *chi,
     CCTK_REAL *Enew, tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,
     CCTK_INT source_maxiter, CCTK_REAL source_epsabs,
@@ -745,7 +749,7 @@ CCTK_HOST CCTK_DEVICE int source_update_implicit_attempt(
 // The source term is S^a = (eta - ka J) u^a - (ka + ks) H^a and includes
 // also emission.
 
-CCTK_HOST CCTK_DEVICE int
+static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE int
 source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
               CCTK_REAL *chi, CCTK_REAL *Enew,
               tensor::generic<CCTK_REAL, 4, 1> *Fnew_d,

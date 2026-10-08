@@ -8,6 +8,8 @@
 #include "cctk_Functions.h"
 #include "cctk_Parameters.h"
 
+#define NUX_M1_CLOSURE_IMPLEMENTATION
+#define NUX_M1_SOURCES_IMPLEMENTATION
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_sources.hxx"
 #include "nuX_baryon_mass.hxx"
