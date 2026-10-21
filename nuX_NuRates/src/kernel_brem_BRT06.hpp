@@ -32,7 +32,11 @@ BS_REAL QBrem_BRT06(const BS_REAL nb, const BS_REAL T, const BS_REAL xn,
     constexpr BS_REAL eleven_halves      = 5.5;
     constexpr BS_REAL mb                 = kBS_Mb;
 
-    constexpr BS_REAL kBS_Brem_BRT06_Const = 2.0778e+02;
+    // BRT06 Eq. (143) is expressed for rho in g cm^-3 and Q in
+    // erg cm^-3 s^-1. With rho in g nm^-3, rho^2 contributes 1e42;
+    // converting the output volume from cm^-3 to nm^-3 contributes 1e-21.
+    // The net factor is 1e21, followed by the erg-to-MeV conversion.
+    constexpr BS_REAL kBS_Brem_BRT06_Const = 2.0778e+23;
 
     if (!isfinite(nb) || nb <= zero || !isfinite(T) || T <= zero ||
         !isfinite(xn) || xn < zero || xn > one || !isfinite(xp) || xp < zero ||
@@ -43,7 +47,7 @@ BS_REAL QBrem_BRT06(const BS_REAL nb, const BS_REAL T, const BS_REAL xn,
 
     const BS_REAL rho                      = nb * mb; // mass density [g nm-3]
     const BS_REAL q_brem =
-        kBS_Brem_BRT06_Const * half * kBS_MeV *
+        kBS_Brem_BRT06_Const * half * erg_to_MeV *
         (POW2(xn) + POW2(xp) + twentyeight_thirds * xn * xp) * POW2(rho) *
         pow(T, eleven_halves); // [MeV nm-3 s-1]
     return isfinite(q_brem) && q_brem > zero ? q_brem : zero;
