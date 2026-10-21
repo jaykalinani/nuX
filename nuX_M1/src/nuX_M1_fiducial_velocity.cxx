@@ -52,6 +52,22 @@ repair_velocity_and_compute_W(const smat<CCTK_REAL, 3> &g,
 
 } // namespace
 
+extern "C" void nuX_M1_InitializeLabFiducialVelocity(CCTK_ARGUMENTS) {
+  DECLARE_CCTK_ARGUMENTS_nuX_M1_InitializeLabFiducialVelocity;
+
+  const GridDescBaseDevice grid(cctkGH);
+  const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
+  grid.loop_all_device<1, 1, 1>(
+      grid.nghostzones,
+      [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
+        const int ijk = layout_cc.linear(p.i, p.j, p.k);
+        fidu_velx[ijk] = CCTK_REAL(0);
+        fidu_vely[ijk] = CCTK_REAL(0);
+        fidu_velz[ijk] = CCTK_REAL(0);
+        fidu_w_lorentz[ijk] = CCTK_REAL(1);
+      });
+}
+
 extern "C" void nuX_M1_FiducialVelocity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_FiducialVelocity;
   DECLARE_CCTK_PARAMETERS

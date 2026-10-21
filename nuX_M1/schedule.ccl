@@ -87,6 +87,15 @@ SCHEDULE nuX_M1_Reset IN HydroBaseX_InitialData BEFORE HydroBaseX_initial_data
     WRITES: semi_implicit_stage
 } "Initialize everything to zero"
 
+if (CCTK_Equals(fiducial_velocity, "lab")) {
+  SCHEDULE nuX_M1_InitializeLabFiducialVelocity IN HydroBaseX_InitialData \
+      AFTER nuX_M1_Reset
+  {
+      LANG: C
+      WRITES: fidu_vel(everywhere) fidu_w_lorentz(everywhere)
+  } "Initialize the lab-frame fiducial observer everywhere"
+}
+
 SCHEDULE nuX_M1_SetMask IN nuX_M1_InitialGroup \
     AFTER nuX_M1_Reset \
     BEFORE nuX_M1_FiducialVelocity
