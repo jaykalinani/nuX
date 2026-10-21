@@ -28,6 +28,7 @@ KEYWORD nuX_test_case "Perform simple tests"
     "atmosphere" :: "Uniform atmosphere test"
     "shadow"     :: "Sphere shadow test"
     "sphere"     :: "Homogeneous sphere test"
+    "expanding_absorber" :: "Expanding radiation from an emitter around an absorber"
 } "none"
 
 BOOLEAN initialize_asterx_vector_potential "Initialize the AsterX vector potential to zero for radiation tests"
@@ -87,6 +88,36 @@ CCTK_REAL beam_radius "Width of the beam"
 {
     (0:* :: "Any positive number"
 } 1.0
+
+CCTK_REAL emitter_radius "Radius of the emitting sphere in the expansion test"
+{
+    (0:* :: "Positive radius"
+} 1.5
+
+CCTK_REAL absorber_radius "Radius of the absorbing sphere in the expansion test"
+{
+    (0:* :: "Positive radius"
+} 1.0
+
+CCTK_REAL absorber_position_x "Absorber centre on the x axis"
+{
+    *:* :: "Emitter and absorber must not overlap"
+} 3.5
+
+CCTK_REAL absorber_opacity "Absorption coefficient in the absorber, in code units"
+{
+    (0:* :: "Positive opacity"
+} 10.0
+
+CCTK_REAL emitter_opacity "Central absorption coefficient of the emitting sphere"
+{
+    (0:* :: "Positive opacity"
+} 10.0
+
+CCTK_REAL emitter_equilibrium_energy "Equilibrium energy density inside the emitter"
+{
+    (0:* :: "Positive energy density"
+} 0.1
 
 CCTK_REAL roi_radius "Radius of the region of interest, either the shadow or sphere"
 {
@@ -148,3 +179,6 @@ BOOLEAN verbose "Debug output" STEERABLE=always
 
 SHARES: EOSX
 USES KEYWORD evolution_eos
+
+SHARES: ODESolvers
+USES KEYWORD method

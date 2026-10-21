@@ -69,6 +69,10 @@ CCTK_REAL radial_fluxes[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING=
     radial_flux_0, radial_flux_1
 } "Neutrino radial number and energy fluxes"
 
+# Test providers inheriting nuX_M1 may prescribe rates without changing the
+# production microphysics routines. No additional storage is allocated.
+PUBLIC:
+
 ## Radiation-matter interaction
 CCTK_REAL opacs[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
@@ -76,6 +80,8 @@ CCTK_REAL opacs[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TA
 } "Opacity variables"
 
 CCTK_REAL nueave[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Neutrino average energy (in equilibrium or in the energy group)"
+
+PRIVATE:
 
 CCTK_REAL fluidsources TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {

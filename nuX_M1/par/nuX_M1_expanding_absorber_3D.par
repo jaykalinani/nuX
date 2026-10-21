@@ -1,0 +1,140 @@
+# Musolino & Rezzolla (2023), Sec. 4.3, Eq. (93): arxiv.org/abs/2304.09168.
+# The printed opacity uses x^2+y^2 inside a three-dimensional emitting sphere.
+# The default 96^3 base grid is economical; set ncells=196 for the paper's grid.
+# Compare snapshots at t=1,4,7; the paper plots 2*pi*r^2*|F|.
+ActiveThorns = "
+  ADMBaseX AsterMasks AsterX BoxInBox CarpetX Con2PrimFactory Cowling EOSX
+  HydroBaseX IOUtil ODESolvers ReconX TimerReport TmunuBaseX
+  nuX_Base nuX_FakeRates nuX_M1 nuX_M1_Seeds nuX_Utils
+"
+
+$ncells = 96
+$out_every = 32
+
+Cactus::terminate = "time"
+Cactus::cctk_final_time = 7.0
+Cactus::presync_mode = "mixed-error"
+Cactus::cctk_show_schedule = no
+
+ADMBaseX::initial_data = "Cartesian Minkowski"
+ADMBaseX::initial_lapse = "one"
+ADMBaseX::initial_shift = "zero"
+ADMBaseX::initial_dtlapse = "none"
+ADMBaseX::initial_dtshift = "none"
+
+CarpetX::xmin = -7.5
+CarpetX::xmax = 7.5
+CarpetX::ymin = -7.5
+CarpetX::ymax = 7.5
+CarpetX::zmin = -7.5
+CarpetX::zmax = 7.5
+CarpetX::ncells_x = $ncells
+CarpetX::ncells_y = $ncells
+CarpetX::ncells_z = $ncells
+CarpetX::max_grid_size_x = 64
+CarpetX::max_grid_size_y = 64
+CarpetX::max_grid_size_z = 64
+CarpetX::blocking_factor_x = 1
+CarpetX::blocking_factor_y = 1
+CarpetX::blocking_factor_z = 1
+CarpetX::max_num_levels = 2
+CarpetX::regrid_every = 0
+CarpetX::regrid_error_threshold = 0.5
+CarpetX::prolongation_type = "ddf"
+CarpetX::ghost_size = 4
+CarpetX::dtfac = 0.25
+CarpetX::use_subcycling = yes
+CarpetX::restrict_during_sync = no
+CarpetX::periodic_x = no
+CarpetX::periodic_y = no
+CarpetX::periodic_z = no
+CarpetX::boundary_x = "neumann"
+CarpetX::boundary_upper_x = "neumann"
+CarpetX::boundary_y = "neumann"
+CarpetX::boundary_upper_y = "neumann"
+CarpetX::boundary_z = "neumann"
+CarpetX::boundary_upper_z = "neumann"
+CarpetX::poison_undefined_values = yes
+CarpetX::poison_undefined_arrays = yes
+
+BoxInBox::num_regions = 1
+BoxInBox::shape_1 = "sphere"
+BoxInBox::num_levels_1 = 2
+BoxInBox::radius_1 = [-1.0, 2.5]
+
+AsterX::freeze_evolution = yes
+AsterX::update_tmunu = no
+AsterX::local_estimate_error = no
+AsterX::flux_type = "LxF"
+Con2PrimFactory::c2p_prime = "Noble"
+Con2PrimFactory::c2p_second = "Palenzuela"
+Con2PrimFactory::rho_abs_min = 1e-8
+Con2PrimFactory::unit_test = no
+EOSX::evolution_eos = "IdealGas"
+EOSX::gl_gamma = 2.0
+EOSX::poly_gamma = 2.0
+EOSX::rho_max = 1e8
+EOSX::eps_max = 1e8
+ReconX::reconstruction_method = "minmod"
+ODESolvers::method = "IMEX42L"
+
+nuX_M1::rates_lib = "FakeRates"
+nuX_M1::backreact = no
+nuX_M1::add_to_Tmunu = no
+nuX_M1::include_GR_sources = no
+nuX_M1::fiducial_velocity = "lab"
+nuX_M1::closure = "Minerbo"
+nuX_M1::closure_epsilon = 1e-10
+nuX_M1::closure_maxiter = 100
+nuX_M1::use_fallback = no
+nuX_M1::bc_type = "none"
+nuX_M1::rad_E_floor = 1e-15
+nuX_M1::rad_N_floor = 1e-15
+# sqrt(1-rad_eps)=0.999, matching the paper's stated flux-factor cap.
+nuX_M1::rad_eps = 0.001999
+nuX_M1::mindiss = 0.0
+nuX_M1::sawtooth_force_full_dissipation = no
+nuX_M1::opacity_corr_fac_max = 1.0
+nuX_M1::opacity_tau_trap = -1.0
+nuX_M1::source_limiter = -1.0
+nuX_M1::source_thick_limit = -1.0
+nuX_M1::source_scat_limit = -1.0
+nuX_M1::source_therm_limit = -1.0
+nuX_M1::source_force_nonlinear = yes
+nuX_M1::source_epsabs = 1e-15
+nuX_M1::source_epsrel = 1e-8
+
+# The seed provider replaces these rates with the spatial benchmark profile
+# after every FakeRates evaluation; zero defaults keep initialization harmless.
+nuX_FakeRates::eta_nue = 0.0
+nuX_FakeRates::eta_nua = 0.0
+nuX_FakeRates::eta_nux = 0.0
+nuX_FakeRates::kappa_abs_nue = 0.0
+nuX_FakeRates::kappa_abs_nua = 0.0
+nuX_FakeRates::kappa_abs_nux = 0.0
+nuX_FakeRates::kappa_scat_nue = 0.0
+nuX_FakeRates::kappa_scat_nua = 0.0
+nuX_FakeRates::kappa_scat_nux = 0.0
+
+nuX_M1_Seeds::nuX_test_case = "expanding_absorber"
+nuX_M1_Seeds::initialize_asterx_vector_potential = yes
+nuX_M1_Seeds::emitter_radius = 1.5
+nuX_M1_Seeds::absorber_radius = 1.0
+nuX_M1_Seeds::absorber_position_x = 3.5
+nuX_M1_Seeds::emitter_opacity = 10.0
+nuX_M1_Seeds::absorber_opacity = 10.0
+nuX_M1_Seeds::emitter_equilibrium_energy = 0.1
+
+IO::out_dir = $parfile
+IO::out_every = $out_every
+IO::recover = "no"
+CarpetX::out_openpmd_every = 0
+CarpetX::out_openpmd_2d_every = $out_every
+CarpetX::out_openpmd_2d_vars = "
+  nuX_Base::rN nuX_Base::rE nuX_Base::rF nuX_Base::rP
+  nuX_M1::rJ nuX_M1::rH nuX_M1::chi nuX_M1::opacs
+"
+CarpetX::out_norm_every = $out_every
+CarpetX::out_norm_vars = "nuX_Base::rN nuX_Base::rE nuX_Base::rF"
+CarpetX::out_norm_omit_unstable = yes
+TimerReport::out_every = 0

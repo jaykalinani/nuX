@@ -4,6 +4,7 @@
 SRCS = \
 nuX_seed_vector_potential.cxx \
 nuX_beam.cxx \
+nuX_expanding_absorber.cxx \
 nuX_equil.cxx \
 nuX_kerrschild.cxx \
 nuX_adv_velocity_jump.cxx \

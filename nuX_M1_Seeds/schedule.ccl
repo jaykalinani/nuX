@@ -151,3 +151,59 @@ if (CCTK_Equals(nuX_test_case, "sphere")) {
     WRITES: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere) nuX_Base::rF(everywhere)
   } "Setup sphere test Neutrino initial conditions."
 }
+
+# Reuse the existing uniform-hydro and vacuum-radiation initializers.
+if (CCTK_Equals(nuX_test_case, "expanding_absorber")) {
+  SCHEDULE nuX_M1_Seeds_SetupHydroTest_beam IN HydroBaseX_InitialData \
+      AFTER HydroBaseX_initial_data {
+    LANG: C
+    WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere)
+    WRITES: HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
+    WRITES: HydroBaseX::Ye(everywhere)
+  } "Initialize uniform static matter for the radiation tests"
+
+  SCHEDULE nuX_M1_Seeds_SetupNeutTest_shadow IN nuX_M1_InitialData {
+    LANG: C
+    WRITES: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere)
+    WRITES: nuX_Base::rF(everywhere)
+  } "Initialize vacuum radiation for the radiation tests"
+}
+
+if (CCTK_Equals(nuX_test_case, "expanding_absorber")) {
+  # Replace density-scaled FakeRates with the prescribed emitter/absorber rates
+  # before each explicit or implicit evaluation, using existing rate storage.
+  SCHEDULE nuX_M1_Seeds_ExpandingAbsorberRates IN nuX_M1_InitialGroup \
+      AFTER nuX_M1_CalcClosure {
+    LANG: C
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Set prescribed benchmark rates on initial AMR levels"
+
+  SCHEDULE nuX_M1_Seeds_ExpandingAbsorberRates IN nuX_M1_RHSGroup \
+      AFTER nuX_M1_CalcOpacityFakeRates \
+      BEFORE (nuX_M1_SyncDerived nuX_M1_CalcFluxes \
+              nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcBackreactionRHS) {
+    LANG: C
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Set prescribed rates before the explicit radiation fluxes"
+
+  SCHEDULE nuX_M1_Seeds_ExpandingAbsorberRates IN nuX_M1_ImplicitRHSGroup \
+      AFTER nuX_M1_CalcOpacityFakeRates \
+      BEFORE (nuX_M1_CalcSourceRHS nuX_M1_CalcBackreactionRHS) {
+    LANG: C
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Set prescribed rates before evaluating the IMEX collision RHS"
+
+  if (!CCTK_Equals(method, "semi-implicit")) {
+    SCHEDULE nuX_M1_Seeds_ExpandingAbsorberRates IN nuX_M1_SourceGroup \
+        AFTER nuX_M1_CalcOpacityFakeRates BEFORE nuX_M1_CalcUpdate {
+      LANG: C
+      WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+    } "Set prescribed rates before the diagonal implicit solve"
+  }
+
+  SCHEDULE nuX_M1_Seeds_ExpandingAbsorberRates IN nuX_M1_PostStepDerived \
+      AFTER nuX_M1_CalcOpacityFakeRates {
+    LANG: C
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Keep output rates equal to the prescribed benchmark profiles"
+}
