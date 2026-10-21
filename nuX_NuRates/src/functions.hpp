@@ -4396,6 +4396,35 @@ BS_REAL FermiDistr(const BS_REAL e, const BS_REAL temp, const BS_REAL mu)
 
 /*===========================================================================*/
 
+/* Pauli blocking factor 1 - FermiDistr(e, temp, mu).
+ *
+ * A literal subtraction loses the blocking factor below the Fermi surface
+ * when FermiDistr rounds to one.  Evaluate the complementary ratio directly
+ * on the numerically well-conditioned branch instead.
+ */
+CCTK_HOST CCTK_DEVICE inline
+BS_REAL OneMinusFermiDistr(const BS_REAL e, const BS_REAL temp,
+                           const BS_REAL mu)
+{
+    const BS_REAL arg = (e - mu) / temp;
+    BS_REAL tmp;
+
+    constexpr BS_REAL one = 1;
+
+    if (arg > zero)
+    {
+        tmp = SafeExp(-arg);
+        return one / (tmp + one);
+    }
+    else
+    {
+        tmp = SafeExp(arg);
+        return tmp / (tmp + one);
+    }
+}
+
+/*===========================================================================*/
+
 // Calculates the exponential-dependent factors in the denominator of the NEPS
 // kernel
 CCTK_HOST CCTK_DEVICE inline
