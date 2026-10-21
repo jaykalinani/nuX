@@ -33,10 +33,41 @@ CCTK_HOST CCTK_DEVICE inline
 BS_REAL NuFThick(const BS_REAL omega, const NuDistributionParams* distr_pars,
                  const int nuid)
 {
-    const BS_REAL T_t  = distr_pars->temp_t[nuid];
-    const BS_REAL mu_t = distr_pars->temp_t[nuid] * distr_pars->eta_t[nuid];
+    const BS_REAL arg = distr_pars->eta_t[nuid] -
+                        omega / distr_pars->temp_t[nuid];
+    // Both exponential arguments are nonpositive: no overflow guard is
+    // needed. Allow true underflow instead of imposing SafeExp's occupation
+    // floor, which would renormalize an extremely dilute distribution.
+    const BS_REAL e = exp(-fabs(arg));
+    return arg <= 0 ? e / (1 + e) : 1 / (1 + e);
+}
 
-    return FermiDistr(omega, T_t, mu_t);
+// Check normalization, not just finiteness. In particular, the eta cap must
+// not silently accept a spectrum with the wrong number and energy densities.
+CCTK_HOST CCTK_DEVICE inline
+bool ThickDistributionMatchesM1(const BS_REAL n, const BS_REAL J,
+                                const BS_REAL T, const BS_REAL eta)
+{
+    if (!(n > 0 && J > 0 && T > 0) || !isfinite(n) || !isfinite(J) ||
+        !isfinite(T) || !isfinite(eta))
+        return false;
+
+    // Logarithmic moments avoid underflow for very dilute populations.
+    // Below eta = -20 the leading dilute terms are accurate to < 3e-10.
+    const BS_REAL log_F2 = eta < -20 ? log(BS_REAL(2)) + eta
+                                    : log(FDI_p2(eta));
+    const BS_REAL log_F3 = eta < -20 ? log(BS_REAL(6)) + eta
+                                    : log(FDI_p3(eta));
+    const BS_REAL log_T = log(T);
+    const BS_REAL log_n = log(kBS_FourPi_hc3) + 3 * log_T + log_F2;
+    const BS_REAL log_J = log(kBS_FourPi_hc3) + 4 * log_T + log_F3;
+
+    // Allow the existing inverse fit's measured 4.25e-4 relative error.
+    // This tolerance does not clip or rescale either radiation moment.
+    constexpr BS_REAL tolerance = 5e-4;
+    return isfinite(log_n) && isfinite(log_J) &&
+           fabs(log_n - log(n)) <= tolerance &&
+           fabs(log_J - log(J)) <= tolerance;
 }
 
 /* Recover distribution function parameters for optically thick regime from M1
@@ -91,9 +122,10 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
 
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
-        // Use ternary instead of fmax: fmax(floor, NaN) returns NaN on IEEE-compliant hardware (Intel SYCL).
-        const BS_REAL n   = (M1_pars->n[nuid] > 1e-100) ? M1_pars->n[nuid] : 1e-100; // [nm^-3]
-        const BS_REAL J   = (M1_pars->J[nuid] > 1e-100) ? M1_pars->J[nuid] : 1e-100; // [MeV nm^-3]
+        // Preserve every positive input, including very dilute populations.
+        // Exact vacuum is assigned zero weights by CalculateDistrParamsFromM1.
+        const BS_REAL n   = (M1_pars->n[nuid] > 0) ? M1_pars->n[nuid] : 1e-100; // [nm^-3]
+        const BS_REAL J   = (M1_pars->J[nuid] > 0) ? M1_pars->J[nuid] : 1e-100; // [MeV nm^-3]
         const BS_REAL chi = M1_pars->chi[nuid];
 
         // BS_ASSERT(
@@ -105,7 +137,24 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
 
         out_distribution_pars->w_t[nuid] = three_halves * (one - chi);
 
-        const BS_REAL y = n * POW3(n / J) / kBS_FourPi_hc3;
+        // y = F_2(eta)^4 / F_3(eta)^3. The rational fit below has a
+        // nonzero constant term and must not be extrapolated to y -> 0.
+        // Work in logs so dilute moments do not underflow before inversion.
+        const BS_REAL log_y =
+            4 * log(n) - 3 * log(J) - log(kBS_FourPi_hc3);
+        if (log_y < log(BS_REAL(1e-4)))
+        {
+            // For fugacity z << 1, y = (2/27) z (1 - 5 z/16 + ...).
+            // The first correction keeps the moment error below 4e-8 at
+            // the matching point. Avoid ratios of underflowed Fermi integrals.
+            const BS_REAL log_z = log(BS_REAL(13.5)) + log_y;
+            const BS_REAL z = exp(log_z);
+            out_distribution_pars->eta_t[nuid] = log_z + 5 * z / 16;
+            out_distribution_pars->temp_t[nuid] =
+                (J / n) * (1 - z / 16) / 3;
+            continue;
+        }
+        const BS_REAL y = log_y < log(y3) ? exp(log_y) : y3;
 
         if (y < y1)
         {
@@ -217,9 +266,8 @@ void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
 
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
-        // Use ternary instead of fmax: fmax(floor, NaN) returns NaN on IEEE-compliant hardware (Intel SYCL).
-        const BS_REAL n   = (M1_pars->n[nuid] > 1e-100) ? M1_pars->n[nuid] : 1e-100; // [nm^-3]
-        const BS_REAL J   = (M1_pars->J[nuid] > 1e-100) ? M1_pars->J[nuid] : 1e-100; // [MeV nm^-3]
+        const BS_REAL n   = (M1_pars->n[nuid] > 0) ? M1_pars->n[nuid] : 1e-100; // [nm^-3]
+        const BS_REAL J   = (M1_pars->J[nuid] > 0) ? M1_pars->J[nuid] : 1e-100; // [MeV nm^-3]
         const BS_REAL chi = M1_pars->chi[nuid];
 
         // BS_ASSERT(
@@ -328,6 +376,18 @@ NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
 
     CalculateThickParamsFromM1(M1_pars, &out);
     CalculateThinParamsFromM1(M1_pars, &out);
+
+    // Exact vacuum has zero occupation, not the fictitious population implied
+    // by the positive denominator guards in the reconstruction routines.
+    for (int nuid = 0; nuid < total_num_species; ++nuid)
+    {
+        if (M1_pars->n[nuid] == 0 && M1_pars->J[nuid] == 0)
+        {
+            out.w_t[nuid] = out.w_f[nuid] = 0;
+            out.temp_t[nuid] = out.temp_f[nuid] = eos_pars->temp;
+            out.eta_t[nuid] = out.beta_f[nuid] = 0;
+        }
+    }
 
     return out;
 }
