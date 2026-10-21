@@ -59,33 +59,25 @@ extern "C" void nuX_LeakageBase_CalcOpacityNuRates(CCTK_ARGUMENTS) {
           abs_0_nue[ijk] = abs_0_nua[ijk] = abs_0_nux[ijk] = 0.0;
           return;
         }
+        disable_unsupported_nonthermal_leakage(grey_params);
 
         MyQuadrature device_quadrature;
         copy_quadrature(device_quadrature, quadrature);
-        const auto coeffs = ComputeM1Opacities(
+        const auto coeffs = ComputeM1OpacitiesNonThermalSeparated(
             &device_quadrature, &device_quadrature, &grey_params);
+        const auto nue = thermal_leakage_coefficients(coeffs, id_nue);
+        const auto anue = thermal_leakage_coefficients(coeffs, id_anue);
+        const auto nux = thermal_leakage_coefficients(coeffs, id_nux);
 
-        kappa_0_nue[ijk] =
-            (coeffs.kappa_0_a[id_nue] + coeffs.kappa_s[id_nue]) *
-            nuX_length_conv;
-        kappa_0_nua[ijk] =
-            (coeffs.kappa_0_a[id_anue] + coeffs.kappa_s[id_anue]) *
-            nuX_length_conv;
-        kappa_0_nux[ijk] =
-            (coeffs.kappa_0_a[id_nux] + coeffs.kappa_s[id_nux]) *
-            nuX_length_conv;
-        kappa_1_nue[ijk] =
-            (coeffs.kappa_a[id_nue] + coeffs.kappa_s[id_nue]) *
-            nuX_length_conv;
-        kappa_1_nua[ijk] =
-            (coeffs.kappa_a[id_anue] + coeffs.kappa_s[id_anue]) *
-            nuX_length_conv;
-        kappa_1_nux[ijk] =
-            (coeffs.kappa_a[id_nux] + coeffs.kappa_s[id_nux]) *
-            nuX_length_conv;
-        abs_0_nue[ijk] = coeffs.kappa_0_a[id_nue] * nuX_length_conv;
-        abs_0_nua[ijk] = coeffs.kappa_0_a[id_anue] * nuX_length_conv;
-        abs_0_nux[ijk] = coeffs.kappa_0_a[id_nux] * nuX_length_conv;
+        kappa_0_nue[ijk] = nue.kappa_0 * nuX_length_conv;
+        kappa_0_nua[ijk] = anue.kappa_0 * nuX_length_conv;
+        kappa_0_nux[ijk] = nux.kappa_0 * nuX_length_conv;
+        kappa_1_nue[ijk] = nue.kappa_1 * nuX_length_conv;
+        kappa_1_nua[ijk] = anue.kappa_1 * nuX_length_conv;
+        kappa_1_nux[ijk] = nux.kappa_1 * nuX_length_conv;
+        abs_0_nue[ijk] = nue.abs_0 * nuX_length_conv;
+        abs_0_nua[ijk] = anue.abs_0 * nuX_length_conv;
+        abs_0_nux[ijk] = nux.abs_0 * nuX_length_conv;
       });
 }
 
@@ -137,20 +129,24 @@ extern "C" void nuX_LeakageBase_RatesNuRates(CCTK_ARGUMENTS) {
           Q_eff_nue[ijk] = Q_eff_nua[ijk] = Q_eff_nux[ijk] = 0.0;
           return;
         }
+        disable_unsupported_nonthermal_leakage(grey_params);
 
         MyQuadrature device_quadrature;
         copy_quadrature(device_quadrature, quadrature);
-        const auto coeffs = ComputeM1Opacities(
+        const auto coeffs = ComputeM1OpacitiesNonThermalSeparated(
             &device_quadrature, &device_quadrature, &grey_params);
+        const auto nue = thermal_leakage_coefficients(coeffs, id_nue);
+        const auto anue = thermal_leakage_coefficients(coeffs, id_anue);
+        const auto nux = thermal_leakage_coefficients(coeffs, id_nux);
 
         const CCTK_REAL r_free[3] = {
-            convert_number_rate(coeffs.eta_0[id_nue], 1.0),
-            convert_number_rate(coeffs.eta_0[id_anue], 1.0),
-            convert_number_rate(coeffs.eta_0[id_nux], heavy_species_factor)};
+            convert_number_rate(nue.r_free, 1.0),
+            convert_number_rate(anue.r_free, 1.0),
+            convert_number_rate(nux.r_free, heavy_species_factor)};
         const CCTK_REAL q_free[3] = {
-            convert_energy_rate(coeffs.eta[id_nue], 1.0),
-            convert_energy_rate(coeffs.eta[id_anue], 1.0),
-            convert_energy_rate(coeffs.eta[id_nux], heavy_species_factor)};
+            convert_energy_rate(nue.q_free, 1.0),
+            convert_energy_rate(anue.q_free, 1.0),
+            convert_energy_rate(nux.q_free, heavy_species_factor)};
         const CCTK_REAL number[3] = {
             convert_number_density(grey_params.m1_pars.n[id_nue], 1.0),
             convert_number_density(grey_params.m1_pars.n[id_anue], 1.0),

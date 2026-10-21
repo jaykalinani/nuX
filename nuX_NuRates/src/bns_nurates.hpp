@@ -489,7 +489,7 @@ struct M1OpacitiesNonThermalSeparated
     BS_REAL kappa_a_th[total_num_species];      // energy absorption coefficient
                                                 // for thermal processes
     BS_REAL kappa_a_non_th[total_num_species];  // energy absorption coefficient
-                                                // for thermal processes
+                                                // for non-thermal processes
     BS_REAL kappa_s[total_num_species];         // scattering coefficient
 };
 typedef struct M1OpacitiesNonThermalSeparated M1OpacitiesNonThermalSeparated;

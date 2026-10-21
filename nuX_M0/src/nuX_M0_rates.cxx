@@ -262,24 +262,25 @@ extern "C" void nuX_M0_CalcRatesNuRates(CCTK_ARGUMENTS) {
                   nuX_M0_Q_nux);
       return;
     }
+    nuX_LeakageBase::disable_unsupported_nonthermal_leakage(grey_params);
     MyQuadrature device_quadrature;
     nuX_LeakageBase::copy_quadrature(device_quadrature, quadrature);
-    const auto coeffs = ComputeM1Opacities(&device_quadrature,
-                                           &device_quadrature, &grey_params);
+    const auto coeffs = ComputeM1OpacitiesNonThermalSeparated(
+        &device_quadrature, &device_quadrature, &grey_params);
 
     constexpr CCTK_REAL heavy_species_factor = 4.0;
     RawRates raw{};
     for (int isp = 0; isp < 3; ++isp) {
       const CCTK_REAL factor = isp == id_nux ? heavy_species_factor : 1.0;
-      raw.abs_0[isp] = coeffs.kappa_0_a[isp] * nuX_length_conv;
-      raw.kappa_0[isp] =
-          (coeffs.kappa_0_a[isp] + coeffs.kappa_s[isp]) * nuX_length_conv;
-      raw.kappa_1[isp] =
-          (coeffs.kappa_a[isp] + coeffs.kappa_s[isp]) * nuX_length_conv;
+      const auto thermal =
+          nuX_LeakageBase::thermal_leakage_coefficients(coeffs, isp);
+      raw.abs_0[isp] = thermal.abs_0 * nuX_length_conv;
+      raw.kappa_0[isp] = thermal.kappa_0 * nuX_length_conv;
+      raw.kappa_1[isp] = thermal.kappa_1 * nuX_length_conv;
       raw.r_free[isp] =
-          nuX_LeakageBase::convert_number_rate(coeffs.eta_0[isp], factor);
+          nuX_LeakageBase::convert_number_rate(thermal.r_free, factor);
       raw.q_free[isp] =
-          nuX_LeakageBase::convert_energy_rate(coeffs.eta[isp], factor);
+          nuX_LeakageBase::convert_energy_rate(thermal.q_free, factor);
       raw.number[isp] = nuX_LeakageBase::convert_number_density(
           grey_params.m1_pars.n[isp], factor);
       raw.energy[isp] = nuX_LeakageBase::convert_energy_density(

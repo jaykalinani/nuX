@@ -12,7 +12,7 @@ BOOLEAN use_bremsstrahlung "include bremsstrahlung"
 {
 } "yes"
 
-BOOLEAN use_inelastic "include inelastic scattering"
+BOOLEAN use_inelastic "include inelastic scattering in M1 (currently omitted by M0 and LeakageBase)"
 {
 } "yes"
 

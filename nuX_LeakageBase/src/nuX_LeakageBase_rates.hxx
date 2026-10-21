@@ -10,6 +10,34 @@
 
 namespace nuX_LeakageBase {
 
+struct NuRatesThermalLeakageCoefficients {
+  CCTK_REAL abs_0;
+  CCTK_REAL kappa_0;
+  CCTK_REAL kappa_1;
+  CCTK_REAL r_free;
+  CCTK_REAL q_free;
+};
+
+// Leakage evolves equilibrium number and energy loss rates, but it has no
+// spectral radiation state against which to evaluate neutrino-electron energy
+// redistribution.  Keep NEPS out of this model until it has a dedicated
+// energy-exchange closure; in particular, never reinterpret eta_non_th as
+// spontaneous neutrino cooling.
+CCTK_HOST CCTK_DEVICE inline void
+disable_unsupported_nonthermal_leakage(GreyOpacityParams &params) {
+  params.opacity_flags.use_inelastic_scatt = 0;
+}
+
+CCTK_HOST CCTK_DEVICE inline NuRatesThermalLeakageCoefficients
+thermal_leakage_coefficients(
+    const M1OpacitiesNonThermalSeparated &coeffs, const int species) {
+  return {.abs_0 = coeffs.kappa_0_a[species],
+          .kappa_0 = coeffs.kappa_0_a[species] + coeffs.kappa_s[species],
+          .kappa_1 = coeffs.kappa_a_th[species] + coeffs.kappa_s[species],
+          .r_free = coeffs.eta_0[species],
+          .q_free = coeffs.eta_th[species]};
+}
+
 CCTK_HOST CCTK_DEVICE inline void copy_quadrature(MyQuadrature &dst,
                                                   const MyQuadrature &src) {
   dst.type = src.type;
