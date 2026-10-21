@@ -353,6 +353,7 @@ else {
       {
           LANG: C
           READS: semi_implicit_stage
+          READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere)
           READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
           READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
           READS: fidu_w_lorentz(everywhere)
@@ -545,6 +546,7 @@ else {
       SCHEDULE nuX_M1_CalcOpacityNuRates IN nuX_M1_ImplicitRHSGroup AFTER nuX_M1_CalcClosure
       {
           LANG: C
+          READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere)
           READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
           READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
           READS: fidu_w_lorentz(everywhere)
@@ -747,6 +749,7 @@ else {
       SCHEDULE nuX_M1_CalcOpacityNuRates IN nuX_M1_SourceGroup AFTER nuX_M1_CalcClosure
       {
           LANG: C
+          READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere)
           READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
           READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
           READS: fidu_w_lorentz(everywhere)
@@ -868,6 +871,7 @@ else {
           AFTER nuX_M1_CalcClosure
       {
           LANG: C
+          READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere)
           READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
           READS: rJ(everywhere) rnnu(everywhere) chi(everywhere) nuX_m1_mask(everywhere)
           READS: fidu_w_lorentz(everywhere)
