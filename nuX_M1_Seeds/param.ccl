@@ -28,6 +28,7 @@ KEYWORD nuX_test_case "Perform simple tests"
     "atmosphere" :: "Uniform atmosphere test"
     "shadow"     :: "Sphere shadow test"
     "sphere"     :: "Homogeneous sphere test"
+    "crossing_beams" :: "Two transparent, oblique beams injected into each species"
     "expanding_absorber" :: "Expanding radiation from an emitter around an absorber"
 } "none"
 
@@ -88,6 +89,26 @@ CCTK_REAL beam_radius "Width of the beam"
 {
     (0:* :: "Any positive number"
 } 1.0
+
+INT crossing_beam_count "Number of injected beams; one provides a transport control"
+{
+    1:2 :: "One oblique beam or two crossing beams"
+} 2
+
+CCTK_REAL crossing_beam_angle "Half the crossing angle, in radians"
+{
+    (0:1.5707963267948966) :: "Each beam propagates toward positive x"
+} 0.7853981633974483
+
+CCTK_REAL crossing_beam_offset "Distance of each inlet centre from y=0"
+{
+    (0:* :: "Positive offset"
+} 0.5
+
+CCTK_REAL crossing_beam_inlet_x "Inlet position; set equal to CarpetX::xmin"
+{
+    *:* :: "Physical lower-x boundary"
+} 0.0
 
 CCTK_REAL emitter_radius "Radius of the emitting sphere in the expansion test"
 {
