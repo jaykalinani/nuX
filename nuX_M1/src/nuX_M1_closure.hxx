@@ -36,6 +36,11 @@ enum closure_t : int {
   CLOSURE_THIN = 3,
 };
 
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
+spacelike_norm_roundoff_tolerance(
+    tensor::symmetric2<CCTK_REAL, 4, 2> const &g_uu,
+    tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL const E);
+
 #ifdef NUX_M1_CLOSURE_IMPLEMENTATION
 
 struct Parameters {
@@ -561,6 +566,19 @@ zFunction(double xi, void *params) {
   calc_H_from_rT(rT_dd, p->u_u, p->proj_ud, &H_d);
 
   CCTK_REAL const H2 = tensor::dot(p->g_uu, H_d, H_d);
+  if (!isfinite(H2))
+    return std::numeric_limits<CCTK_REAL>::quiet_NaN();
+  // Match the comoving cone check: an isotropic flux can acquire a tiny
+  // negative norm from the rounded four-velocity/projector contraction.
+  // Leaving it negative removes the xi=0 root. Positive norms, however
+  // small, must retain their physical flux factor.
+  if (H2 < 0) {
+    CCTK_REAL const tolerance =
+        spacelike_norm_roundoff_tolerance(p->g_uu, H_d, J);
+    if (!isfinite(tolerance) || H2 < -tolerance)
+      return std::numeric_limits<CCTK_REAL>::quiet_NaN();
+    return (J * xi) * (J * xi);
+  }
   return (J * xi) * (J * xi) - H2;
 }
 
