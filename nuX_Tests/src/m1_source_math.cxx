@@ -355,6 +355,72 @@ int check_vertex_velocity_repair() {
   return failures;
 }
 
+int check_roundoff_closure(cGH const *cctkGH) {
+  source_test_geometry_t geom(0.71, {0.0, 0.0, 0.0});
+  for (int a = 1; a < 4; ++a) {
+    geom.g_dd(a, a) = 1.72;
+    geom.g_uu(a, a) = 1 / 1.72;
+  }
+  int failures = 0;
+  for (const CCTK_REAL E : {CCTK_REAL(1), CCTK_REAL(1e-15)}) {
+    for (const auto closure : {CLOSURE_MINERBO, CLOSURE_KERSHAW}) {
+      tensor::generic<CCTK_REAL, 4, 1> F{};
+      tensor::symmetric2<CCTK_REAL, 4, 2> P, T;
+      CCTK_REAL chi = CCTK_REAL(1) / 3;
+      bool valid = false;
+      calc_closure(cctkGH, 0, 0, 0, 0, closure, geom.g_dd, geom.g_uu,
+                   geom.n_d, geom.W, geom.u_u, geom.v_d, geom.proj_ud,
+                   E, F, &chi, &P, 1e-12, 128, false, &valid);
+      failures += !valid || chi != CCTK_REAL(1) / 3;
+
+      // Force a one-ulp projector error so this regression also exercises
+      // the cancellation on compilers that simplify the nominal geometry.
+      auto rounded_projector = geom.proj_ud;
+      rounded_projector(0, 0) = std::numeric_limits<CCTK_REAL>::epsilon();
+      Parameters parameters(closure, geom.g_dd, geom.g_uu, geom.n_d, geom.W,
+                             geom.u_u, geom.v_d, rounded_projector, E, F);
+      apply_closure(geom.g_dd, geom.g_uu, geom.n_d, geom.W, geom.u_u,
+                    geom.v_d, rounded_projector, E, F, CCTK_REAL(1) / 3, &P);
+      assemble_rT(geom.n_d, E, F, P, &T);
+      const CCTK_REAL J = calc_J_from_rT(T, geom.u_u);
+      tensor::generic<CCTK_REAL, 4, 1> H;
+      calc_H_from_rT(T, geom.u_u, rounded_projector, &H);
+      failures += !(tensor::dot(geom.g_uu, H, H) < 0);
+      failures += !comoving_state_is_realizable(geom.g_uu, J, H);
+      failures += zFunction(0, &parameters) != 0;
+      valid = false;
+      calc_closure(cctkGH, 0, 0, 0, 0, closure, geom.g_dd, geom.g_uu,
+                   geom.n_d, geom.W, geom.u_u, geom.v_d, rounded_projector,
+                   E, F, &chi, &P, 1e-12, 128, false, &valid);
+      failures += !valid || chi != CCTK_REAL(1) / 3;
+
+      // Do not turn a small positive norm into an isotropic state.
+      F(1) = 1e-10 * E;
+      Parameters streaming(closure, geom.g_dd, geom.g_uu, geom.n_d, geom.W,
+                            geom.u_u, geom.v_d, rounded_projector, E, F);
+      failures += !(zFunction(0, &streaming) < 0);
+
+      // A genuinely timelike flux from an inconsistent observer must fail.
+      auto bad_u = geom.u_u;
+      bad_u(0) *= 2;
+      tensor::generic<CCTK_REAL, 4, 1> bad_ud;
+      tensor::generic<CCTK_REAL, 4, 2> bad_projector;
+      tensor::contract(geom.g_dd, bad_u, &bad_ud);
+      calc_proj(bad_ud, bad_u, &bad_projector);
+      F(1) = 0;
+      Parameters bad(closure, geom.g_dd, geom.g_uu, geom.n_d, geom.W,
+                       bad_u, geom.v_d, bad_projector, E, F);
+      failures += std::isfinite(zFunction(0, &bad));
+      valid = true;
+      calc_closure(cctkGH, 0, 0, 0, 0, closure, geom.g_dd, geom.g_uu,
+                   geom.n_d, geom.W, bad_u, geom.v_d, bad_projector,
+                   E, F, &chi, &P, 1e-12, 128, false, &valid);
+      failures += valid;
+    }
+  }
+  return failures;
+}
+
 int check_lapse_relaxation(cGH const *cctkGH) {
   int failures = 0;
   constexpr CCTK_REAL Estar = 2.0;
@@ -416,6 +482,7 @@ int source_math_unit_tests(cGH const *cctkGH) {
   run("repaired source baseline", check_repaired_source_baseline(cctkGH));
   run("vertex velocity repair", check_vertex_velocity_repair());
   run("lapse relaxation", check_lapse_relaxation(cctkGH));
+  run("roundoff-negative closure norm", check_roundoff_closure(cctkGH));
 
   // A low lapse and finite W reduce the collision interval in fluid proper
   // time. This case would be classified stiff if alpha/W were omitted.
