@@ -1,0 +1,88 @@
+SCHEDULE nuX_WeakLib_ParamCheck AT CCTK_PARAMCHECK
+{
+  LANG: C
+  OPTIONS: GLOBAL
+} "Check optional WeakLib provider selection and supported physics"
+
+# CarpetX initializes AMReX in SetupGH, AFTER startup, before WRAGH.
+SCHEDULE nuX_WeakLib_Load AT CCTK_WRAGH AFTER EOSX_Setup_EOS
+{
+  LANG: C
+  OPTIONS: GLOBAL
+} "Collectively load and upload WeakLib tables after AMReX and EOSX setup"
+
+SCHEDULE nuX_WeakLib_Free AT CCTK_SHUTDOWN BEFORE Driver_Shutdown
+{
+  LANG: C
+  OPTIONS: META
+} "Release resident tables before CarpetX finalizes AMReX"
+
+if (CCTK_Equals(rates_lib, "WeakLib")) {
+  if (set_to_equilibrium) {
+    SCHEDULE nuX_WeakLib_SetEquilibrium IN nuX_M1_InitialGroup \
+        AFTER nuX_M1_FiducialVelocity BEFORE (nuX_M1_RepairState nuX_M1_CalcClosure)
+    {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
+      READS: ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+      READS: nuX_M1::fidu_vel(everywhere) nuX_M1::fidu_w_lorentz(everywhere)
+      READS: nuX_M1::nuX_m1_mask(everywhere)
+      READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere) nuX_Base::rF(everywhere)
+      WRITES: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere) nuX_Base::rF(everywhere)
+    } "Initialize radiation using the provider's discrete equilibrium moments"
+  }
+
+  if (reset_to_equilibrium) {
+    SCHEDULE nuX_WeakLib_SetEquilibrium AT CCTK_POST_RECOVER_VARIABLES \
+        AFTER (nuX_M1_Reset nuX_M1_FiducialVelocity) BEFORE ODESolvers_PostStep
+    {
+      LANG: C
+      READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
+      READS: ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+      READS: nuX_M1::fidu_vel(everywhere) nuX_M1::fidu_w_lorentz(everywhere)
+      READS: nuX_M1::nuX_m1_mask(everywhere)
+      READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere) nuX_Base::rF(everywhere)
+      WRITES: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere) nuX_Base::rF(everywhere)
+    } "Reset radiation to the same discrete equilibrium used by WeakLib rates"
+  }
+
+  SCHEDULE nuX_WeakLib_CalcOpacity IN nuX_M1_RHSGroup \
+      AFTER nuX_M1_CalcClosure \
+      BEFORE (nuX_M1_CalcBackreactionRHS nuX_M1_SyncDerived nuX_M1_CalcFluxes)
+  {
+    LANG: C
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+    READS: nuX_M1::nuX_m1_mask(everywhere)
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Evaluate strict-range tabulated grey rates for explicit transport"
+
+  SCHEDULE nuX_WeakLib_CalcOpacity IN nuX_M1_ImplicitRHSGroup \
+      AFTER nuX_M1_CalcClosure BEFORE nuX_M1_CalcSourceRHS
+  {
+    LANG: C
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+    READS: nuX_M1::nuX_m1_mask(everywhere)
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Evaluate tabulated grey rates for the IMEX stiff RHS"
+
+  if (!CCTK_Equals(method, "semi-implicit")) {
+    SCHEDULE nuX_WeakLib_CalcOpacity IN nuX_M1_SourceGroup \
+        AFTER nuX_M1_CalcClosure BEFORE nuX_M1_CalcUpdate
+    {
+      LANG: C
+      READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+      READS: nuX_M1::nuX_m1_mask(everywhere)
+      WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+    } "Evaluate tabulated grey rates for diagonal implicit solves"
+  }
+
+  SCHEDULE nuX_WeakLib_CalcOpacity IN nuX_M1_PostStepDerived AFTER nuX_M1_CalcClosure
+  {
+    LANG: C
+    READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
+    READS: nuX_M1::nuX_m1_mask(everywhere)
+    WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
+  } "Refresh tabulated rates after an ODE stage"
+}

@@ -63,6 +63,10 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
       CCTK_PARAMWARN("nuX_M1 requires the nuX_WeakRates thorn when "
                      "nuX_M1::rates_lib is WeakRates");
     }
+  } else if (CCTK_Equals(rates_lib, "WeakLib")) {
+    if (!CCTK_IsThornActive("nuX_WeakLib")) {
+      CCTK_PARAMWARN("nuX_M1::rates_lib=WeakLib requires nuX_WeakLib");
+    }
   } else if (!CCTK_IsThornActive("nuX_NuRates")) {
     CCTK_PARAMWARN("nuX_M1 requires the nuX_NuRates thorn when "
                    "nuX_M1::rates_lib is NuRates");

@@ -357,7 +357,7 @@ else if (CCTK_Equals(rates_lib, "WeakRates")) {
           WRITES: opacs(everywhere) nueave(everywhere)
       } "Compute WeakRates opacities"
 }
-else {
+else if (CCTK_Equals(rates_lib, "NuRates")) {
       SCHEDULE nuX_M1_CalcOpacityNuRates IN nuX_M1_RHSGroup AFTER nuX_M1_CalcClosure
       {
           LANG: C
@@ -551,7 +551,7 @@ else if (CCTK_Equals(rates_lib, "WeakRates")) {
           WRITES: opacs(everywhere) nueave(everywhere)
       } "Compute WeakRates opacities for the IMEX source RHS"
 }
-else {
+else if (CCTK_Equals(rates_lib, "NuRates")) {
       SCHEDULE nuX_M1_CalcOpacityNuRates IN nuX_M1_ImplicitRHSGroup AFTER nuX_M1_CalcClosure
       {
           LANG: C
@@ -754,7 +754,7 @@ else if (CCTK_Equals(rates_lib, "WeakRates")) {
           WRITES: opacs(everywhere) nueave(everywhere)
       } "Compute WeakRates opacities for the implicit source step"
 }
-else {
+else if (CCTK_Equals(rates_lib, "NuRates")) {
       SCHEDULE nuX_M1_CalcOpacityNuRates IN nuX_M1_SourceGroup AFTER nuX_M1_CalcClosure
       {
           LANG: C
@@ -875,7 +875,7 @@ else if (CCTK_Equals(rates_lib, "WeakRates")) {
           WRITES: opacs(everywhere) nueave(everywhere)
       } "Update WeakRates opacities after an ODE stage"
 }
-else {
+else if (CCTK_Equals(rates_lib, "NuRates")) {
       SCHEDULE nuX_M1_CalcOpacityNuRates IN nuX_M1_PostStepDerived \
           AFTER nuX_M1_CalcClosure
       {

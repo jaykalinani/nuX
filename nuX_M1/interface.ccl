@@ -95,12 +95,17 @@ CCTK_REAL neutrino_fractions TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 } "Neutrino fractions (for analysis only)"
 
 ## Internal variables
+# Optional rates providers reuse the observer for equilibrium initialization.
+PUBLIC:
+
 CCTK_REAL fidu_vel TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"'
 {
     fidu_velx, fidu_vely, fidu_velz
 } "Effective velocity v^i"
 
 CCTK_REAL fidu_w_lorentz TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "Effective Lorentz factor W"
+
+PRIVATE:
 
 CCTK_REAL chi[nuX_Base::nspecies*nuX_Base::ngroups] TYPE=GF CENTERING={ccc} TAGS='checkpoint="no"' "M1 closure coefficient"
 

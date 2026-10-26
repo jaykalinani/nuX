@@ -1,0 +1,24 @@
+# Configuration FRAGMENT for an existing EOSX + nuX_M1 parameter file.
+# Add nuX_WeakLib to ActiveThorns. The external WeakLibInterp wrapper belongs
+# in the BUILD thornlist, not ActiveThorns. This is not a standalone evolution.
+# Replace the table paths and use an EOSX EOS consistent with these opacities.
+
+nuX_M1::rates_lib = "WeakLib"
+nuX_M1::opacity_tau_trap = -1
+nuX_M1::opacity_corr_fac_max = 1
+
+nuX_WeakLib::emab_table = "/path/to/wl-Op-SFHo-15-25-50-E40-EmAb.h5"
+nuX_WeakLib::iso_table = "/path/to/wl-Op-SFHo-15-25-50-E40-Iso.h5"
+nuX_WeakLib::include_emab = yes
+nuX_WeakLib::include_iso = yes
+nuX_WeakLib::include_pair = no
+nuX_WeakLib::include_nes = no
+nuX_WeakLib::include_brem = no
+nuX_WeakLib::include_nuclei_ec = no
+
+# EOSX/nuX normally use total chemical potentials (including rest masses).
+# If your EOSX table instead excludes the INDIVIDUAL nucleon rest masses,
+# select rest-mass-subtracted; do not infer this from the energy shift in eps.
+nuX_WeakLib::chemical_potentials = "total"
+nuX_WeakLib::spectral_tail_tolerance = 1e-2
+nuX_WeakLib::run_self_tests = yes
