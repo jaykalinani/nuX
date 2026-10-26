@@ -7,3 +7,7 @@ BOOLEAN run_tests "Run the host-side nuX numerical unit tests"
 BOOLEAN run_nurates_matter_source_test "Test the production NuRates source with the configured tabulated EOS"
 {
 } "no"
+
+BOOLEAN run_nurates_source_replay "Replay a captured NuRates source state on host and device"
+{
+} "no"

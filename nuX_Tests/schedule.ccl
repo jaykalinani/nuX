@@ -8,6 +8,16 @@ if (run_nurates_matter_source_test)
   } "Test the production NuRates source against a tabulated matter state"
 }
 
+if (run_nurates_source_replay)
+{
+  SCHEDULE nuX_NuRates_ReplaySource AT CCTK_WRAGH \
+      AFTER EOSX_Setup_EOS AFTER nuX_NuRates_Setup
+  {
+    LANG: C
+    OPTIONS: GLOBAL
+  } "Replay a captured NuRates source state on host and device"
+}
+
 if (run_tests)
 {
   SCHEDULE nuX_M1_UnitTests AT CCTK_WRAGH

@@ -3,6 +3,7 @@ m1_driver.cxx \
 m1_source_math.cxx \
 m1_nurates_source.cxx \
 m1_nurates_matter_source.cxx \
+m1_nurates_replay.cxx \
 nurates.cxx \
 weakrates.cxx
 
