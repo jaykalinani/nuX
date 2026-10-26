@@ -363,7 +363,35 @@ assemble_fnu(tensor::generic<CCTK_REAL, 4, 1> const &u_u, CCTK_REAL const J,
   }
 }
 
-// Compute the ratio of neutrino number densities in the lab and fluid frame
+// Physical number-current ratio, including below the transport floor.
+// Numerical floor/margin parameters do not belong in a collision equation.
+// Exact vacuum has no flux direction and uses the material four-velocity.
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+compute_source_Gamma(CCTK_REAL const W,
+                     tensor::generic<CCTK_REAL, 4, 1> const &v_u,
+                     CCTK_REAL const J, CCTK_REAL const E,
+                     tensor::generic<CCTK_REAL, 4, 1> const &F_d,
+                     CCTK_REAL *const Gamma) {
+  if (!(isfinite(W) && W >= 1 && isfinite(E) && E >= 0 &&
+        isfinite(J) && J >= 0))
+    return false;
+  bool empty_flux = true;
+  for (int a = 0; a < 4; ++a) {
+    if (!isfinite(v_u(a)) || !isfinite(F_d(a)))
+      return false;
+    empty_flux = empty_flux && F_d(a) == 0;
+  }
+  if (E == 0 && J == 0 && empty_flux) {
+    *Gamma = W;
+    return true;
+  }
+  if (!(E > 0 && J > 0))
+    return false;
+  *Gamma = W * ((E - tensor::dot(F_d, v_u)) / J);
+  return isfinite(*Gamma) && *Gamma > 0;
+}
+
+// Legacy floor-aware ratio, retained for the other rate providers.
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
 compute_Gamma(CCTK_REAL const W, tensor::generic<CCTK_REAL, 4, 1> const &v_u,
               CCTK_REAL const J, CCTK_REAL const E,
@@ -496,6 +524,21 @@ calc_rF_source(CCTK_REAL const alp,
   }
 }
 
+// A non-null validity output requests a recoverable, strict trial evaluation:
+// failure returns false through the output without substituting a closure.
+// Actual-state calls omit it and retain the public abort/fallback behavior.
+static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
+    cGH const *cctkGH, int const i, int const j, int const k, int const ig,
+    closure_t closure_fun, tensor::metric<4> const &g_dd,
+    tensor::inv_metric<4> const &g_uu,
+    tensor::generic<CCTK_REAL, 4, 1> const &n_d, CCTK_REAL const w_lorentz,
+    tensor::generic<CCTK_REAL, 4, 1> const &u_u,
+    tensor::generic<CCTK_REAL, 4, 1> const &v_d,
+    tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
+    tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
+    tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
+    CCTK_INT closure_maxiter, bool use_fallback, bool *closure_valid = nullptr);
+
 #ifdef NUX_M1_CLOSURE_IMPLEMENTATION
 
 // Function to rootfind in order to determine the closure
@@ -537,7 +580,9 @@ static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
     tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
     tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
     tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
-    CCTK_INT closure_maxiter, bool use_fallback) {
+    CCTK_INT closure_maxiter, bool use_fallback, bool *const closure_valid) {
+  if (closure_valid)
+    *closure_valid = true;
   // These are special cases for which no root finding is needed
   if (closure_is_eddington(closure_fun)) {
     *chi = 1. / 3.;
@@ -570,6 +615,19 @@ static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
     }
     return CCTK_REAL(1.0 / 3.0);
   };
+  const auto handle_failure = [&]() {
+    // A Newton trial is allowed to leave the closure's solvable domain. In
+    // strict residual mode report an invalid trial to the trust-region solver
+    // instead of aborting or substituting a different closure tensor.
+    if (closure_valid) {
+      *closure_valid = false;
+      return;
+    }
+    closure_abort_if_no_fallback(use_fallback);
+    *chi = fallback_chi();
+    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
+                  P_dd);
+  };
 
   double x_lo = 0.0;
   double x_hi = 1.0;
@@ -591,10 +649,7 @@ static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
   // No root, most likely because of high velocities in the fluid
   // We use very simple approximation in this case
   if (!isfinite(f_lo) || !isfinite(f_hi) || f_lo * f_hi > 0.0) {
-    closure_abort_if_no_fallback(use_fallback);
-    *chi = fallback_chi();
-    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
-                  P_dd);
+    handle_failure();
     return;
   }
 
@@ -602,10 +657,7 @@ static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
   int ierr = nuX_Utils::roots::solver_set(&solver, fn, x_lo, x_hi);
 
   if (ierr != nuX_Utils::roots::code(nuX_Utils::roots::status::success)) {
-    closure_abort_if_no_fallback(use_fallback);
-    *chi = fallback_chi();
-    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
-                  P_dd);
+    handle_failure();
     return;
   }
 
@@ -640,22 +692,19 @@ static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
 
   if (solver_failed || test_status != nuX_Utils::roots::code(
                                           nuX_Utils::roots::status::success)) {
-    closure_abort_if_no_fallback(use_fallback);
-    *chi = fallback_chi();
-    apply_closure(g_dd, g_uu, n_d, w_lorentz, u_u, v_d, proj_ud, E, F_d, *chi,
-                  P_dd);
+    handle_failure();
     return;
   }
 
   CCTK_REAL const xi = nuX_Utils::roots::solver_root(&solver);
   if (!isfinite(xi)) {
-    closure_abort_if_no_fallback(use_fallback);
-    *chi = fallback_chi();
+    handle_failure();
+    return;
   } else {
     CCTK_REAL const chi_try = eval_closure(closure_fun, xi);
     if (!isfinite(chi_try)) {
-      closure_abort_if_no_fallback(use_fallback);
-      *chi = fallback_chi();
+      handle_failure();
+      return;
     } else {
       *chi = chi_try;
     }
@@ -666,18 +715,6 @@ static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
 }
 
 #endif // NUX_M1_CLOSURE_IMPLEMENTATION
-
-static CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void calc_closure(
-    cGH const *cctkGH, int const i, int const j, int const k, int const ig,
-    closure_t closure_fun, tensor::metric<4> const &g_dd,
-    tensor::inv_metric<4> const &g_uu,
-    tensor::generic<CCTK_REAL, 4, 1> const &n_d, CCTK_REAL const w_lorentz,
-    tensor::generic<CCTK_REAL, 4, 1> const &u_u,
-    tensor::generic<CCTK_REAL, 4, 1> const &v_d,
-    tensor::generic<CCTK_REAL, 4, 2> const &proj_ud, CCTK_REAL const E,
-    tensor::generic<CCTK_REAL, 4, 1> const &F_d, CCTK_REAL *chi,
-    tensor::symmetric2<CCTK_REAL, 4, 2> *P_dd, CCTK_REAL closure_epsilon,
-    CCTK_INT closure_maxiter, bool use_fallback);
 
 struct moment_repair_t {
   CCTK_REAL delta_E;

@@ -28,6 +28,7 @@ nuX_M1_tmunu.cxx \
 nuX_M1_closure.cxx \
 nuX_M1_sources.cxx \
 nuX_M1_calc_update.cxx \
+nuX_M1_calc_update_nurates.cxx \
 
 # Subdirectories containing source files
 SUBDIRS =

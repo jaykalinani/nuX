@@ -14,3 +14,37 @@ This code needs 2 ghost cells on unigrid and 4 ghost cells with AMR.
 A. Acknowledgements
 
 This code is ported from THC_M1 (https://bitbucket.org/FreeTHC/thccore/src/master/) of Radice et al. 
+
+B. NuRates population-dependent collisions
+
+For rates_lib="NuRates", a local six-variable spectral solve updates all
+three evolved species together, with matter/geometry fixed. It recomputes
+the population-dependent rates, including inelastic energy redistribution,
+at each trial. The existing four-moment source solver supplies the inner
+radiation update; analytic limits are starting guesses, not accepted roots.
+The scattering-free E-v.F equation and the number/momentum equations are
+checked independently. Invalid trials are rejected rather than clamped into
+a different distribution. The implementation requires ngroups=1, nspecies=3
+and the tabulated EOS; it allocates no diagnostic grid functions.
+
+Scheduled opacities and source trials share unit conversion, equilibrium
+targets, exact number-current projection and comoving floor-reference rules.
+Heavy-flavor coefficients average neutrino/antineutrino absorption/scattering;
+emissivity sums two flavors of each. This matters for asymmetric inelastic
+kernels. The temporary floor reference does not modify evolved moments or
+the equilibrium conservation budget. Its comoving thresholds deliberately
+replace the former lab-floor classification.
+
+Unrestricted source updates retain the accepted root directly. Limited
+semi-implicit updates retain the original baseline, so a zero limiter leaves
+it unchanged. The source limiter must remain disabled for NuRates IMEX;
+numerical post-source repairs are not included in its implicit increment.
+WeakRates/FakeRates retain their original source paths.
+
+This solves the configured legacy corrected grey operator, not a fully
+coupled matter-radiation system. In particular, the existing separate
+electron-flavor Kirchhoff replacements need not preserve pair-only net
+electron-neutrino number away from equilibrium. Process-separated treatment
+and a pair-only conservation test remain necessary before claiming that
+microphysics property. TOV stability and performance require runtime tests;
+unit tests alone cannot establish either.

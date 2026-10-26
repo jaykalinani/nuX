@@ -636,6 +636,29 @@ if (CCTK_Equals(method, "semi-implicit")) {
       WRITES: nuX_Base::rF(interior)
   } "Form the explicit predictor or corrector radiation state"
 
+  if (CCTK_Equals(rates_lib, "NuRates")) {
+    SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_SemiImplicitStage \
+        AFTER nuX_M1_PrepareSemiImplicitStage \
+        BEFORE nuX_M1_AdvanceSemiImplicitStage
+    {
+        LANG: C
+        READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+        READS: nuX_m1_mask(interior)
+        READS: fidu_vel(interior) fidu_w_lorentz(interior)
+        READS: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
+        READS: rJ(interior) rHt(interior) rH(interior)
+        READS: opacs(interior) nueave(interior) chi(interior)
+        READS: AsterX::cons_vector(interior)
+        READS: HydroBaseX::rho(interior) HydroBaseX::temperature(interior)
+        READS: HydroBaseX::Ye(interior)
+        READS: semi_implicit_stage
+        WRITES: chi(interior) fluidsources(interior)
+        WRITES: source_update_delta_N(interior) source_update_delta_E(interior)
+        WRITES: source_update_delta_F(interior) source_limiter_theta(interior)
+        WRITES: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
+    } "Solve coupled NuRates populations for a semi-implicit pass"
+  } else {
     SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_SemiImplicitStage \
         AFTER nuX_M1_PrepareSemiImplicitStage \
         BEFORE nuX_M1_AdvanceSemiImplicitStage
@@ -659,6 +682,7 @@ if (CCTK_Equals(method, "semi-implicit")) {
         WRITES: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
 
     } "Apply one legacy semi-implicit radiation collision update"
+  }
 
   if (backreact) {
     SCHEDULE nuX_M1_ApplySemiImplicitBackreaction \
@@ -767,6 +791,30 @@ else {
       } "Compute the opacities for the implicit source step"
 }
 
+  if (CCTK_Equals(rates_lib, "NuRates")) {
+    SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_SourceGroup \
+        AFTER (nuX_M1_CalcOpacityNuRates nuX_M1_CalcOpacityWeakRates \
+               nuX_M1_CalcOpacityFakeRates nuX_M1_CalcClosure)
+    {
+        LANG: C
+        READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+        READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+        READS: nuX_m1_mask(interior)
+        READS: fidu_vel(interior) fidu_w_lorentz(interior)
+        READS: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
+        READS: rJ(interior) rHt(interior) rH(interior)
+        READS: opacs(interior) nueave(interior) chi(interior)
+        READS: AsterX::cons_vector(interior)
+        READS: HydroBaseX::rho(interior) HydroBaseX::temperature(interior)
+        READS: HydroBaseX::Ye(interior)
+        WRITES: chi(interior) fluidsources(interior)
+        WRITES: source_update_delta_N(interior) source_update_delta_E(interior)
+        WRITES: source_update_delta_F(interior) source_limiter_theta(interior)
+        WRITES: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
+        WRITES: AsterX::cons_vector(interior)
+        SYNC: chi nuX_Base::rN nuX_Base::rE nuX_Base::rF fluidsources
+    } "Solve the population-dependent NuRates diagonal source equation"
+  } else {
   SCHEDULE nuX_M1_CalcUpdate IN nuX_M1_SourceGroup \
       AFTER (nuX_M1_CalcOpacityNuRates nuX_M1_CalcOpacityWeakRates \
              nuX_M1_CalcOpacityFakeRates nuX_M1_CalcClosure)
@@ -793,6 +841,7 @@ else {
       SYNC: chi nuX_Base::rN nuX_Base::rE nuX_Base::rF fluidsources
 
   } "Apply the radiation-only implicit collision update"
+  }
 }
 
 # Keep closure-derived fields valid after the final ODE update. CarpetX

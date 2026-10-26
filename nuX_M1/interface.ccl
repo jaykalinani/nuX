@@ -5,6 +5,9 @@ INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX nuX_Base
 INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx 
 INCLUDES HEADER: nuX_M1_sources.hxx IN nuX_M1_sources.hxx
 INCLUDES HEADER: nuX_M1_weak_equil.hxx IN nuX_M1_weak_equil.hxx
+INCLUDES HEADER: nuX_M1_nurates_source.hxx IN nuX_M1_nurates_source.hxx
+INCLUDES HEADER: nuX_M1_nurates.hxx IN nuX_M1_nurates.hxx
+INCLUDES HEADER: nuX_M1_opacity_utils.hxx IN nuX_M1_opacity_utils.hxx
 
 USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
 USES INCLUDE HEADER: nuX_baryon_mass.hxx nuX_metric.hxx nuX_pow.hxx nuX_rate_units.hxx nuX_tensor.hxx nuX_valencia.hxx nuX_utils.hxx

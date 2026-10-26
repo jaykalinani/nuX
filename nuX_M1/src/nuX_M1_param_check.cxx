@@ -21,6 +21,9 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
       CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
       CCTK_Equals(method, "IMEX122") || CCTK_Equals(method, "Implicit Euler");
   const bool is_semi_implicit = CCTK_Equals(method, "semi-implicit");
+  if (CCTK_Equals(rates_lib, "NuRates") && (nspecies != 3 || ngroups != 1)) {
+    CCTK_PARAMWARN("NuRates requires nspecies=3 and ngroups=1");
+  }
   const bool has_implicit_source = is_imex || is_semi_implicit;
   const bool supports_backreaction =
       CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||

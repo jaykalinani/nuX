@@ -34,6 +34,7 @@ extern "C" void nuX_M1_CalcBackreactionRHS(CCTK_ARGUMENTS) {
     CCTK_ERROR("nuX_M1::backreact requires ngroups=1 and nspecies=3");
 
   const GridDescBaseDevice grid(cctkGH);
+  const bool nurates = CCTK_Equals(rates_lib, "NuRates");
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
 
@@ -101,9 +102,14 @@ extern "C" void nuX_M1_CalcBackreactionRHS(CCTK_ARGUMENTS) {
                    rFz[i4D], &F_d);
           repair_moments(g_uu, &E_source, &F_d, rad_E_floor, rad_eps);
 
-          const CCTK_REAL Gamma =
-              compute_Gamma(W_ijk, v_u, rJ[i4D], E_source, F_d, rad_E_floor,
-                            rad_eps);
+          CCTK_REAL Gamma;
+          if (nurates) {
+            if (!compute_source_Gamma(W_ijk, v_u, rJ[i4D], E_source, F_d, &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W_ijk, v_u, rJ[i4D], E_source, F_d,
+                                   rad_E_floor, rad_eps);
+          }
 
           tensor::generic<CCTK_REAL, 4, 1> H_d;
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);

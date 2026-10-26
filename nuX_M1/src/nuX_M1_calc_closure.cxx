@@ -41,6 +41,7 @@ void CalcClosure(CCTK_ARGUMENTS) {
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
+  const bool nurates = CCTK_Equals(rates_lib, "NuRates");
   tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
                                       betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
                                       kxy, kxz, kyy, kyz, kzz);
@@ -149,8 +150,14 @@ void CalcClosure(CCTK_ARGUMENTS) {
           assert(isfinite(rHy[i4D]));
           assert(isfinite(rHz[i4D]));
 
-          CCTK_REAL const Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
-                                                rad_E_floor, rad_eps);
+          CCTK_REAL Gamma;
+          if (nurates) {
+            if (!compute_source_Gamma(W, v_u, rJ[i4D], E_closure, F_d, &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
+                                   rad_E_floor, rad_eps);
+          }
           assert(Gamma > 0);
           rnnu[i4D] = max(rN[i4D], rad_N_floor) / Gamma;
         }
