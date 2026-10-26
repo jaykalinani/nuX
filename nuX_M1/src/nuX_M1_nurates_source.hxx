@@ -61,6 +61,19 @@ CCTK_HOST CCTK_DEVICE inline bool valid(const nurates_opacities_t &r) {
          isfinite(r.eta_1) && r.eta_1 >= 0;
 }
 
+// Logarithmic populations need a residual that does not saturate at +/-1
+// when a trial is far from its source-mapped population. Its zero is still
+// trial == mapped; the physical source equations are verified separately.
+CCTK_HOST CCTK_DEVICE inline CCTK_REAL log_moment_residual(
+    const CCTK_REAL trial, const CCTK_REAL mapped) {
+  if (!(isfinite(trial) && trial > 0 && isfinite(mapped) && mapped > 0))
+    return std::numeric_limits<CCTK_REAL>::quiet_NaN();
+  const CCTK_REAL difference = trial - mapped;
+  // Preserve near-root accuracy without overflowing a distant trial/mapped.
+  return fabs(difference) <= 0.5 * mapped
+             ? log1p(difference / mapped) : log(trial) - log(mapped);
+}
+
 // The small populations are represented in log coordinates; no lower
 // population, temperature or degeneracy clamp is imposed. Failure/underflow
 // rejects a trial and lets the outer line search choose another step.
@@ -280,13 +293,11 @@ template <class Rates> struct spectral_source_t {
         const CCTK_REAL n = s.N / (Gamma * volume) *
                             (nuX_ndens_conv / flavors);
         const CCTK_REAL j = J / volume * (nuX_edens_conv / flavors);
-        if (!(isfinite(s.N) && s.N >= 0 && isfinite(n) && n >= 0 &&
-              isfinite(j) && j >= 0))
+        if (!(isfinite(s.N) && s.N >= 0 && isfinite(n) && n > 0 &&
+              isfinite(j) && j > 0))
           return false;
-        residual(2 * sp) =
-            (radiation.n[sp] - n) / fmax(radiation.n[sp], n);
-        residual(2 * sp + 1) =
-            (radiation.J[sp] - j) / fmax(radiation.J[sp], j);
+        residual(2 * sp) = log_moment_residual(radiation.n[sp], n);
+        residual(2 * sp + 1) = log_moment_residual(radiation.J[sp], j);
         angular_error = fmax(angular_error, fabs(s.chi - chi[sp]));
         chi[sp] = s.chi;
       }

@@ -1,5 +1,4 @@
-// Focused tests for the reusable local collision solve. These require a
-// future authorized compilation/run; adding them is not runtime validation.
+// Focused tests for the reusable local collision solve.
 #define NUX_M1_CLOSURE_IMPLEMENTATION
 #define NUX_M1_SOURCES_IMPLEMENTATION
 #include "nuX_M1_nurates_source.hxx"
@@ -203,6 +202,79 @@ int check_inactive_species(cGH const *cctkGH) {
   return failures;
 }
 
+int check_log_residual() {
+  using nurates_source_detail::log_moment_residual;
+  const CCTK_REAL eps = std::numeric_limits<CCTK_REAL>::epsilon();
+  int failures = log_moment_residual(1, 1) != 0;
+  const CCTK_REAL near = std::nextafter(CCTK_REAL(1), CCTK_REAL(2));
+  failures += std::abs(log_moment_residual(near, 1) - std::log1p(near - 1)) >
+              eps * eps;
+  const CCTK_REAL distant = log_moment_residual(1e300, 1e-300);
+  failures += !std::isfinite(distant) ||
+              std::abs(distant - 600 * std::log(CCTK_REAL(10))) >
+                  4 * eps * std::abs(distant);
+  failures += log_moment_residual(1e-300, 1e300) != -distant;
+  // A logarithmic perturbation retains unit derivative even where the old
+  // bounded relative residual rounded to exactly one.
+  constexpr CCTK_REAL h = 1e-5;
+  const CCTK_REAL derivative =
+      (log_moment_residual(1e100 * std::exp(h), 1) -
+       log_moment_residual(1e100 * std::exp(-h), 1)) / (2 * h);
+  failures += std::abs(derivative - 1) > 1e-8;
+  failures += std::isfinite(log_moment_residual(0, 1));
+  failures += std::isfinite(log_moment_residual(1, 0));
+  failures += std::isfinite(log_moment_residual(-1, 1));
+  failures += std::isfinite(log_moment_residual(
+      std::numeric_limits<CCTK_REAL>::infinity(), 1));
+  failures += std::isfinite(log_moment_residual(
+      1, std::numeric_limits<CCTK_REAL>::quiet_NaN()));
+  return failures;
+}
+
+int check_remote_initial_spectrum(cGH const *cctkGH) {
+  const geometry_t g(0);
+  auto options = nurates_source_options_t{};
+  options.closure = CLOSURE_EDDINGTON;
+  options.epsrel = 1e-9;
+  nurates_source_detail::spectral_vector equilibrium;
+  for (int sp = 0; sp < 3; ++sp) {
+    equilibrium(2 * sp) = std::log(CCTK_REAL(3));
+    equilibrium(2 * sp + 1) = -2;
+  }
+  M1Quantities target{};
+  if (!nurates_source_detail::spectral_moments(equilibrium, options, target))
+    return 1;
+  nurates_source_state_t old[3], next[3];
+  rates_t rates;
+  for (int sp = 0; sp < 3; ++sp) {
+    const CCTK_REAL flavors = sp == 2 ? 4 : 1;
+    old[sp] = state(flavors * target.n[sp] / nuX_ndens_conv,
+                    flavors * target.J[sp] / nuX_edens_conv, 0);
+    rates.values[sp].abs_0 = rates.values[sp].abs_1 = 1;
+    rates.values[sp].eta_0 = old[sp].N;
+    rates.values[sp].eta_1 = old[sp].E;
+  }
+  const auto ctx = context(cctkGH, g, old[0]);
+  const nurates_source_detail::spectral_source_t<rates_t> source{
+      ctx, 1, old, rates, options};
+  int failures = 0;
+  for (const CCTK_REAL offset : {-20.0, 20.0}) {
+    auto trial = equilibrium;
+    for (int sp = 0; sp < 3; ++sp)
+      trial(2 * sp) += offset;
+    // Test the remote start itself, not a successful fallback to the baseline.
+    if (!source.solve(trial, next)) {
+      ++failures;
+      continue;
+    }
+    for (int sp = 0; sp < 3; ++sp) {
+      failures += std::abs(next[sp].N / old[sp].N - 1) > 2e-8;
+      failures += std::abs(next[sp].E / old[sp].E - 1) > 2e-8;
+    }
+  }
+  return failures;
+}
+
 } // namespace
 
 int nurates_adapter_unit_tests() {
@@ -242,6 +314,7 @@ int nurates_source_unit_tests(cGH const *cctkGH) {
   return check_small_flux(cctkGH, 1) + check_small_flux(cctkGH, 1e8) +
          check_stiff_invariant(cctkGH) +
          check_invariant_jacobian(cctkGH) + check_inactive_species(cctkGH) +
+         check_log_residual() + check_remote_initial_spectrum(cctkGH) +
          nurates_adapter_unit_tests();
 }
 
