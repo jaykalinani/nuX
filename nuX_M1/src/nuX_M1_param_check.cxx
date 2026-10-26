@@ -19,7 +19,8 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
 
   const bool is_imex =
       CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
-      CCTK_Equals(method, "IMEX122") || CCTK_Equals(method, "Implicit Euler");
+      CCTK_Equals(method, "IMEX122") || CCTK_Equals(method, "Implicit Euler") ||
+      CCTK_Equals(method, "RK42-IMEX") || CCTK_Equals(method, "RK42-IMEX2L");
   const bool is_semi_implicit = CCTK_Equals(method, "semi-implicit");
   const bool has_implicit_source = is_imex || is_semi_implicit;
   const bool supports_backreaction =
@@ -28,8 +29,8 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
   if (!has_implicit_source) {
     CCTK_PARAMWARN(
         "nuX_M1 collision terms require an implicit-capable ODESolvers "
-        "method (semi-implicit, IMEX42L, IMEX32L, IMEX122, or Implicit "
-        "Euler); "
+        "method (semi-implicit, IMEX42L, IMEX32L, IMEX122, Implicit Euler, "
+        "RK42-IMEX, or RK42-IMEX2L); "
         "explicit-only methods omit the collision evolution");
   }
   if (backreact && !supports_backreaction) {

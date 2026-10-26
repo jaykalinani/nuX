@@ -35,9 +35,9 @@ STORAGE: fidu_w_lorentz
 
 STORAGE: chi
 
-STORAGE: rN_rhs
-STORAGE: rE_rhs
-STORAGE: rF_rhs
+STORAGE: rN_rhs[1]
+STORAGE: rE_rhs[1]
+STORAGE: rF_rhs[1]
 if (CCTK_Equals(method, "semi-implicit")) {
   STORAGE: rN_base
   STORAGE: rE_base
@@ -823,6 +823,23 @@ SCHEDULE nuX_M1_RepairState IN nuX_M1_PostStepDerived \
     WRITES: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere)
     WRITES: nuX_Base::rF(everywhere)
 } "Enforce radiation floors and realizability after an ODE stage"
+
+# RK42-IMEX2L copies its implicit base after this PostStep. Project first so
+# the recovered source tendency is only the collision term. RepairState does
+# not update matter, so this routine still has to couple that repair.
+SCHEDULE nuX_M1_ProjectBeforeImplicit IN nuX_M1_PostStepDerived \
+    AFTER nuX_M1_SetMask BEFORE (nuX_M1_RepairState nuX_M1_FiducialVelocity)
+{
+    LANG: C
+    READS: ADMBaseX::lapse(interior) ADMBaseX::shift(interior)
+    READS: ADMBaseX::metric(interior) ADMBaseX::curv(interior)
+    READS: nuX_m1_mask(interior)
+    READS: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
+    READS: AsterX::cons_vector(interior)
+    WRITES: nuX_Base::rN(interior) nuX_Base::rE(interior) nuX_Base::rF(interior)
+    WRITES: AsterX::cons_vector(interior)
+    SYNC: nuX_Base::rN nuX_Base::rE nuX_Base::rF
+} "Project radiation before an RK42-IMEX2L implicit base is saved"
 
 SCHEDULE nuX_M1_FiducialVelocity IN nuX_M1_PostStepDerived \
     AFTER (nuX_M1_SetMask nuX_M1_RepairState) BEFORE nuX_M1_CalcClosure

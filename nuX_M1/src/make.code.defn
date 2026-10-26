@@ -28,6 +28,7 @@ nuX_M1_tmunu.cxx \
 nuX_M1_closure.cxx \
 nuX_M1_sources.cxx \
 nuX_M1_calc_update.cxx \
+nuX_M1_project_before_implicit.cxx \
 
 # Subdirectories containing source files
 SUBDIRS =
