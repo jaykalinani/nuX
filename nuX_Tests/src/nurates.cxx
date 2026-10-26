@@ -105,6 +105,73 @@ int check_direct_beta_absorptivity() {
   return failures;
 }
 
+int check_beta_degeneracy_boundaries() {
+  MyQuadrature quadrature{};
+  quadrature.type = kGauleg;
+  quadrature.dim = 1;
+  quadrature.nx = 6;
+  quadrature.ny = quadrature.nz = 1;
+  quadrature.x1 = 0.0;
+  quadrature.x2 = 1.0;
+  GaussLegendre(&quadrature);
+
+  GreyOpacityParams params{};
+  params.opacity_flags = opacity_flags_default_none;
+  params.opacity_flags.use_abs_em = 1;
+  params.opacity_pars = opacity_params_default_none;
+  params.opacity_pars.use_beta_low_density_fallback = false;
+  params.eos_pars.nb = 1.0e17;
+  params.eos_pars.temp = 1.0; // Preserve exact eta_e endpoints and neighbors.
+  params.eos_pars.ye = params.eos_pars.yp = 0.3;
+  params.eos_pars.yn = 0.7;
+  params.eos_pars.mu_p = 0.0;
+  params.eos_pars.mu_n = kBS_Q + std::log(0.7 / 0.3);
+
+  int failures = 0;
+  for (const BS_REAL eta : std::array<BS_REAL, 6>{
+           std::nextafter(-30.0, -31.0), -30.0,
+           std::nextafter(-30.0, -29.0), std::nextafter(30.0, 29.0),
+           30.0, std::nextafter(30.0, 31.0)}) {
+    params.eos_pars.mu_e = eta;
+    params.distr_pars = NuEquilibriumParams(&params.eos_pars);
+    ComputeM1DensitiesEq(&params.eos_pars, &params.distr_pars,
+                         &params.m1_pars);
+    for (int species = 0; species < total_num_species; ++species)
+      params.m1_pars.chi[species] = 1.0 / 3.0;
+
+    for (const int stimulated : {0, 1}) {
+      const auto combined = ComputeM1OpacitiesGenericFormalism(
+          &quadrature, &quadrature, &params, stimulated);
+      const auto separated = ComputeM1OpacitiesGenericFormalismNonThermalSeparated(
+          &quadrature, &quadrature, &params, stimulated);
+      for (int species = 0; species < total_num_species; ++species) {
+        const std::array<BS_REAL, 4> combined_beta{
+            combined.eta_0[species], combined.eta[species],
+            combined.kappa_0_a[species], combined.kappa_a[species]};
+        const std::array<BS_REAL, 4> separated_beta{
+            separated.eta_0[species], separated.eta_th[species],
+            separated.kappa_0_a[species], separated.kappa_a_th[species]};
+        for (int coefficient = 0; coefficient < 4; ++coefficient) {
+          const BS_REAL a = combined_beta[coefficient];
+          const BS_REAL b = separated_beta[coefficient];
+          // Zero rates must not hide an invalid negative-energy quadrature.
+          if (species == id_nue || species == id_anue)
+            failures += !(std::isfinite(a) && a > 0.0 &&
+                          std::isfinite(b) && b > 0.0);
+          else
+            failures += a != 0.0 || b != 0.0;
+          failures += !close_rel(a, b);
+        }
+        failures += combined.kappa_s[species] != 0.0;
+        failures += separated.kappa_s[species] != 0.0;
+        failures += separated.eta_non_th[species] != 0.0;
+        failures += separated.kappa_a_non_th[species] != 0.0;
+      }
+    }
+  }
+  return failures;
+}
+
 int check_nonthermal_separation() {
   MyQuadrature quadrature{};
   quadrature.type = kGauleg;
@@ -242,6 +309,7 @@ extern "C" void nuX_NuRates_TestKernels(CCTK_ARGUMENTS) {
   int failures = 0;
   failures += check_brt06_units();
   failures += check_direct_beta_absorptivity();
+  failures += check_beta_degeneracy_boundaries();
   failures += check_nonthermal_separation();
   failures += check_inelastic_energy_balance();
   failures += check_kernel(PairKernels(&eos, &pair), balance, true);

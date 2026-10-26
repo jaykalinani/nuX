@@ -1103,7 +1103,7 @@ M1Opacities ComputeM1OpacitiesGenericFormalism(
         s_beta[id_nue]  = temp * FDI_p5(eta_e) / FDI_p4(eta_e);
         s_beta[id_anue] = temp * FDI_p5(-eta_e) / FDI_p4(-eta_e);
     }
-    else if (eta_e > 30.)
+    else if (eta_e >= 30.)
     {
         s_beta[id_nue]  = temp * eta_e * five_sixths;
         s_beta[id_anue] = temp * five;
@@ -1346,7 +1346,7 @@ M1OpacitiesNonThermalSeparated ComputeM1OpacitiesGenericFormalismNonThermalSepar
         s_beta[id_nue]  = temp * FDI_p5(eta_e) / FDI_p4(eta_e);
         s_beta[id_anue] = temp * FDI_p5(-eta_e) / FDI_p4(-eta_e);
     }
-    else if (eta_e > 30.)
+    else if (eta_e >= 30.)
     {
         s_beta[id_nue]  = temp * eta_e * five_sixths;
         s_beta[id_anue] = temp * five;
