@@ -36,7 +36,11 @@ hlle_primitive(const int component, const int index, const CCTK_REAL volume,
                const CCTK_REAL *rFy, const CCTK_REAL *rFz,
                const CCTK_REAL *rE, const CCTK_REAL E_floor,
                const CCTK_REAL N_floor) {
-  const CCTK_REAL E = fmax(rE[index], E_floor);
+  const CCTK_REAL raw_E = rE[index];
+  // fmax and the slope limiter can hide NaNs; check raw stencil values.
+  if (!isfinite(raw_E))
+    device_abort();
+  const CCTK_REAL E = fmax(raw_E, E_floor);
   if (!(isfinite(volume) && volume > 0 && isfinite(E) && E >= 0))
     device_abort();
   if (E == 0) {
@@ -47,13 +51,25 @@ hlle_primitive(const int component, const int index, const CCTK_REAL volume,
       device_abort();
     return 0;
   }
-  if (component == HLLE_E)
-    return E / volume;
-  if (component == HLLE_N)
-    return fmax(rN[index], N_floor) / E;
-  const CCTK_REAL *F = component == HLLE_FX ? rFx
-                       : component == HLLE_FY ? rFy : rFz;
-  return F[index] / E;
+  CCTK_REAL primitive;
+  if (component == HLLE_E) {
+    primitive = E / volume;
+  } else if (component == HLLE_N) {
+    const CCTK_REAL N = rN[index];
+    if (!isfinite(N))
+      device_abort();
+    primitive = fmax(N, N_floor) / E;
+  } else {
+    const CCTK_REAL *F = component == HLLE_FX ? rFx
+                         : component == HLLE_FY ? rFy : rFz;
+    const CCTK_REAL flux = F[index];
+    if (!isfinite(flux))
+      device_abort();
+    primitive = flux / E;
+  }
+  if (!isfinite(primitive))
+    device_abort();
+  return primitive;
 }
 
 template <int dir> void UpdateRHSFromHLLE(CCTK_ARGUMENTS) {

@@ -33,6 +33,10 @@ flux. Variable closures use a conservative causal fan at vacuum; Eddington
 uses its fixed-v isotropic regular-limit fan. A zero energy floor requires
 a zero number floor, and states with E=0 but positive N or nonzero Fi are
 rejected because their moment ratios do not define finite interface states.
+Raw HLLE stencil moments and reconstructed face ratios must be finite before
+flooring, slope limiting or cone repair. These operations must not hide NaNs
+or infinities; invalid inputs abort through the existing release-safe handler.
+Finite-state floors and realizability repairs are unchanged.
 
 Following section 3.1 of https://arxiv.org/html/2304.09168v1, reconstruct
 (N/E, Fx/E, Fy/E, Fz/E, E), with physical E=rE/sqrt(gamma), rather than

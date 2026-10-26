@@ -236,6 +236,11 @@ hlle_state(cGH const *cctkGH, const int i, const int j, const int k,
            const CCTK_REAL eps, const CCTK_REAL closure_tol,
            const CCTK_INT closure_iters, const bool fallback) {
   hlle_state_t result;
+  // Reject invalid reconstruction before floors, vacuum handling or cone
+  // repair can turn non-finite input into a finite radiation state.
+  for (int a = 0; a < 5; ++a)
+    if (!isfinite(q[a]))
+      device_abort();
   // Floors are specified for densitized evolved moments elsewhere in M1.
   CCTK_REAL E = fmax(q[HLLE_E], E_floor / g.volume);
   if (E == 0 && N_floor == 0) {
