@@ -16,9 +16,10 @@ nuX_WeakLib::include_nes = no
 nuX_WeakLib::include_brem = no
 nuX_WeakLib::include_nuclei_ec = no
 
-# EOSX/nuX normally use total chemical potentials (including rest masses).
-# If your EOSX table instead excludes the INDIVIDUAL nucleon rest masses,
-# select rest-mass-subtracted; do not infer this from the energy shift in eps.
+# Keep the direct mu_p+mu_e-mu_n combination if the relative nucleon mass
+# difference is already retained; a COMMON nucleon reference shift cancels.
+# Select rest-mass-subtracted only if each nucleon's OWN rest mass was removed.
+# Negative individual potentials or the energy shift in eps do not decide this.
 nuX_WeakLib::chemical_potentials = "total"
 nuX_WeakLib::spectral_tail_tolerance = 1e-2
 nuX_WeakLib::run_self_tests = yes

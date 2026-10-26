@@ -51,13 +51,18 @@ records the kernel unit strings.
   `k_B=8.617333262145e-11 MeV/K`. The HDF5 energy/thermodynamic/kernel units,
   monotone axes, shape, species count, log/linear conventions and offsets are
   validated before use. Unsupported units/layouts fail loudly.
-- For total EOSX chemical potentials, `mu_nue=mu_p+mu_e-mu_n` and
-  `mu_anue=-mu_nue`; heavy-lepton chemical potentials vanish. If the individual
-  nucleon rest masses have been subtracted, the explicit
+- With `chemical_potentials="total"` (default), use
+  `mu_nue=mu_p+mu_e-mu_n` and `mu_anue=-mu_nue`; heavy-lepton chemical
+  potentials vanish. This also applies when the SAME reference has been
+  subtracted from both nucleon potentials: that common shift cancels.
+  Negative individual potentials alone do not justify another correction.
+  Only if each nucleon's OWN rest mass has been separately subtracted, the
   `chemical_potentials="rest-mass-subtracted"` option restores
   `m_n-m_p=1.29333236 MeV` in `mu_n-mu_p`. Electron chemical potential must
   include electron rest energy. EOSX's internal-energy shift is unrelated and
-  is never used to guess this convention.
+  is never used to guess this convention. For tables containing `munu`,
+  compare it with the direct combination before choosing the option; that
+  check does not establish overall EOS/opacity-model compatibility.
 - Define `I_q=integral E^q f_FD(E;T,mu) dE`. Number and energy equilibrium
   moments are `4*pi/(hc)^3 I_2` and `4*pi/(hc)^3 I_3`, with one helicity per
   species, `hc=1.2398419843320026e-10 MeV cm`. Heavy-lepton moments include

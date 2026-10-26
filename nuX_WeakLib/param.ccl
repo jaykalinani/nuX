@@ -57,8 +57,8 @@ STRING iso_table "WeakLib Iso HDF5 file (kernel units cm^-1 MeV^-2)"
 
 KEYWORD chemical_potentials "EOSX nucleon chemical-potential rest-mass convention"
 {
-  "total" :: "EOSX mu_n and mu_p include their respective rest masses"
-  "rest-mass-subtracted" :: "Restore m_n-m_p in mu_n-mu_p; mu_e includes electron rest energy"
+  "total" :: "Use mu_p+mu_e-mu_n directly; a common nucleon reference shift cancels"
+  "rest-mass-subtracted" :: "Only if individual nucleon rest masses were removed; restore m_n-m_p in their difference"
 } "total"
 
 REAL spectral_tail_tolerance "Maximum conservative omitted FD number/energy tail relative to the tabulated-band integral"
