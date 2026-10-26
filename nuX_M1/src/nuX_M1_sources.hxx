@@ -51,14 +51,16 @@ struct SourceUpdateContext {
       tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _W,
       CCTK_REAL const _Eold, tensor::generic<CCTK_REAL, 4, 1> const &_Fold_d,
       CCTK_REAL const _Estar, tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d,
-      CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
+      CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat,
+      bool const _recoverable_closure_trials = false)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig),
         closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
         closure_use_fallback(_closure_use_fallback), cdt(_cdt), alp(_alp),
         g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u), gamma_ud(_gamma_ud),
         u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u), proj_ud(_proj_ud), W(_W),
         Eold(_Eold), Fold_d(_Fold_d), Estar(_Estar), Fstar_d(_Fstar_d),
-        eta(_eta), kabs(_kabs), kscat(_kscat) {}
+        eta(_eta), kabs(_kabs), kscat(_kscat),
+        recoverable_closure_trials(_recoverable_closure_trials) {}
   cGH const *cctkGH;
   int const i;
   int const j;
@@ -87,6 +89,7 @@ struct SourceUpdateContext {
   CCTK_REAL const eta;
   CCTK_REAL const kabs;
   CCTK_REAL const kscat;
+  bool const recoverable_closure_trials;
 };
 
 // Collision-source solutions must remain in the physical lab-frame moment
@@ -309,11 +312,13 @@ prepare_closure(const arith_vector &q, Params *p, PreparedState *s) {
     return ROOTS_EBADFUNC;
   }
 
+  bool closure_valid = true;
   calc_closure(c.cctkGH, c.i, c.j, c.k, c.ig, p->closure, c.g_dd, c.g_uu, c.n_d,
                c.W, c.u_u, c.v_d, c.proj_ud, s->E, s->F_d, &p->chi, &s->P_dd,
-               c.closure_epsilon, c.closure_maxiter, c.closure_use_fallback);
+               c.closure_epsilon, c.closure_maxiter, c.closure_use_fallback,
+               c.recoverable_closure_trials ? &closure_valid : nullptr);
 
-  if (!isfinite(p->chi)) {
+  if (!closure_valid || !isfinite(p->chi)) {
     return ROOTS_EBADFUNC;
   }
   for (int a = 0; a < 4; ++a)
@@ -487,6 +492,36 @@ source_rates_are_zero(CCTK_REAL const eta_0, CCTK_REAL const eta_1,
   return eta_0 == CCTK_REAL(0) && eta_1 == CCTK_REAL(0) &&
          kabs_0 == CCTK_REAL(0) && kabs_1 == CCTK_REAL(0) &&
          kscat_1 == CCTK_REAL(0);
+}
+
+// IMEX must solve one collision equation at every nonzero diagonal stage.
+// The timestep-dependent shortcuts are retained only for the legacy method.
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+source_requires_nonlinear(const bool semi_implicit,
+                          const bool force_nonlinear) {
+  return !semi_implicit || force_nonlinear;
+}
+
+struct number_source_update_t {
+  CCTK_REAL state;
+  CCTK_REAL increment;
+};
+
+// Solve Nnew = Nstar + alpha*dt*(sqrt(gamma)*eta - kabs*Nnew/Gamma).
+// Keep the positive-form state and the cancellation-resistant collision
+// increment separately: Nstar + increment can lose a strongly absorbed tiny
+// root, whereas state - Nstar loses a small near-equilibrium exchange.
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline number_source_update_t
+source_number_update(const CCTK_REAL Nstar, const CCTK_REAL dt,
+                     const CCTK_REAL alpha, const CCTK_REAL volform,
+                     const CCTK_REAL eta, const CCTK_REAL kabs,
+                     const CCTK_REAL Gamma) {
+  const CCTK_REAL h = dt * alpha;
+  const CCTK_REAL absorption = kabs / Gamma;
+  const CCTK_REAL emission = volform * eta;
+  const CCTK_REAL denominator = CCTK_REAL(1) + h * absorption;
+  return {(Nstar + h * emission) / denominator,
+          h * (emission - absorption * Nstar) / denominator};
 }
 
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool

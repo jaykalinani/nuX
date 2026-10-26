@@ -225,6 +225,228 @@ int check_number_source() {
          4.0 * std::numeric_limits<CCTK_REAL>::epsilon();
 }
 
+int check_imex_number_update() {
+  int failures = 0;
+  constexpr CCTK_REAL Nstar = 2.0;
+  constexpr CCTK_REAL alpha = 0.63;
+  constexpr CCTK_REAL dt = 0.4;
+  constexpr CCTK_REAL volform = 1.3;
+  constexpr CCTK_REAL eta = 0.3;
+  constexpr CCTK_REAL Gamma = 1.2;
+  for (const CCTK_REAL kabs : {CCTK_REAL(0), CCTK_REAL(0.1),
+                               CCTK_REAL(10), CCTK_REAL(1.0e8)}) {
+    const auto update =
+        source_number_update(Nstar, dt, alpha, volform, eta, kabs, Gamma);
+    const CCTK_REAL residual =
+        update.state - Nstar -
+        dt * calc_rN_source(alpha, volform, eta, kabs, update.state, Gamma);
+    failures += !std::isfinite(update.state) || update.state < 0.0;
+    failures += std::abs(residual) >
+                32.0 * std::numeric_limits<CCTK_REAL>::epsilon() * Nstar;
+    failures += std::abs(update.state - Nstar - update.increment) >
+                8.0 * std::numeric_limits<CCTK_REAL>::epsilon() * Nstar;
+  }
+
+  // Strong absorption leaves a representable positive root that would be
+  // erased by reconstructing it from its rounded difference from Nstar.
+  const auto tiny =
+      source_number_update(Nstar, 1.0, alpha, 1.0, 0.0, 1.0e30, 1.0);
+  failures += !(tiny.state > 0.0 && tiny.state < 1.0e-29);
+  failures += Nstar + tiny.increment != 0.0;
+  const auto transparent =
+      source_number_update(Nstar, dt, alpha, volform, 0.0, 0.0, Gamma);
+  failures += transparent.state != Nstar || transparent.increment != 0.0;
+
+  // Near equilibrium, form the exchange from the source, not state-Nstar.
+  const CCTK_REAL near_eta =
+      1.0 + 64.0 * std::numeric_limits<CCTK_REAL>::epsilon();
+  const auto near = source_number_update(1.0, dt, alpha, 1.0, near_eta, 1.0,
+                                          1.0);
+  const long double h = static_cast<long double>(dt) * alpha;
+  const long double reference =
+      h * (static_cast<long double>(near_eta) - 1.0L) / (1.0L + h);
+  failures += !(near.increment > 0.0);
+  failures += std::abs(static_cast<long double>(near.increment) - reference) >
+              8.0L * std::numeric_limits<CCTK_REAL>::epsilon() *
+                  std::abs(reference);
+  return failures;
+}
+
+int check_physical_number_current() {
+  int failures = 0;
+  for (const auto &velocity : {std::array<CCTK_REAL, 3>{0.3, -0.2, 0.1},
+                               std::array<CCTK_REAL, 3>{0.9, 0.0, 0.0}}) {
+    const source_test_geometry_t geom(0.63, velocity);
+    constexpr CCTK_REAL J = 1.0e-30;
+    tensor::generic<CCTK_REAL, 4, 1> H_d;
+    tensor::symmetric2<CCTK_REAL, 4, 2> K_dd, T_dd;
+    for (int a = 0; a < 4; ++a) {
+      H_d(a) = 0.0;
+      for (int b = a; b < 4; ++b)
+        K_dd(a, b) = J * (geom.g_dd(a, b) + geom.u_d(a) * geom.u_d(b)) / 3.0;
+    }
+    assemble_rT(geom.u_d, J, H_d, K_dd, &T_dd);
+    const CCTK_REAL E = calc_J_from_rT(T_dd, geom.n_u);
+    tensor::generic<CCTK_REAL, 4, 1> F_d;
+    calc_H_from_rT(T_dd, geom.n_u, geom.gamma_ud, &F_d);
+    CCTK_REAL Gamma = std::numeric_limits<CCTK_REAL>::quiet_NaN();
+    failures += !compute_source_Gamma(geom.W, geom.v_u, J, E, F_d, &Gamma);
+    failures += std::abs(Gamma - geom.W) > 2.0e-13 * geom.W;
+    // This physical state is far below the transport floor, where the legacy
+    // helper returns 1 even though an isotropic moving current has Gamma=W.
+    failures += compute_Gamma(geom.W, geom.v_u, J, E, F_d, 1.0e-15,
+                               1.0e-5) != 1.0;
+    constexpr CCTK_REAL Nstar = 2.0e-30;
+    constexpr CCTK_REAL dt = 0.4;
+    constexpr CCTK_REAL eta = 0.3e-30;
+    constexpr CCTK_REAL kabs = 4.0;
+    const auto update =
+        source_number_update(Nstar, dt, geom.alpha, 1.0, eta, kabs, Gamma);
+    const CCTK_REAL expected =
+        (Nstar + dt * geom.alpha * eta) /
+        (1.0 + dt * geom.alpha * kabs / geom.W);
+    failures += std::abs(update.state - expected) > 2.0e-13 * expected;
+    const auto floor_current =
+        source_number_update(Nstar, dt, geom.alpha, 1.0, eta, kabs, 1.0);
+    failures += std::abs(update.state - floor_current.state) < 1.0e-3 * expected;
+    if (velocity[0] > 0.8) {
+      // A large optional transport margin must likewise not clamp F.v/E in
+      // the accepted physical collision current.
+      const CCTK_REAL margin_Gamma =
+          compute_Gamma(geom.W, geom.v_u, J, E, F_d, 0.0, 0.5);
+      failures += std::abs(margin_Gamma - Gamma) < 0.01 * Gamma;
+    }
+    pack_F_d(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, &F_d);
+    failures += !compute_source_Gamma(geom.W, geom.v_u, 0.0, 0.0, F_d,
+                                       &Gamma);
+    failures += Gamma != geom.W;
+    failures += compute_source_Gamma(geom.W, geom.v_u, 0.0, E, F_d, &Gamma);
+  }
+  return failures;
+}
+
+int check_source_convergence_contract() {
+  nuX_Utils::roots::hybridsj_solver<CCTK_REAL, 4> solver{};
+  const arith_vector baseline{1.0, 1.0e-8, -2.0e-8, 0.0};
+  solver.x = baseline;
+  for (int n = 0; n < 4; ++n)
+    solver.f(n) = solver.dx(n) = 0.0;
+  CCTK_REAL residual, step;
+  const auto converged = [&]() {
+    return source_solver_converged(solver, baseline, 1.0e-14, 1.0e-8,
+                                    &residual, &step);
+  };
+  int failures = !converged();
+  // A small step alone must never accept a failed residual. In particular,
+  // the energy tolerance must not hide errors in a much smaller flux field.
+  solver.f(1) = 2.0e-14;
+  failures += converged();
+  solver.f(1) = 0.0;
+  solver.dx(1) = 2.0e-14;
+  failures += converged();
+  solver.dx(1) = 0.0;
+  solver.f(2) = std::numeric_limits<CCTK_REAL>::quiet_NaN();
+  failures += converged();
+  return failures;
+}
+
+int check_closure_trial_failure(cGH const *cctkGH) {
+  const source_test_geometry_t geom(0.7, {0.13, -0.21, 0.08});
+  tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
+  pack_F_d(0.0, 0.0, 0.0, 0.4, 0.2, 0.1, &Fstar_d);
+  SourceUpdateContext ctx(
+      cctkGH, 0, 0, 0, 0, 1.0e-14, 1, false, 0.1, geom.alpha, geom.g_dd,
+      geom.g_uu, geom.n_d, geom.n_u, geom.gamma_ud, geom.u_d, geom.u_u,
+      geom.v_d, geom.v_u, geom.proj_ud, geom.W, 2.0, Fstar_d, 2.0, Fstar_d,
+      0.3, 1.4, 2.1, true);
+  const arith_vector q{2.0, 0.4, 0.2, 0.1};
+  Params p(ctx, CLOSURE_MINERBO, 0.5);
+  PreparedState state;
+  // Deliberately insufficient closure iterations must reject the callback
+  // without a device abort or an endpoint-closure substitution.
+  int failures = prepare_closure(q, &p, &state) != ROOTS_EBADFUNC;
+  ctx.closure_maxiter = 128;
+  failures += prepare_closure(q, &p, &state) != ROOTS_SUCCESS;
+  failures += !(p.chi > 1.0 / 3.0 && p.chi < 1.0);
+  return failures;
+}
+
+int check_imex_diagonal_limits(cGH const *cctkGH) {
+  const source_test_geometry_t geom(0.63, {0.0, 0.0, 0.0});
+  constexpr CCTK_REAL Estar = 2.0;
+  constexpr CCTK_REAL eta = 0.3;
+  constexpr CCTK_REAL kabs = 1.7;
+  constexpr CCTK_REAL kscat = 2.4;
+  tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
+  pack_F_d(0.0, 0.0, 0.0, 0.3, -0.1, 0.05, &Fstar_d);
+  int failures = 0;
+  for (const closure_t closure : {CLOSURE_EDDINGTON, CLOSURE_MINERBO}) {
+    for (const CCTK_REAL dt : {CCTK_REAL(0.001), CCTK_REAL(0.1),
+                               CCTK_REAL(1), CCTK_REAL(50)}) {
+      const SourceUpdateContext ctx(
+          cctkGH, 0, 0, 0, 0, 1.0e-12, 128, false, dt, geom.alpha, geom.g_dd,
+          geom.g_uu, geom.n_d, geom.n_u, geom.gamma_ud, geom.u_d, geom.u_u,
+          geom.v_d, geom.v_u, geom.proj_ud, geom.W, Estar, Fstar_d, Estar,
+          Fstar_d, eta, kabs, kscat, true);
+      CCTK_REAL Enew = Estar * 0.9;
+      auto Fnew_d = Fstar_d;
+      CCTK_REAL chi = 1.0 / 3.0;
+      // Enable every legacy threshold, and request no optional forcing.
+      // The production IMEX policy must still select the strict residual.
+      const int status = source_update(
+          ctx, closure, &chi, &Enew, &Fnew_d,
+          source_requires_nonlinear(false, false), 0.01, 0.01, 128,
+          1.0e-14, 1.0e-10);
+      failures += status != NUX_M1_SOURCE_OK;
+      const CCTK_REAL h = dt * geom.alpha;
+      const CCTK_REAL expected_E = (Estar + h * eta) / (1.0 + h * kabs);
+      failures += std::abs(Enew - expected_E) > 3.0e-10 * Estar;
+      for (int a = 1; a < 4; ++a) {
+        const CCTK_REAL expected_F = Fstar_d(a) / (1.0 + h * (kabs + kscat));
+        failures += std::abs(Fnew_d(a) - expected_F) > 3.0e-11;
+      }
+      Params p(ctx, closure, chi);
+      arith_vector residual;
+      const arith_vector q{Enew, Fnew_d(1), Fnew_d(2), Fnew_d(3)};
+      failures += impl_func_val(q, &p, residual) != ROOTS_SUCCESS;
+      for (int n = 0; n < 4; ++n) {
+        const CCTK_REAL base = n == 0 ? Estar : Fstar_d(n);
+        const CCTK_REAL scale =
+            1.0e-14 + 1.0e-10 * std::max(std::abs(q(n)), std::abs(base));
+        failures += !std::isfinite(residual(n)) || std::abs(residual(n)) > scale;
+      }
+    }
+  }
+  return failures;
+}
+
+int check_tiny_source_root(cGH const *cctkGH) {
+  const source_test_geometry_t geom(0.63, {0.0, 0.0, 0.0});
+  constexpr CCTK_REAL Estar = 2.0;
+  constexpr CCTK_REAL kabs = 1.0e30;
+  tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
+  pack_F_d(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, &Fstar_d);
+  const SourceUpdateContext ctx(
+      cctkGH, 0, 0, 0, 0, 1.0e-12, 128, false, 1.0, geom.alpha, geom.g_dd,
+      geom.g_uu, geom.n_d, geom.n_u, geom.gamma_ud, geom.u_d, geom.u_u,
+      geom.v_d, geom.v_u, geom.proj_ud, geom.W, Estar, Fstar_d, Estar, Fstar_d,
+      0.0, kabs, 0.0, true);
+  const CCTK_REAL expected = Estar / (1.0 + geom.alpha * kabs);
+  CCTK_REAL Enew = expected;
+  auto Fnew_d = Fstar_d;
+  CCTK_REAL chi = 1.0 / 3.0;
+  const int status = source_update(
+      ctx, CLOSURE_EDDINGTON, &chi, &Enew, &Fnew_d,
+      source_requires_nonlinear(false, false), 0.01, 0.01, 128,
+      1.0e-14, 1.0e-10);
+  int failures = status != NUX_M1_SOURCE_OK;
+  failures += !(Enew > 0.0 && Enew < 1.0e-29);
+  failures += std::abs(Enew - expected) > 1.0e-12 * expected;
+  // The production IMEX path stores Enew itself to avoid this roundtrip.
+  failures += Estar + (Enew - Estar) != 0.0;
+  return failures;
+}
+
 int check_source_solve(cGH const *cctkGH) {
   const source_test_geometry_t geom(0.63, {0.11, -0.07, 0.04});
   constexpr CCTK_REAL Estar = 1.7;
@@ -412,6 +634,16 @@ int source_math_unit_tests(cGH const *cctkGH) {
   run("flux factor", check_flux_factor());
   run("Eddington comoving domain", check_eddington_comoving_domain());
   run("number source", check_number_source());
+  run("IMEX source policy", !source_requires_nonlinear(false, false) +
+                                !source_requires_nonlinear(false, true) +
+                                source_requires_nonlinear(true, false) +
+                                !source_requires_nonlinear(true, true));
+  run("IMEX number update", check_imex_number_update());
+  run("physical IMEX number current", check_physical_number_current());
+  run("source convergence contract", check_source_convergence_contract());
+  run("recoverable closure trial failure", check_closure_trial_failure(cctkGH));
+  run("IMEX diagonal limits", check_imex_diagonal_limits(cctkGH));
+  run("IMEX tiny absorbing root", check_tiny_source_root(cctkGH));
   run("source solve", check_source_solve(cctkGH));
   run("repaired source baseline", check_repaired_source_baseline(cctkGH));
   run("vertex velocity repair", check_vertex_velocity_repair());

@@ -31,7 +31,7 @@ BOOLEAN backreact "Couple radiation-matter interaction sources conservatively" S
 
 KEYWORD imex_backreaction "How to place matter backreaction in an IMEX scheme"
 {
-    "implicit" :: "Include the equal-and-opposite physical collision increment in the implicit tableau"
+    "implicit" :: "Include opposite conserved increments in the implicit tableau, with matter primitives frozen during each solve"
     "explicit" :: "Keep matter fixed in the implicit solve and add its collision source to the explicit tableau"
 } "implicit"
 
@@ -64,7 +64,7 @@ INT closure_maxiter "Maximum number of iterations in the closure root finding" S
     (0:* :: "Any positive integer"
 } 64
 
-BOOLEAN use_fallback "Use closure fallback on root-solver failure; if no, abort" STEERABLE=ALWAYS
+BOOLEAN use_fallback "Allow closure fallback outside IMEX; IMEX always requires the selected closure" STEERABLE=ALWAYS
 {
 } "yes"
 
@@ -138,25 +138,25 @@ INT source_maxiter "Maximum number of iterations in the nonlinear solver" STEERA
     (0:* :: "Any positive integer"
 } 64
 
-BOOLEAN source_force_nonlinear "Use the nonlinear residual solve for every implicit source update" STEERABLE=ALWAYS
+BOOLEAN source_force_nonlinear "Force the legacy semi-implicit nonlinear solve; IMEX always uses the residual solve" STEERABLE=ALWAYS
 {
 } "no"
 
-REAL source_thick_limit "Use the optically thick limit if the equilibration time is less than the timestep over this factor" STEERABLE=ALWAYS
+REAL source_thick_limit "Legacy semi-implicit thick-limit shortcut; ignored by IMEX" STEERABLE=ALWAYS
 {
     -1    :: "Never use the thick limit"
     (0:*  :: "Use the optically thick limit above some optical depth"
 } 20.0
 
 # This should be either off or set to the same value as source_thick_limit
-REAL source_therm_limit "Assume neutrinos to be thermalized above this optical depth" STEERABLE=ALWAYS
+REAL source_therm_limit "Legacy semi-implicit number thermalization shortcut; ignored by IMEX" STEERABLE=ALWAYS
 {
     -1    :: "Never use the thick limit"
     (0:*  :: "Assume thermalization of neutrinos above some optical depth"
 } -1.0
 
 # This is not recommended as it will give the wrong trapping in scattering dominated atmospheres
-REAL source_scat_limit "Use the scattering limit if the isotropization time is less than the timestep over this factor" STEERABLE=ALWAYS
+REAL source_scat_limit "Legacy semi-implicit scattering-limit shortcut; ignored by IMEX" STEERABLE=ALWAYS
 {
     -1    :: "Never use the scattering limit"
     (0:*  :: "Use the optically scattering dominated limit above some scattering optical depth"

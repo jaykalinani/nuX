@@ -62,7 +62,8 @@ void launch_source_increment_kernel(
     CCTK_REAL *const source_update_delta_Fz, CCTK_REAL const rad_N_floor,
     CCTK_REAL const rad_E_floor, CCTK_REAL const rad_eps,
     CCTK_REAL const closure_epsilon, CCTK_INT const closure_maxiter,
-    CCTK_INT const use_fallback, CCTK_INT const source_force_nonlinear,
+    CCTK_INT const use_fallback, bool const imex_stage,
+    CCTK_INT const source_force_nonlinear,
     CCTK_REAL const source_thick_limit, CCTK_REAL const source_scat_limit,
     CCTK_REAL const source_therm_limit, CCTK_INT const source_maxiter,
     CCTK_REAL const source_epsabs, CCTK_REAL const source_epsrel) {
@@ -126,7 +127,14 @@ void launch_source_increment_kernel(
       tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
       pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D], rFz[i4D],
                &Fstar_d);
-      apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
+      // Use the stored provisional IMEX state without a second local repair.
+      // IMEX42L/32L repair it before saving their diagonal baseline, then
+      // extract g=(accepted-stored_baseline)/dt before the next PostStep.
+      if (!imex_stage)
+        apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
+      else if (!source_state_is_realizable(g_uu, Estar, Fstar_d) ||
+               !isfinite(rN[i4D]) || rN[i4D] < 0.0)
+        source_solver_abort();
       assert(isfinite(Estar));
       assert(isfinite(Fstar_d(1)));
       assert(isfinite(Fstar_d(2)));
@@ -146,7 +154,7 @@ void launch_source_increment_kernel(
         continue;
       }
 
-      CCTK_REAL Nstar = std::max(rN[i4D], rad_N_floor);
+      CCTK_REAL Nstar = imex_stage ? rN[i4D] : std::max(rN[i4D], rad_N_floor);
       CCTK_REAL Enew = Estar;
       tensor::generic<CCTK_REAL, 4, 1> Fnew_d;
 
@@ -197,7 +205,7 @@ void launch_source_increment_kernel(
           cctkGH, p.i, p.j, p.k, ig, closure_epsilon, closure_maxiter,
           use_fallback != 0, dt, alp_ijk, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
           u_u, v_d, v_u, proj_ud, W_ijk, Estar, Fstar_d, Estar, Fstar_d,
-          volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D]);
+          volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D], imex_stage);
       const int source_result = source_update(
           source_ctx, closure_fun, &chi[i4D], &Enew, &Fnew_d,
           source_force_nonlinear, source_thick_limit, source_scat_limit,
@@ -221,8 +229,8 @@ void launch_source_increment_kernel(
       source_update_delta_Fz[i4D] = Fnew_d(3) - Fstar_d(3);
 
       // Use the accepted physical source state consistently for the
-      // energy closure and number source. The optional transport-margin
-      // repair is applied only when committing the evolved moments.
+      // energy closure and number source. IMEX transport-margin repairs are
+      // deferred to PostStep, after the physical rate has been extracted.
       apply_closure(g_dd, g_uu, n_d, W_ijk, u_u, v_d, proj_ud, Enew, Fnew_d,
                     chi[i4D], &P_dd);
 
@@ -231,12 +239,27 @@ void launch_source_increment_kernel(
       Jnew = calc_J_from_rT(T_dd, u_u);
       assert(isfinite(Jnew));
 
-      CCTK_REAL Gamma =
-          compute_Gamma(W_ijk, v_u, Jnew, Enew, Fnew_d, rad_E_floor, rad_eps);
+      CCTK_REAL Gamma;
+      if (imex_stage) {
+        if (!compute_source_Gamma(W_ijk, v_u, Jnew, Enew, Fnew_d, &Gamma))
+          source_solver_abort();
+      } else {
+        Gamma = compute_Gamma(W_ijk, v_u, Jnew, Enew, Fnew_d, rad_E_floor,
+                               rad_eps);
+      }
       assert(isfinite(Gamma));
 
-      if (!source_uses_thermalized_number_limit(dtau, abs_0[i4D],
-                                                source_therm_limit)) {
+      CCTK_REAL Nnew = Nstar;
+      if (imex_stage) {
+        const auto number_update = source_number_update(
+            Nstar, dt, alp_ijk, volform_ijk, eta_0[i4D], abs_0[i4D], Gamma);
+        Nnew = number_update.state;
+        source_update_delta_N[i4D] = number_update.increment;
+        if (!isfinite(Nnew) || Nnew < 0.0 ||
+            !isfinite(number_update.increment))
+          source_solver_abort();
+      } else if (!source_uses_thermalized_number_limit(
+                     dtau, abs_0[i4D], source_therm_limit)) {
         source_update_delta_N[i4D] =
             (Nstar + dt * alp_ijk * volform_ijk * eta_0[i4D]) /
                 (1 + dt * alp_ijk * abs_0[i4D] / Gamma) -
@@ -250,6 +273,17 @@ void launch_source_increment_kernel(
       assert(isfinite(source_update_delta_Fy[i4D]));
       assert(isfinite(source_update_delta_Fz[i4D]));
       assert(isfinite(source_update_delta_N[i4D]));
+
+      if (imex_stage) {
+        // Commit the physical root itself, not Estar+(Enew-Estar), which can
+        // round to zero when absorption leaves a tiny positive root. The
+        // scratch increments remain available for conservative backreaction.
+        // In IMEX42L/32L, the existing PostStep applies numerical floors and
+        // margins only after the driver extracts the physical diagonal rate.
+        rN[i4D] = Nnew;
+        rE[i4D] = Enew;
+        unpack_F_d(Fnew_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
+      }
     }
   });
 }
@@ -269,8 +303,9 @@ void launch_apply_source_kernel(
     CCTK_REAL *const source_update_delta_Fy,
     CCTK_REAL *const source_update_delta_Fz, CCTK_REAL const dt,
     CCTK_REAL const mb, CCTK_INT const backreact,
-    bool const implicit_backreaction, CCTK_REAL const rad_N_floor,
-    CCTK_REAL const rad_E_floor, CCTK_REAL const rad_eps) {
+    bool const implicit_backreaction, bool const imex_stage,
+    CCTK_REAL const rad_N_floor, CCTK_REAL const rad_E_floor,
+    CCTK_REAL const rad_eps) {
   assert(dt > 0.0);
   const CCTK_REAL inv_dt = 1.0 / dt;
   grid.loop_int_device<1, 1, 1>(grid.nghostzones, [=] CCTK_DEVICE(
@@ -282,12 +317,11 @@ void launch_apply_source_kernel(
       return;
 
     tensor::generic<CCTK_REAL, 4, 1> beta_u;
-    geom.get_shift_vec(p, &beta_u);
-    const CCTK_REAL betax_ijk = beta_u(1);
-    const CCTK_REAL betay_ijk = beta_u(2);
-    const CCTK_REAL betaz_ijk = beta_u(3);
     tensor::inv_metric<4> g_uu;
-    geom.get_inv_metric(p, &g_uu);
+    if (!imex_stage) {
+      geom.get_shift_vec(p, &beta_u);
+      geom.get_inv_metric(p, &g_uu);
+    }
 
     int const groupspec = ngroups * nspecies;
     const CCTK_REAL theta = source_limiter_theta[ijk];
@@ -305,33 +339,37 @@ void launch_apply_source_kernel(
       assert(isfinite(source_update_delta_Fz[i4D]));
       assert(isfinite(source_update_delta_N[i4D]));
 
-      CCTK_REAL E = rE[i4D];
-      tensor::generic<CCTK_REAL, 4, 1> F_d;
-      pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D], rFz[i4D],
-               &F_d);
-      apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
-
       const CCTK_REAL collision_delta_E = theta * source_update_delta_E[i4D];
       const CCTK_REAL collision_delta_Fx = theta * source_update_delta_Fx[i4D];
       const CCTK_REAL collision_delta_Fy = theta * source_update_delta_Fy[i4D];
       const CCTK_REAL collision_delta_Fz = theta * source_update_delta_Fz[i4D];
       const CCTK_REAL collision_delta_N = theta * source_update_delta_N[i4D];
 
-      E += collision_delta_E;
-      const CCTK_REAL Fx_new = F_d(1) + collision_delta_Fx;
-      const CCTK_REAL Fy_new = F_d(2) + collision_delta_Fy;
-      const CCTK_REAL Fz_new = F_d(3) + collision_delta_Fz;
+      if (!imex_stage) {
+        CCTK_REAL E = rE[i4D];
+        tensor::generic<CCTK_REAL, 4, 1> F_d;
+        pack_F_d(beta_u(1), beta_u(2), beta_u(3), rFx[i4D], rFy[i4D],
+                 rFz[i4D], &F_d);
+        apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
+        E += collision_delta_E;
+        const CCTK_REAL Fx_new = F_d(1) + collision_delta_Fx;
+        const CCTK_REAL Fy_new = F_d(2) + collision_delta_Fy;
+        const CCTK_REAL Fz_new = F_d(3) + collision_delta_Fz;
 
-      assert(isfinite(E));
-      assert(isfinite(Fx_new));
-      assert(isfinite(Fy_new));
-      assert(isfinite(Fz_new));
+        assert(isfinite(E));
+        assert(isfinite(Fx_new));
+        assert(isfinite(Fy_new));
+        assert(isfinite(Fz_new));
 
-      pack_F_d(betax_ijk, betay_ijk, betaz_ijk, Fx_new, Fy_new, Fz_new, &F_d);
-      apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
+        pack_F_d(beta_u(1), beta_u(2), beta_u(3), Fx_new, Fy_new, Fz_new, &F_d);
+        apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
 
-      CCTK_REAL N = max(rN[i4D], rad_N_floor) + collision_delta_N;
-      N = max(N, rad_N_floor);
+        CCTK_REAL N = max(rN[i4D], rad_N_floor) + collision_delta_N;
+        N = max(N, rad_N_floor);
+        rE[i4D] = E;
+        unpack_F_d(F_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
+        rN[i4D] = N;
+      }
 
       const CCTK_REAL collision_delta_DYe =
           -mb * ((ig == 0 ? collision_delta_N : 0.0) -
@@ -344,7 +382,7 @@ void launch_apply_source_kernel(
 
       // ODESolvers recovers the implicit RHS from the accepted diagonal-stage
       // increment. Couple only the physical collision increment here; the
-      // radiation floor and realizability repairs below are numerical and
+      // radiation floor and realizability repairs are numerical and
       // must not exchange energy, momentum, or lepton number with matter.
       if (implicit_backreaction) {
         momx[ijk] -= collision_delta_Fx;
@@ -368,10 +406,6 @@ void launch_apply_source_kernel(
       source_update_delta_Fy[i4D] = collision_delta_Fy * inv_dt;
       source_update_delta_Fz[i4D] = collision_delta_Fz * inv_dt;
 
-      rE[i4D] = E;
-      unpack_F_d(F_d, &rFx[i4D], &rFy[i4D], &rFz[i4D]);
-      rN[i4D] = N;
-
       assert(isfinite(rN[i4D]));
       assert(isfinite(rE[i4D]));
       assert(isfinite(rFx[i4D]));
@@ -392,6 +426,14 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   closure_t const closure_fun = pick_closure(closure);
 
   const bool semi_implicit = CCTK_Equals(method, "semi-implicit");
+  const bool imex_stage = !semi_implicit;
+  const bool strict_source =
+      source_requires_nonlinear(semi_implicit, source_force_nonlinear != 0);
+  // A scaled collision increment is not an IMEX diagonal residual solution.
+  // Fail here as well as at parameter checking in case this steerable option
+  // is changed after startup.
+  if (imex_stage && source_limiter >= 0.0)
+    CCTK_ERROR("nuX_M1::source_limiter must be -1 for IMEX stages");
   const bool implicit_backreaction =
       backreact && !semi_implicit &&
       CCTK_Equals(imex_backreaction, "implicit");
@@ -438,8 +480,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
       rFx, rFy, rFz, chi, eta_0, eta_1, abs_0, abs_1, scat_1, nueave,
       source_update_delta_N, source_update_delta_E, source_update_delta_Fx,
       source_update_delta_Fy, source_update_delta_Fz, rad_N_floor, rad_E_floor,
-      rad_eps, closure_epsilon, closure_maxiter, use_fallback,
-      source_force_nonlinear, source_thick_limit, source_scat_limit,
+      rad_eps, closure_epsilon, closure_maxiter, imex_stage ? 0 : use_fallback,
+      imex_stage, strict_source, source_thick_limit, source_scat_limit,
       source_therm_limit, source_maxiter, source_epsabs, source_epsrel);
 
   // Step 2: compute the per-cell source limiter from the scratch increments.
@@ -449,6 +491,10 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
         int const groupspec = ngroups * nspecies;
         if (nuX_m1_mask[ijk]) {
           source_limiter_theta[ijk] = 0.0;
+          return;
+        }
+        if (imex_stage) {
+          source_limiter_theta[ijk] = 1.0;
           return;
         }
 
@@ -519,8 +565,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
       rN, rE, rFx, rFy, rFz, momx, momy, momz, tau, DYe,
       source_limiter_theta, source_update_delta_N, source_update_delta_E,
       source_update_delta_Fx, source_update_delta_Fy, source_update_delta_Fz,
-      dt, mb, backreact, implicit_backreaction, rad_N_floor, rad_E_floor,
-      rad_eps);
+      dt, mb, backreact, implicit_backreaction, imex_stage, rad_N_floor,
+      rad_E_floor, rad_eps);
 }
 
 } // namespace nuX_M1

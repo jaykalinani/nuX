@@ -11,6 +11,99 @@ Grey M1 solver a la Radice et al. 2022 [arXiv:2111.14858].
 
 This code needs 2 ghost cells on unigrid and 4 ghost cells with AMR.
 
+2. IMEX collision contract and remaining limitations
+
+IMEX42L, IMEX32L, IMEX122, and Implicit Euler always use the nonlinear
+diagonal collision residual for E and F with the selected closure. The
+source_force_nonlinear option and source_thick_limit/source_scat_limit
+shortcuts retain their legacy meaning only for the semi-implicit method.
+The IMEX number update always solves its scalar absorption/emission equation
+analytically, using Gamma=W*(E-F.v)/J from the accepted physical state without
+a transport-floor or rad_eps approximation. The exactly empty radiation
+state uses the isotropic current Gamma=W. The zero-diagonal source RHS and
+current-stage backreaction use the same physical current. IMEX ignores the
+legacy source_therm_limit shortcut. source_limiter must be -1 for IMEX.
+The established semi-implicit predictor/corrector is otherwise unchanged.
+
+The componentwise acceptance test requires both the nonlinear residual and
+the solver step to be no larger than
+
+  source_epsabs + source_epsrel * max(abs(q_component), abs(qstar_component)).
+
+The reference is the provisional state defining the residual, not the
+analytic initial guess or an opacity-amplified source scale. Small fluxes
+therefore do not inherit an energy-sized relative error allowance. Choose
+source_epsabs in the units and magnitude of the moments actually being
+resolved; an absolute tolerance larger than those moments cannot establish
+relative accuracy. The same acceptance test applies at every diagonal stage.
+
+For IMEX the stored provisional state is the source baseline, without a
+second local floor or realizability repair. In the IMEX42L/32L ODESolvers
+stage sequence, PostStep repairs the provisional state before the driver
+saves its diagonal baseline. The source kernel commits its physical root
+directly, rather than reconstructing it as qstar+(qnew-qstar). The existing
+PostStep projection of the accepted state occurs after the IMEX42L/32L driver
+extracts the diagonal rate. The older IMEX122/Implicit Euler driver instead
+copies its intermediate state after PostStep and can still include that
+projection in its recovered implicit rate; nuX does not change that driver.
+No additional final implicit projection or change of Butcher coefficients
+is introduced. Zero collision rates leave the stored
+state untouched. The scalar number state uses a positive-form analytic
+solution, while its matter-exchange increment is evaluated without subtracting
+two nearly equal number densities.
+
+IMEX closure evaluations do not replace a failed variable closure with an
+endpoint tensor, regardless of use_fallback. A failed closure on a Newton
+trial returns an invalid-callback status so the trust-region solver can
+backtrack. Only a failed actual-state closure or exhausted diagonal solve is
+fatal. Outside IMEX the existing use_fallback behavior is retained.
+
+The selected imex_backreaction policy and its default are unchanged.
+"implicit" conservatively applies opposite collision increments to matter
+conserved variables, but matter primitives are frozen during the radiation
+solve: this is not a fully coupled matter/radiation nonlinear solve.
+"explicit" keeps the paper's matter split and evaluates its physical source
+from the current accepted stage, after primitive/closure/rate refresh.
+Both modes still require physical verification in stiff coupled matter tests.
+
+In particular, the radiation solve still freezes opacities evaluated from the
+provisional state. Radiation-dependent mean-energy opacity corrections and
+trapped-equilibrium prescriptions are not iterated to the accepted radiation
+state here. Thus solving the fixed-coefficient residual is not proof that the
+fully population-dependent collision equation is solved, or that a separately
+refreshed explicit matter source exactly cancels the diagonal radiation rate.
+Stiff transport/source cancellation, frozen matter feedback, and the observed
+opaque-core TOV flux spotting remain unresolved numerical questions. The
+strict solve must not be interpreted as evidence that spotting is cured.
+
+The current local CarpetX/ODESolvers subcycling driver also has a separate
+IMEX32L coefficient discrepancy: its last implicit row is (1/6,1/6,2/3),
+which sums to 1, whereas the explicit stage abscissa is 1/2. With the stored
+weights this gives b.A_I.1=5/6 instead of the second-order condition 1/2.
+This nuX-only branch does not modify CarpetX. Correct and independently
+validate that driver/table before treating its IMEX32L convergence as verified.
+
+3. Focused checks (added as source/parfile, not executed here)
+
+nuX_Tests/test/unit_tests.par exercises source math, including IMEX policy,
+nonstiff/thick/scattering thresholds, independently evaluated diagonal
+residuals, separate small-flux residual/step checks, recoverable closure trial
+failure, zero number rates, near-equilibrium number exchange, and strongly
+absorbing tiny positive energy/number roots and moving below-floor number
+currents. These checks require a future
+build and test run; adding them is not a passing test result.
+
+par/nuX_M1_imex_relaxation_3D.par is a small, source-only FakeRates case.
+It deliberately sets all legacy source thresholds and source_force_nonlinear=no
+to check automatic IMEX policy. In the static unit-density background the
+electron species obey dE/dt=-100 E and dE/dt=-E, respectively, with N=E;
+the heavy species has zero rates and must remain unchanged. Compare each
+method's scalar RK stability function, not a diagonal backward-Euler step,
+against the whole-step output. Repeat with IMEX32L and with all three legacy
+thresholds set to -1; results should agree to roundoff. Refine dt to compare
+the absorption solution with the exponential. This does not exercise the
+coupled TOV transport/source balance or establish TOV stability.
+
 A. Acknowledgements
 
 This code is ported from THC_M1 (https://bitbucket.org/FreeTHC/thccore/src/master/) of Radice et al. 

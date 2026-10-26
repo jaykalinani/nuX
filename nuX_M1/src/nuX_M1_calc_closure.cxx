@@ -23,6 +23,11 @@ void CalcClosure(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CalcClosure");
   }
 
+  const bool is_imex =
+      CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
+      CCTK_Equals(method, "IMEX122") || CCTK_Equals(method, "Implicit Euler");
+  const bool closure_use_fallback = !is_imex && use_fallback != 0;
+
   closure_t closure_fun;
   if (CCTK_Equals(closure, "Eddington")) {
     closure_fun = CLOSURE_EDDINGTON;
@@ -117,7 +122,7 @@ void CalcClosure(CCTK_ARGUMENTS) {
 
           calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
                        W, u_u, v_d, proj_ud, E_closure, F_d, &chi[i4D], &P_dd,
-                       closure_epsilon, closure_maxiter, use_fallback != 0);
+                       closure_epsilon, closure_maxiter, closure_use_fallback);
           unpack_P_dd(P_dd, &rPxx[i4D], &rPxy[i4D], &rPxz[i4D], &rPyy[i4D],
                       &rPyz[i4D], &rPzz[i4D]);
           assert(isfinite(rPxx[i4D]));
@@ -149,8 +154,15 @@ void CalcClosure(CCTK_ARGUMENTS) {
           assert(isfinite(rHy[i4D]));
           assert(isfinite(rHz[i4D]));
 
-          CCTK_REAL const Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
-                                                rad_E_floor, rad_eps);
+          CCTK_REAL Gamma;
+          if (is_imex) {
+            if (!compute_source_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
+                                       &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
+                                   rad_E_floor, rad_eps);
+          }
           assert(Gamma > 0);
           rnnu[i4D] = max(rN[i4D], rad_N_floor) / Gamma;
         }
