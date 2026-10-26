@@ -76,12 +76,33 @@ Stiff transport/source cancellation, frozen matter feedback, and the observed
 opaque-core TOV flux spotting remain unresolved numerical questions. The
 strict solve must not be interpreted as evidence that spotting is cured.
 
-The current local CarpetX/ODESolvers subcycling driver also has a separate
-IMEX32L coefficient discrepancy: its last implicit row is (1/6,1/6,2/3),
-which sums to 1, whereas the explicit stage abscissa is 1/2. With the stored
-weights this gives b.A_I.1=5/6 instead of the second-order condition 1/2.
-This nuX-only branch does not modify CarpetX. Correct and independently
-validate that driver/table before treating its IMEX32L convergence as verified.
+Both current CarpetX/ODESolvers driver paths have a separate IMEX32L tableau
+problem. They reproduce the coefficients printed in Tables VIII and XI of
+Izquierdo et al., arXiv:2211.00027v2, including the last implicit row
+(1/6,1/6,2/3). This row sums to 1, not the printed explicit abscissa 1/2.
+With the stored weights, b.A_I.1=5/6 instead of the second-order condition
+1/2. Thus matching the printed table does not establish the claimed order.
+
+For the autonomous scalar equation y'=lambda*y, with all terms implicit,
+the actual stage recurrence gives
+
+  R_32(z) = (1-z/6) / ((1-z/2)*(1-2*z/3))
+          = 1 + z + (5/6)*z^2 + O(z^3),  z=lambda*dt.
+
+The coefficient of z^2 must be 1/2 for second order. Refining dt for y'=-y
+to t=1 gives first-order convergence for these coefficients. In contrast,
+IMEX42L satisfies the second-order conditions and passes this scalar check;
+the IMEX32L defect does not explain IMEX42L TOV spotting.
+
+Changing only the last diagonal from 2/3 to 1/6 is not an adequate repair:
+it loses stiff accuracy and gives the trapezoidal amplification factor,
+which tends to -1 rather than 0 for arbitrarily stiff decay. More generally,
+stiff accuracy and sum(b)=1 force the last implicit row sum to be 1, so they
+cannot also give SSPRK3's last abscissa 1/2. A replacement method requires
+an independently validated design, not a guessed coefficient. This nuX-only
+branch does not change CarpetX or the published coefficients.
+
+Paper: https://arxiv.org/html/2211.00027v2#S3.SS3.SSS3
 
 3. Focused checks (added as source/parfile, not executed here)
 
@@ -99,10 +120,12 @@ to check automatic IMEX policy. In the static unit-density background the
 electron species obey dE/dt=-100 E and dE/dt=-E, respectively, with N=E;
 the heavy species has zero rates and must remain unchanged. Compare each
 method's scalar RK stability function, not a diagonal backward-Euler step,
-against the whole-step output. Repeat with IMEX32L and with all three legacy
-thresholds set to -1; results should agree to roundoff. Refine dt to compare
-the absorption solution with the exponential. This does not exercise the
-coupled TOV transport/source balance or establish TOV stability.
+against the whole-step output. Repeat with all three legacy thresholds set
+to -1; results should agree to roundoff. Refine dt to compare the absorption
+solution with the exponential. IMEX32L can check source-solver consistency,
+but its current driver coefficients predict only first-order implicit
+convergence, as explained above. This does not exercise the coupled TOV
+transport/source balance or establish TOV stability.
 
 A. Acknowledgements
 
