@@ -13,7 +13,7 @@ STORAGE: rJ
 STORAGE: rHt
 STORAGE: rH
 
-if (include_fluxes && CCTK_Equals(transport_flux, "thc")) {
+if (include_fluxes && CCTK_Equals(transport_flux, "lax-friedrichs")) {
   STORAGE: nu_flux_x
   STORAGE: nu_flux_y
   STORAGE: nu_flux_z
@@ -410,7 +410,7 @@ SCHEDULE nuX_M1_SyncDerived IN nuX_M1_RHSGroup \
     SYNC: opacs
 } "Sync closure/opacities into ghost zones before flux divergence"
 
-if (include_fluxes && CCTK_Equals(transport_flux, "thc")) {
+if (include_fluxes && CCTK_Equals(transport_flux, "lax-friedrichs")) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_RHSGroup \
     AFTER (nuX_M1_CalcOpacityNuRates nuX_M1_CalcOpacityWeakRates \

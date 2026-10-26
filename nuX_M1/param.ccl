@@ -98,7 +98,7 @@ BOOLEAN include_GR_sources "Add GR sources to the radiation RHS" STEERABLE=ALWAY
 
 INT grsource_spatial_order "Finite-difference order for spacetime derivatives in GR source terms" STEERABLE=ALWAYS
 {
-    2 :: "Second order; matches THC_M1"
+    2 :: "Second order"
     4 :: "Fourth order on cell-centered geometry"
 } 2
 
@@ -222,9 +222,9 @@ REAL equilibrium_rho_min "Set to equilibrium only if the density is larger than 
 ###############################################################################
 KEYWORD transport_flux "Radiation transport flux discretization"
 {
-    "thc"  :: "Original THC-style limited cell-centred flux"
+    "lax-friedrichs" :: "Original limited cell-centred Lax-Friedrichs flux"
     "hlle" :: "Reconstructed radiation HLLE with opacity-dependent dissipation"
-} "thc"
+} "lax-friedrichs"
 
 KEYWORD hlle_limiter "Slope limiter for the optional HLLE radiation transport"
 {

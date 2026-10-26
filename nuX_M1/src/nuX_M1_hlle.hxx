@@ -1,8 +1,9 @@
 #ifndef NUX_M1_HLLE_HXX
 #define NUX_M1_HLLE_HXX
 
-// Private helpers for the optional radiation solver; the THC kernels do not
-// include this header. Components always follow nu_flux: N, Fx, Fy, Fz, E.
+// Private helpers for the optional radiation solver; the Lax-Friedrichs
+// kernels do not include this header. Components follow nu_flux:
+// N, Fx, Fy, Fz, E.
 #include "nuX_M1_closure.hxx"
 
 namespace nuX_M1 {
@@ -24,7 +25,8 @@ hlle_slope(const CCTK_REAL qm, const CCTK_REAL q, const CCTK_REAL qp,
 CCTK_HOST CCTK_DEVICE inline CCTK_REAL
 hlle_diffusion_factor(const CCTK_REAL kappa_l, const CCTK_REAL kappa_r,
                       const CCTK_REAL proper_dx) {
-  // Opacities are inverse proper lengths. Do not use THC's mindiss floor:
+  // Opacities are inverse proper lengths. Do not use the Lax-Friedrichs
+  // mindiss floor:
   // a nonzero opacity-independent floor destroys the diffusion limit.
   if (!(isfinite(kappa_l) && kappa_l >= 0 && isfinite(kappa_r) &&
         kappa_r >= 0 && isfinite(proper_dx) && proper_dx > 0))

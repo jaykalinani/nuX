@@ -14,18 +14,19 @@ This code needs 2 ghost cells on unigrid and 4 ghost cells with AMR.
 Optional reconstructed radiation HLLE transport
 ---------------------------------------------
 
-The default nuX_M1::transport_flux = "thc" retains the original THC-style
-cell-centred flux kernels and limiter. Set transport_flux = "hlle" to select
-the independent reconstructed-face solver. hlle_limiter = "mc" (default) or
-"minmod" selects second-order TVD slopes. The THC parameters minmod_theta,
-mindiss, and sawtooth_force_full_dissipation do not affect HLLE. Both paths
+The default nuX_M1::transport_flux = "lax-friedrichs" retains the original
+limited cell-centred Lax-Friedrichs flux kernels. Set transport_flux = "hlle"
+to select the independent reconstructed-face solver. hlle_limiter = "mc"
+(default) or "minmod" selects second-order TVD slopes. The Lax-Friedrichs
+parameters minmod_theta, mindiss, and sawtooth_force_full_dissipation do not
+affect HLLE. Both paths
 require two transport ghost cells (additional AMR/GR stencil requirements
 still apply). These selection parameters are not steerable.
 The HLLE path supports Minerbo, Kershaw, and Eddington; the fixed "thin"
 closure is rejected for HLLE because its general Jacobian is singular at
 F=0 and can be superluminal away from free streaming. The variable closures
-describe free streaming without that fixed-model pathology. THC's existing
-support for the thin model is unchanged.
+describe free streaming without that fixed-model pathology. The Lax-Friedrichs
+path's existing support for the thin model is unchanged.
 Zero radiation floors are supported: with rad_E_floor=rad_N_floor=0,
 E=N=Fi=0 is an exact vacuum with zero reconstructed ratios and zero physical
 flux. Variable closures use a conservative causal fan at vacuum; Eddington
@@ -49,8 +50,8 @@ fluxes by the same face sqrt(gamma). The number current is n(u^mu+H^mu/J),
 with Gamma=alpha*(u^0+H^0/J) from that same regularized current, including
 floor states. Thus its coordinate advection speed is alpha*fnu^d/Gamma.
 No diagnostic or face grid functions are added; the HLLE schedule also omits
-the THC-only nu_flux_x/y/z storage and physical-flux kernels. Do not request
-those THC scratch variables as output with transport_flux="hlle".
+the Lax-Friedrichs-only nu_flux_x/y/z storage and physical-flux kernels. Do not
+request those scratch variables as output with transport_flux="hlle".
 
 Speeds and corrections to the reference formulas:
 
@@ -115,8 +116,8 @@ and periodic integral conservation, repeat with kappa_scat_nue=1e3 and
 closure="Eddington", and measure diffusion/advection convergence under
 resolution and opacity changes. The established beam, crossing-beam,
 adv_velocity_jump, and Kerr-Schild parfiles can be copied and opted into
-HLLE for directional/curved-space checks. Existing THC regression parfiles
-and their reference data remain unchanged. AMR transport retains the
+HLLE for directional/curved-space checks. Existing Lax-Friedrichs regression
+parfiles and their reference data remain unchanged. AMR transport retains the
 existing cell-local divergence infrastructure; no new refluxing algorithm
 is supplied or claimed.
 
