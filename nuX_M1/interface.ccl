@@ -6,6 +6,7 @@ INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx
 INCLUDES HEADER: nuX_M1_sources.hxx IN nuX_M1_sources.hxx
 INCLUDES HEADER: nuX_M1_weak_equil.hxx IN nuX_M1_weak_equil.hxx
 INCLUDES HEADER: nuX_M1_nurates_source.hxx IN nuX_M1_nurates_source.hxx
+INCLUDES HEADER: nuX_M1_nurates_cell.hxx IN nuX_M1_nurates_cell.hxx
 INCLUDES HEADER: nuX_M1_nurates.hxx IN nuX_M1_nurates.hxx
 INCLUDES HEADER: nuX_M1_opacity_utils.hxx IN nuX_M1_opacity_utils.hxx
 

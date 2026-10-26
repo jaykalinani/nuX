@@ -3,3 +3,7 @@ RESTRICTED:
 BOOLEAN run_tests "Run the host-side nuX numerical unit tests"
 {
 } "no"
+
+BOOLEAN run_nurates_matter_source_test "Test the production NuRates source with the configured tabulated EOS"
+{
+} "no"

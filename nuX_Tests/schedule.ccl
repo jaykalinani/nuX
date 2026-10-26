@@ -1,3 +1,13 @@
+if (run_nurates_matter_source_test)
+{
+  SCHEDULE nuX_NuRates_TestMatterSource AT CCTK_WRAGH \
+      AFTER EOSX_Setup_EOS AFTER nuX_NuRates_Setup
+  {
+    LANG: C
+    OPTIONS: GLOBAL
+  } "Test the production NuRates source against a tabulated matter state"
+}
+
 if (run_tests)
 {
   SCHEDULE nuX_M1_UnitTests AT CCTK_WRAGH
