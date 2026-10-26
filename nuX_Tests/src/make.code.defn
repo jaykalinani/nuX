@@ -1,6 +1,7 @@
 SRCS = \
 m1_driver.cxx \
 m1_source_math.cxx \
+m1_nurates_source.cxx \
 nurates.cxx \
 weakrates.cxx
 

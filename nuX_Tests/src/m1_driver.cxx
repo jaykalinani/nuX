@@ -110,6 +110,7 @@ int weak_equilibrium_unit_tests() {
 
 extern "C" void nuX_M1_UnitTests(CCTK_ARGUMENTS) {
   const int source_failures = source_math_unit_tests(cctkGH);
+  const int nurates_failures = nurates_source_unit_tests(cctkGH);
   const int equilibrium_failures = weak_equilibrium_unit_tests();
   if (source_failures != 0)
     CCTK_VINFO("nuX M1 source-math self-test failed %d checks",
@@ -117,7 +118,10 @@ extern "C" void nuX_M1_UnitTests(CCTK_ARGUMENTS) {
   if (equilibrium_failures != 0)
     CCTK_VINFO("nuX M1 weak-equilibrium self-test failed %d checks",
                equilibrium_failures);
-  const int failures = source_failures + equilibrium_failures;
+  if (nurates_failures != 0)
+    CCTK_VINFO("nuX M1 coupled NuRates self-test failed %d checks",
+               nurates_failures);
+  const int failures = source_failures + equilibrium_failures + nurates_failures;
   if (failures != 0)
     CCTK_VERROR("nuX M1 self-test failed %d checks", failures);
   CCTK_INFO("nuX M1 source/equilibrium self-test passed");

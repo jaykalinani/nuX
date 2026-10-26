@@ -154,6 +154,63 @@ int check_nonthermal_separation() {
   return failures;
 }
 
+int check_inelastic_energy_balance() {
+  MyQuadrature quadrature{};
+  quadrature.type = kGauleg;
+  quadrature.dim = 1;
+  quadrature.nx = 6;
+  quadrature.ny = quadrature.nz = 1;
+  quadrature.x1 = 0.0;
+  quadrature.x2 = 1.0;
+  GaussLegendre(&quadrature);
+
+  GreyOpacityParams params{};
+  params.opacity_flags = opacity_flags_default_none;
+  params.opacity_flags.use_inelastic_scatt = 1;
+  params.opacity_pars = opacity_params_default_none;
+  params.eos_pars.nb = 1.0e17;
+  params.eos_pars.temp = 10.0;
+  params.eos_pars.ye = 0.1;
+  params.eos_pars.mu_e = 20.0;
+
+  int failures = 0;
+  for (const BS_REAL eta : std::array<BS_REAL, 3>{-12.0, 0.0, 8.0}) {
+    for (const BS_REAL ratio : std::array<BS_REAL, 3>{0.5, 1.0, 2.0}) {
+      const BS_REAL temperature = ratio * params.eos_pars.temp;
+      params.distr_pars = NuEquilibriumParams(&params.eos_pars);
+      for (int species = 0; species < total_num_species; ++species) {
+        params.distr_pars.temp_t[species] = temperature;
+        params.distr_pars.eta_t[species] = eta;
+        params.m1_pars.n[species] =
+            kBS_FourPi_hc3 * std::pow(temperature, 3) * FDI_p2(eta);
+        params.m1_pars.J[species] =
+            kBS_FourPi_hc3 * std::pow(temperature, 4) * FDI_p3(eta);
+      }
+
+      const auto rates = ComputeM1OpacitiesNonThermalSeparated(
+          &quadrature, &quadrature, &params);
+      for (int species = 0; species < total_num_species; ++species) {
+        const BS_REAL emission = rates.eta_non_th[species];
+        const BS_REAL absorption = kBS_Clight * rates.kappa_a_non_th[species] *
+                                   params.m1_pars.J[species];
+        failures += !std::isfinite(emission) || !std::isfinite(absorption);
+        failures += rates.eta_0[species] != 0.0;
+        failures += rates.kappa_0_a[species] != 0.0;
+        // Inelastic scattering conserves number. Every FD spectrum at the
+        // matter temperature is stationary, regardless of its chemical
+        // potential; colder/hotter spectra must gain/lose energy.
+        if (ratio == 1.0)
+          failures += !close_rel(emission, absorption);
+        else if (ratio < 1.0)
+          failures += !(emission > absorption);
+        else
+          failures += !(emission < absorption);
+      }
+    }
+  }
+  return failures;
+}
+
 } // namespace
 
 extern "C" void nuX_NuRates_TestKernels(CCTK_ARGUMENTS) {
@@ -186,6 +243,7 @@ extern "C" void nuX_NuRates_TestKernels(CCTK_ARGUMENTS) {
   failures += check_brt06_units();
   failures += check_direct_beta_absorptivity();
   failures += check_nonthermal_separation();
+  failures += check_inelastic_energy_balance();
   failures += check_kernel(PairKernels(&eos, &pair), balance, true);
   failures += check_kernel(BremKernelsLegCoeff(&brem, &eos), balance, true);
   failures += check_kernel(BremKernelsBRT06(&brem, &eos), balance, true);
