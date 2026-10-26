@@ -11,6 +11,9 @@
 
 #include "m1_opacities.hpp"
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_nurates_cell.hxx"
+#include "nuX_M1_nurates.hxx"
+#include "nuX_M1_nurates_equilibrium.hxx"
 #include "nuX_M1_opacity_utils.hxx"
 #include "nuX_M1_weak_equil.hxx"
 #include "nuX_rate_units.hxx"
@@ -52,10 +55,8 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_CalcOpacityNuRates;
   DECLARE_CCTK_PARAMETERS;
 
-  // Match the legacy dev integrator: evaluate opacities on the half-step
-  // predictor pass and hold them fixed for the full-step corrector.
-  if (CCTK_Equals(method, "semi-implicit") && *semi_implicit_stage == 1)
-    return;
+  // NuRates depends on the radiation population, not only on matter.
+  // Refresh at the predictor state before the corrector transport evaluation.
 
   if (verbose) {
     CCTK_INFO("nuX_M1_CalcOpacityNuRates");
@@ -141,55 +142,13 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
         const CCTK_REAL rho_raw = rho[ijk];
         const CCTK_REAL temp_raw = temperature[ijk];
         const CCTK_REAL ye_raw = Ye[ijk];
+        CCTK_REAL rhoL;
         require_nurates(
-            isfinite(rho_raw) && rho_raw > CCTK_REAL(0) &&
-                isfinite(temp_raw) && temp_raw > CCTK_REAL(0) &&
-                isfinite(ye_raw) && ye_raw >= CCTK_REAL(0) &&
-                ye_raw <= CCTK_REAL(1) && isfinite(particle_mass) &&
-                particle_mass > CCTK_REAL(0),
-            "nuX_M1 NuRates: invalid matter state; rates cannot be evaluated");
-        const CCTK_REAL rhoL =
-            fmin(fmax(rho_raw, eos_3p->rgrho.min), eos_3p->rgrho.max);
-        const CCTK_REAL tempL =
-            fmin(fmax(temp_raw, eos_3p->rgtemp.min), eos_3p->rgtemp.max);
-        const CCTK_REAL yeL =
-            fmin(fmax(ye_raw, eos_3p->rgye.min), eos_3p->rgye.max);
-        CCTK_REAL nb_nr =
-            rhoL * nuX_dens_conv / (particle_mass * kBS_MeVtog); // CU to nm^-3
-        const CCTK_REAL nb_transport = nb_nr / nuX_ndens_conv;
-        const CCTK_REAL nb_fm3 =
-            nb_nr / rate_units::physical_number_density_fm3_to_nm3;
-        my_grey_opacity_params.eos_pars.nb = nb_nr;
-        my_grey_opacity_params.eos_pars.temp = tempL;
-        my_grey_opacity_params.eos_pars.ye = yeL;
-
-        // NuRates uses yn/yp as the abundances of free neutrons/protons in
-        // beta reactions, nucleon scattering, and the HR98/BRT06
-        // bremsstrahlung kernels.  Ye and 1-Ye are total charge fractions and
-        // include nucleons bound in nuclei, so obtain the free fractions from
-        // the tabulated composition instead.
-        using tabulated_eos = EOSX::eos_3p_tabulated3d;
-        const auto eos_state = eos_3p->interptable->interpolate<
-            tabulated_eos::EV::MU_P, tabulated_eos::EV::MU_N,
-            tabulated_eos::EV::MU_E, tabulated_eos::EV::XN,
-            tabulated_eos::EV::XP>(log(rhoL), log(tempL), yeL);
-        const CCTK_REAL mu_pL = eos_state[0];
-        const CCTK_REAL mu_nL = eos_state[1];
-        const CCTK_REAL mu_eL = eos_state[2];
-        const CCTK_REAL xnL = eos_state[3];
-        const CCTK_REAL xpL = eos_state[4];
-        require_nurates(
-            isfinite(mu_pL) && isfinite(mu_nL) && isfinite(mu_eL),
-            "nuX_M1 NuRates: nonfinite EOS chemical potentials");
-        my_grey_opacity_params.eos_pars.yn =
-            isfinite(xnL) ? min(max(xnL, CCTK_REAL(0)), CCTK_REAL(1))
-                          : CCTK_REAL(1) - yeL;
-        my_grey_opacity_params.eos_pars.yp =
-            isfinite(xpL) ? min(max(xpL, CCTK_REAL(0)), CCTK_REAL(1)) : yeL;
-
-        my_grey_opacity_params.eos_pars.mu_p = mu_pL;
-        my_grey_opacity_params.eos_pars.mu_n = mu_nL;
-        my_grey_opacity_params.eos_pars.mu_e = mu_eL;
+            prepare_nurates_matter(eos_3p, rho_raw, temp_raw, ye_raw,
+                                    particle_mass, rhoL,
+                                    my_grey_opacity_params.eos_pars),
+            "nuX_M1 NuRates: invalid matter/EOS state; rates cannot be evaluated");
+        const CCTK_REAL tempL = my_grey_opacity_params.eos_pars.temp;
 
         // Convert M1 Data to nurates
         CCTK_REAL const gxx_cc = tensor::interp_v2c(gf_gxx, p);
@@ -212,8 +171,6 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
         CCTK_REAL const proper_dt = alphaL * dt / wL;
         CCTK_REAL nudens_0[total_num_species];
         CCTK_REAL nudens_1[total_num_species];
-        constexpr CCTK_REAL floor_slack =
-            1 + 64 * numeric_limits<CCTK_REAL>::epsilon();
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           const int i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           const CCTK_REAL in_fac = (ig == 2 && ng == 3) ? 0.25 : 1.0;
@@ -237,19 +194,6 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
           my_grey_opacity_params.m1_pars.chi[ig] =
               min(max(chi[i4D], CCTK_REAL(1) / 3), CCTK_REAL(1));
 
-          // Independent numerical floors do not define a physical spectrum.
-          // Use the smaller normalization at mean energy 3 T_matter, so
-          // neither temporary moment exceeds its input. Evolved moments and
-          // the original nudens arrays used for equilibrium are unchanged.
-          if (rE[i4D] >= 0 && rN[i4D] >= 0 &&
-              rE[i4D] <= rad_E_floor * floor_slack &&
-              rN[i4D] <= rad_N_floor * floor_slack) {
-            auto &radiation = my_grey_opacity_params.m1_pars;
-            const CCTK_REAL n_ref = min(n_nr, J_nr / (3 * tempL));
-            radiation.n[ig] = n_ref;
-            radiation.J[ig] = (3 * tempL) * n_ref;
-          }
-
           // Fill data for anti-heavy neutrinos if only 3 species are evolved.
           if (ig == 2 && ng == 3) {
             nudens_0[3] = in_fac * rnnu[i4D] / volformL;
@@ -262,6 +206,17 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
                 my_grey_opacity_params.m1_pars.chi[ig];
           }
         }
+
+        // Keep the original moments for the equilibrium energy/lepton
+        // budget; the temporary floor spectrum is only a rate reference.
+        M1Quantities budget_moments = my_grey_opacity_params.m1_pars;
+        for (int sp = 0; sp < 3; ++sp) {
+          budget_moments.n[sp] = nudens_0[sp] * nuX_ndens_conv;
+          budget_moments.J[sp] = nudens_1[sp] * nuX_edens_conv;
+        }
+        bool floor_only[3];
+        nurates_rate_reference(my_grey_opacity_params.m1_pars, volformL,
+                                tempL, rad_N_floor, rad_E_floor, floor_only);
 
         // Distribution parameters
         my_grey_opacity_params.distr_pars = CalculateDistrParamsFromM1(
@@ -276,11 +231,23 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
               "nuX_M1 NuRates: nonfinite reconstructed radiation spectrum");
           const auto &radiation = my_grey_opacity_params.m1_pars;
           if (spectrum.w_t[ig] > 0 && radiation.n[ig] > 0) {
-            require_nurates(
-                ThickDistributionMatchesM1(
+            if (!ThickDistributionMatchesM1(
                     radiation.n[ig], radiation.J[ig], spectrum.temp_t[ig],
-                    spectrum.eta_t[ig]),
-                "nuX_M1 NuRates: reconstructed FD spectrum does not match moments");
+                    spectrum.eta_t[ig])) {
+              // Failure-only context: no diagnostic grid storage or extra
+              // work on successful rate evaluations.
+              printf("nuX_M1 NuRates: spectrum mismatch at (%e,%e,%e), "
+                     "species %d: n=%e J=%e Tnu=%e eta=%e chi=%e "
+                     "Tmatter=%e rho=%e step_dt=%e log_y=%e\n",
+                     p.x, p.y, p.z, ig, radiation.n[ig], radiation.J[ig],
+                     spectrum.temp_t[ig], spectrum.eta_t[ig],
+                     radiation.chi[ig], tempL, rhoL, dt,
+                     4 * log(radiation.n[ig]) - 3 * log(radiation.J[ig]) -
+                         log(kBS_FourPi_hc3));
+              require_nurates(
+                  false,
+                  "nuX_M1 NuRates: reconstructed FD spectrum does not match moments");
+            }
           }
         }
 
@@ -297,202 +264,62 @@ void CalcOpacityNuRates(CCTK_ARGUMENTS) {
                 &gpu_quad, &gpu_quad, &my_grey_opacity_params);
 
         // Convert emissivities, opacities from nurates
-        CCTK_REAL kappa_1_loc[MAX_GROUPSPECIES];
-        CCTK_REAL abs_0_loc[MAX_GROUPSPECIES];
-        CCTK_REAL abs_1_th_loc[MAX_GROUPSPECIES];
-        CCTK_REAL abs_1_non_th_loc[MAX_GROUPSPECIES];
-        CCTK_REAL scat_1_loc[MAX_GROUPSPECIES];
-        CCTK_REAL eta_0_loc[MAX_GROUPSPECIES];
-        CCTK_REAL eta_1_th_loc[MAX_GROUPSPECIES];
-        CCTK_REAL eta_1_non_th_loc[MAX_GROUPSPECIES];
+        nurates_raw_opacities_t raw[MAX_GROUPSPECIES];
 
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           const CCTK_REAL out_fac = (ig == 2 && ng == 3) ? 4.0 : 1.0;
 
-          abs_0_loc[ig] = coeffs.kappa_0_a[ig] * nuX_length_conv;
-          abs_1_th_loc[ig] = coeffs.kappa_a_th[ig] * nuX_length_conv;
-          abs_1_non_th_loc[ig] =
-              coeffs.kappa_a_non_th[ig] * nuX_length_conv;
-          scat_1_loc[ig] = coeffs.kappa_s[ig] * nuX_length_conv;
-          kappa_1_loc[ig] =
-              abs_1_th_loc[ig] + abs_1_non_th_loc[ig] + scat_1_loc[ig];
-
-          eta_0_loc[ig] =
-              coeffs.eta_0[ig] / nuX_ndens_conv * nuX_time_conv * out_fac;
-          eta_1_th_loc[ig] =
-              coeffs.eta_th[ig] / nuX_edens_conv * nuX_time_conv * out_fac;
-          eta_1_non_th_loc[ig] =
-              coeffs.eta_non_th[ig] / nuX_edens_conv * nuX_time_conv * out_fac;
-
-          if (!rate_is_valid(abs_0_loc[ig], opacity_rate_max) ||
-              !rate_is_valid(abs_1_th_loc[ig], opacity_rate_max) ||
-              !rate_is_valid(abs_1_non_th_loc[ig], opacity_rate_max) ||
-              !rate_is_valid(scat_1_loc[ig], opacity_rate_max) ||
-              !rate_is_valid(eta_0_loc[ig], opacity_rate_max) ||
-              !rate_is_valid(eta_1_th_loc[ig], opacity_rate_max) ||
-              !rate_is_valid(eta_1_non_th_loc[ig], opacity_rate_max)) {
+          raw[ig] = convert_nurates_opacities(coeffs, ig, out_fac);
+          const auto &rates = raw[ig];
+          if (!rate_is_valid(rates.abs_0, opacity_rate_max) ||
+              !rate_is_valid(rates.abs_1_thermal, opacity_rate_max) ||
+              !rate_is_valid(rates.abs_1_nonthermal, opacity_rate_max) ||
+              !rate_is_valid(rates.scat_1, opacity_rate_max) ||
+              !rate_is_valid(rates.eta_0, opacity_rate_max) ||
+              !rate_is_valid(rates.eta_1_thermal, opacity_rate_max) ||
+              !rate_is_valid(rates.eta_1_nonthermal, opacity_rate_max)) {
             printf("nuX_M1 NuRates: invalid rates at (%d,%d,%d), species %d: "
                    "absN=%e absTh=%e absNT=%e scat=%e etaN=%e etaTh=%e "
                    "etaNT=%e (opacity_rate_max=%e)\n",
-                   p.i, p.j, p.k, ig, abs_0_loc[ig], abs_1_th_loc[ig],
-                   abs_1_non_th_loc[ig], scat_1_loc[ig], eta_0_loc[ig],
-                   eta_1_th_loc[ig], eta_1_non_th_loc[ig], opacity_rate_max);
+                   p.i, p.j, p.k, ig, rates.abs_0, rates.abs_1_thermal,
+                   rates.abs_1_nonthermal, rates.scat_1, rates.eta_0,
+                   rates.eta_1_thermal, rates.eta_1_nonthermal, opacity_rate_max);
             require_nurates(
                 false, "nuX_M1 NuRates: refusing to silently disable interactions");
           }
         }
         /*---------------- ^^^ NuRates boilerplate ^^^ -------------*/
 
-        // An effective optical depth used to decide whether to compute
-        // the black body function for neutrinos assuming neutrino trapping
-        // or at a fixed temperature and Ye
-        CCTK_REAL const tau =
-            min(sqrt(abs_1_th_loc[0] * kappa_1_loc[0]),
-                sqrt(abs_1_th_loc[1] * kappa_1_loc[1])) *
-            proper_dt;
-
-        // Compute the optically thin equilibrium first. It is also the
-        // deterministic fallback if the trapped equilibrium or its moments
-        // cannot be evaluated.
-        CCTK_REAL nudens_0_thin[MAX_GROUPSPECIES];
-        CCTK_REAL nudens_1_thin[MAX_GROUPSPECIES];
-        NeutrinoDens(mu_nL, mu_pL, mu_eL, tempL, nudens_0_thin[0],
-                     nudens_0_thin[1], nudens_0_thin[2], nudens_1_thin[0],
-                     nudens_1_thin[1], nudens_1_thin[2]);
-        for (int ig = 0; ig < ng; ++ig) {
-          fallback_equilibrium_moments(nudens_0_thin[ig], nudens_1_thin[ig],
-                                       CCTK_REAL(0), CCTK_REAL(0));
-        }
-
-        // Compute the neutrino black-body functions for trapped neutrinos.
-        CCTK_REAL nudens_0_trap[MAX_GROUPSPECIES] = {CCTK_REAL(0)};
-        CCTK_REAL nudens_1_trap[MAX_GROUPSPECIES] = {CCTK_REAL(0)};
-        if (opacity_tau_trap >= 0 && tau > opacity_tau_trap) {
-
-          const CCTK_REAL epsL = eos_3p->eps_from_rho_temp_ye(rhoL, tempL, yeL);
-          CCTK_REAL eps_total = epsL;
-
-          for (int ig = 0; ig < ngroups * nspecies; ++ig) {
-            // rJ is densitized energy density.  Convert it to a physical
-            // energy density and then to the same specific-energy units as
-            // the EOS before forming the conserved total.
-            eps_total +=
-                rJ[layout_cc.linear(p.i, p.j, p.k, ig)] / (volformL * rhoL);
-          }
-
-          const CCTK_REAL ylep_e =
-              yeL + (nudens_0[0] - nudens_0[1]) / nb_transport;
-          CCTK_REAL temp_trap = tempL;
-          CCTK_REAL ye_trap = yeL;
-          int ierr = BetaEquilibriumTrapped(rhoL, nb_fm3, particle_mass,
-                                            eps_total, ylep_e, temp_trap,
-                                            ye_trap, tempL, yeL, eos_3p);
-          if (ierr) {
-            // Retry without the current neutrino population.
-            ierr =
-                BetaEquilibriumTrapped(rhoL, nb_fm3, particle_mass, epsL, yeL,
-                                       temp_trap, ye_trap, tempL, yeL, eos_3p);
-          }
-
-          if (ierr == 0) {
-            CCTK_REAL mu_p_trap, mu_n_trap, mu_e_trap;
-            eos_3p->mu_pne_from_rho_temp_ye(rhoL, temp_trap, ye_trap,
-                                            mu_p_trap, mu_n_trap, mu_e_trap);
-
-            NeutrinoDens(mu_n_trap, mu_p_trap, mu_e_trap, temp_trap,
-                         nudens_0_trap[0], nudens_0_trap[1], nudens_0_trap[2],
-                         nudens_1_trap[0], nudens_1_trap[1],
-                         nudens_1_trap[2]);
-
-            for (int ig = 0; ig < ng; ++ig) {
-              fallback_equilibrium_moments(
-                  nudens_0_trap[ig], nudens_1_trap[ig], nudens_0_thin[ig],
-                  nudens_1_thin[ig]);
-            }
-          } else {
-            // A failed nonlinear solve does not define a trapped state.  Do
-            // not turn its last iterate into opacities merely because the
-            // resulting moments happen to be finite.
-            for (int ig = 0; ig < ng; ++ig) {
-              nudens_0_trap[ig] = nudens_0_thin[ig];
-              nudens_1_trap[ig] = nudens_1_thin[ig];
-            }
-          }
-        }
+        CCTK_REAL equilibrium_number[3], equilibrium_energy[3];
+        nurates_equilibrium_targets(
+            eos_3p, rhoL, my_grey_opacity_params.eos_pars, budget_moments, raw,
+            particle_mass, proper_dt, opacity_tau_trap, opacity_tau_delta,
+            equilibrium_number, equilibrium_energy);
 
         // Correct cross-sections for incoming neutrino energy
         for (int ig = 0; ig < ngroups * nspecies; ++ig) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
 
           // Set the neutrino black body function
-          CCTK_REAL nudens_0, nudens_1;
-          if (opacity_tau_trap < 0 || tau <= opacity_tau_trap) {
-            nudens_0 = nudens_0_thin[ig];
-            nudens_1 = nudens_1_thin[ig];
-          } else if (tau > opacity_tau_trap + opacity_tau_delta) {
-            nudens_0 = nudens_0_trap[ig];
-            nudens_1 = nudens_1_trap[ig];
-          } else {
-            CCTK_REAL const lam = (tau - opacity_tau_trap) / opacity_tau_delta;
-            nudens_0 = lam * nudens_0_trap[ig] + (1 - lam) * nudens_0_thin[ig];
-            nudens_1 = lam * nudens_1_trap[ig] + (1 - lam) * nudens_1_thin[ig];
-          }
+          const CCTK_REAL nudens_0 = equilibrium_number[ig];
+          const CCTK_REAL nudens_1 = equilibrium_energy[ig];
 
           // Set the neutrino energies
           nueave[i4D] = nudens_0 > 0.0 ? nudens_1 / nudens_0 : 0.0;
 
           // Correct absorption opacities for non-LTE effects
           // (kappa ~ E_nu^2)
-          const bool floor_only = rE[i4D] >= 0 && rN[i4D] >= 0 &&
-                                  rE[i4D] <= rad_E_floor * floor_slack &&
-                                  rN[i4D] <= rad_N_floor * floor_slack;
-          const CCTK_REAL corr_fac =
-              floor_only
-                  ? CCTK_REAL(1)
-                  : opacity_mean_energy_correction(
-                        rnnu[i4D], rJ[i4D], nudens_0, nudens_1,
-                        opacity_corr_fac_max);
-
-          // Extract scattering opacity
-          scat_1[i4D] = corr_fac * scat_1_loc[ig];
-
-          // Enforce Kirchhoff's laws.
-          //
-          // Apply the equilibrium correction only to true emission and
-          // absorption.  NEPS conserves neutrino number and exchanges energy
-          // with an existing radiation distribution; forcing its coefficients
-          // through this thermal Kirchhoff correction would turn an energy
-          // redistribution process into artificial emission/absorption.
-          // . For the heavy lepton neutrinos this is implemented by
-          //   changing the opacities.
-          // . For the electron type neutrinos this is implemented by
-          //   changing the emissivities.
-          // It would be better to have emissivities and absorptivities
-          // that satisfy Kirchhoff's law.
-          if (ig == 2) {
-            eta_0[i4D] = corr_fac * eta_0_loc[ig];
-            const CCTK_REAL eta_1_th = corr_fac * eta_1_th_loc[ig];
-            abs_0[i4D] = (nudens_0 > rad_N_floor ? eta_0[i4D] / nudens_0 : 0);
-            const CCTK_REAL abs_1_th =
-                nudens_1 > rad_E_floor ? eta_1_th / nudens_1 : 0;
-            eta_1[i4D] = eta_1_th + eta_1_non_th_loc[ig];
-            abs_1[i4D] = abs_1_th + abs_1_non_th_loc[ig];
-          } else {
-            abs_0[i4D] = corr_fac * abs_0_loc[ig];
-            const CCTK_REAL abs_1_th = corr_fac * abs_1_th_loc[ig];
-            // Below the library's normalization thresholds, zero absorption
-            // means an undefined grey average, not zero spontaneous emission.
-            // Retain the directly integrated emissivity in that limit.
-            const auto &radiation = my_grey_opacity_params.m1_pars;
-            eta_0[i4D] = radiation.n[ig] > THRESHOLD_N
-                              ? abs_0[i4D] * nudens_0
-                              : corr_fac * eta_0_loc[ig];
-            const CCTK_REAL eta_1_th =
-                radiation.J[ig] > THRESHOLD_J ? abs_1_th * nudens_1
-                                             : corr_fac * eta_1_th_loc[ig];
-            eta_1[i4D] = eta_1_th + eta_1_non_th_loc[ig];
-            abs_1[i4D] = abs_1_th + abs_1_non_th_loc[ig];
-          }
+          const auto &radiation = my_grey_opacity_params.m1_pars;
+          const auto rates = correct_nurates_opacities(
+              raw[ig], ig == 2, floor_only[ig], rnnu[i4D], rJ[i4D],
+              radiation.n[ig] > THRESHOLD_N, radiation.J[ig] > THRESHOLD_J,
+              nudens_0, nudens_1,
+              opacity_corr_fac_max, rad_N_floor, rad_E_floor);
+          abs_0[i4D] = rates.abs_0;
+          abs_1[i4D] = rates.abs_1;
+          scat_1[i4D] = rates.scat_1;
+          eta_0[i4D] = rates.eta_0;
+          eta_1[i4D] = rates.eta_1;
 
           if (!rate_is_valid(abs_0[i4D], opacity_rate_max) ||
               !rate_is_valid(abs_1[i4D], opacity_rate_max) ||
