@@ -220,6 +220,18 @@ REAL equilibrium_rho_min "Set to equilibrium only if the density is larger than 
 ###############################################################################
 # Numerical settings
 ###############################################################################
+KEYWORD transport_flux "Radiation transport flux discretization"
+{
+    "thc"  :: "Original THC-style limited cell-centred flux"
+    "hlle" :: "Reconstructed radiation HLLE with opacity-dependent dissipation"
+} "thc"
+
+KEYWORD hlle_limiter "Slope limiter for the optional HLLE radiation transport"
+{
+    "mc"     :: "Monotonized central (generalized minmod with theta=2)"
+    "minmod" :: "Minmod (theta=1)"
+} "mc"
+
 # This requires cctk_nghostzones >= 4
 BOOLEAN optimize_prolongation "Disable prolongation during the intermediate steps of the time integrator"
 {

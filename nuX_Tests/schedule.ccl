@@ -4,7 +4,7 @@ if (run_tests)
   {
     LANG: C
     OPTIONS: GLOBAL
-  } "Test M1 source algebra, weak equilibrium, and realizability"
+  } "Test M1 sources, weak equilibrium, realizability, and HLLE transport algebra"
 
   SCHEDULE nuX_NuRates_TestKernels AT CCTK_WRAGH AFTER nuX_M1_UnitTests
   {

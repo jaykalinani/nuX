@@ -6,6 +6,7 @@
 namespace nuX_M1 {
 
 int source_math_unit_tests(cGH const *cctkGH);
+int hlle_unit_tests(cGH const *cctkGH);
 
 } // namespace nuX_M1
 

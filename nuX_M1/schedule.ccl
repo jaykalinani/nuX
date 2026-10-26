@@ -13,7 +13,7 @@ STORAGE: rJ
 STORAGE: rHt
 STORAGE: rH
 
-if (include_fluxes) {
+if (include_fluxes && CCTK_Equals(transport_flux, "thc")) {
   STORAGE: nu_flux_x
   STORAGE: nu_flux_y
   STORAGE: nu_flux_z
@@ -398,7 +398,7 @@ if (backreact && !CCTK_Equals(method, "semi-implicit") &&
 SCHEDULE nuX_M1_SyncDerived IN nuX_M1_RHSGroup \
     AFTER (nuX_M1_CalcOpacityNuRates nuX_M1_CalcOpacityWeakRates \
            nuX_M1_CalcOpacityFakeRates nuX_M1_CalcClosure) \
-    BEFORE nuX_M1_CalcFluxes
+    BEFORE (nuX_M1_CalcFluxes nuX_M1_UpdateRHSFromHLLE)
 {
     LANG: C
     OPTIONS: SINGLEMAP
@@ -410,7 +410,7 @@ SCHEDULE nuX_M1_SyncDerived IN nuX_M1_RHSGroup \
     SYNC: opacs
 } "Sync closure/opacities into ghost zones before flux divergence"
 
-if (include_fluxes) {
+if (include_fluxes && CCTK_Equals(transport_flux, "thc")) {
 
     SCHEDULE nuX_M1_CalcFluxes IN nuX_M1_RHSGroup \
     AFTER (nuX_M1_CalcOpacityNuRates nuX_M1_CalcOpacityWeakRates \
@@ -473,9 +473,27 @@ if (include_fluxes) {
           } "Add limited flux divergence to the neutrino RHS"
 }
 
+if (include_fluxes && CCTK_Equals(transport_flux, "hlle")) {
+    SCHEDULE nuX_M1_UpdateRHSFromHLLE IN nuX_M1_RHSGroup \
+        AFTER (nuX_M1_SyncDerived nuX_M1_InitFluxesRHS)
+    {
+        LANG: C
+        READS: ADMBaseX::metric(everywhere)
+        READS: ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+        READS: ADMBaseX::curv(everywhere)
+        READS: nuX_Base::rN(everywhere) nuX_Base::rE(everywhere) nuX_Base::rF(everywhere)
+        READS: fidu_vel(everywhere) opacs(everywhere)
+        READS: nuX_m1_mask(interior)
+        READS: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+        WRITES: rN_rhs(interior) rE_rhs(interior) rF_rhs(interior)
+        SYNC: rN_rhs rE_rhs rF_rhs
+    } "Add reconstructed, opacity-corrected HLLE radiation flux divergence"
+}
+
 if (include_GR_sources) {
     SCHEDULE nuX_M1_CalcGRSources IN nuX_M1_RHSGroup \
-        AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
+        AFTER (nuX_M1_UpdateRHSFromFluxes nuX_M1_UpdateRHSFromHLLE \
+               nuX_M1_CalcClosure nuX_M1_InitFluxesRHS)
     {
         LANG: C
 

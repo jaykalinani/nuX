@@ -9,6 +9,23 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_ParamCheck;
   DECLARE_CCTK_PARAMETERS
 
+  if (CCTK_Equals(transport_flux, "hlle") && rad_E_floor == 0 && rad_N_floor > 0) {
+    CCTK_PARAMWARN("HLLE with rad_E_floor=0 requires rad_N_floor=0 so exact "
+                   "vacuum has finite zero N/E and Fi/E regular limits");
+  }
+
+  if (CCTK_Equals(transport_flux, "hlle") && CCTK_Equals(closure, "thin")) {
+    CCTK_PARAMWARN("HLLE supports Minerbo, Kershaw, and Eddington closures; "
+                   "the fixed thin closure has a singular/noncausal general "
+                   "Jacobian. Use a variable closure for free streaming");
+  }
+
+  if (include_fluxes && (cctk_nghostzones[0] < 2 || cctk_nghostzones[1] < 2 ||
+                         cctk_nghostzones[2] < 2)) {
+    CCTK_PARAMWARN("nuX_M1 radiation transport requires at least two ghost "
+                   "points in each direction");
+  }
+
   if (optimize_prolongation) {
     if (cctk_nghostzones[0] < 4 || cctk_nghostzones[1] < 4 ||
         cctk_nghostzones[2] < 4) {

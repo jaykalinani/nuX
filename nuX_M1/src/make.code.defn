@@ -5,6 +5,7 @@ SRCS = \
 nuX_M1_analysis.cxx \
 nuX_M1_calc_closure.cxx \
 nuX_M1_calc_fluxes.cxx \
+nuX_M1_calc_hlle.cxx \
 nuX_M1_calc_grsources.cxx \
 nuX_M1_calc_opacity_nurates.cxx \
 nuX_M1_calc_opacity_weakrates.cxx \

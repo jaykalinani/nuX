@@ -4,6 +4,7 @@ INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX nuX_Base
 
 INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx 
 INCLUDES HEADER: nuX_M1_sources.hxx IN nuX_M1_sources.hxx
+INCLUDES HEADER: nuX_M1_hlle.hxx IN nuX_M1_hlle.hxx
 INCLUDES HEADER: nuX_M1_weak_equil.hxx IN nuX_M1_weak_equil.hxx
 
 USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx

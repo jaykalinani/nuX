@@ -11,6 +11,115 @@ Grey M1 solver a la Radice et al. 2022 [arXiv:2111.14858].
 
 This code needs 2 ghost cells on unigrid and 4 ghost cells with AMR.
 
+Optional reconstructed radiation HLLE transport
+---------------------------------------------
+
+The default nuX_M1::transport_flux = "thc" retains the original THC-style
+cell-centred flux kernels and limiter. Set transport_flux = "hlle" to select
+the independent reconstructed-face solver. hlle_limiter = "mc" (default) or
+"minmod" selects second-order TVD slopes. The THC parameters minmod_theta,
+mindiss, and sawtooth_force_full_dissipation do not affect HLLE. Both paths
+require two transport ghost cells (additional AMR/GR stencil requirements
+still apply). These selection parameters are not steerable.
+The HLLE path supports Minerbo, Kershaw, and Eddington; the fixed "thin"
+closure is rejected for HLLE because its general Jacobian is singular at
+F=0 and can be superluminal away from free streaming. The variable closures
+describe free streaming without that fixed-model pathology. THC's existing
+support for the thin model is unchanged.
+Zero radiation floors are supported: with rad_E_floor=rad_N_floor=0,
+E=N=Fi=0 is an exact vacuum with zero reconstructed ratios and zero physical
+flux. Variable closures use a conservative causal fan at vacuum; Eddington
+uses its fixed-v isotropic regular-limit fan. A zero energy floor requires
+a zero number floor, and states with E=0 but positive N or nonzero Fi are
+rejected because their moment ratios do not define finite interface states.
+
+Following section 3.1 of https://arxiv.org/html/2304.09168v1, reconstruct
+(N/E, Fx/E, Fy/E, Fz/E, E), with physical E=rE/sqrt(gamma), rather than
+reconstructing densitized components independently. Evaluate lapse, shift,
+and spatial metric with the existing nuX vertex-to-cell interpolation, then
+average adjacent cells to form one common face geometry. The fiducial
+velocity is centered at the face and repaired in that metric; W is recomputed
+from it, never independently interpolated. Reconstructed Fi/E is projected
+onto the realizable cone in the face metric. Recompute the selected closure
+on both sides; do not reconstruct a stale cell-centred pressure tensor.
+
+Conserved components and their numerical/physical fluxes consistently use
+the existing order (rN,rFx,rFy,rFz,rE). Multiply face physical moments and
+fluxes by the same face sqrt(gamma). The number current is n(u^mu+H^mu/J),
+with Gamma=alpha*(u^0+H^0/J) from that same regularized current, including
+floor states. Thus its coordinate advection speed is alpha*fnu^d/Gamma.
+No diagnostic or face grid functions are added; the HLLE schedule also omits
+the THC-only nu_flux_x/y/z storage and physical-flux kernels. Do not request
+those THC scratch variables as output with transport_flux="hlle".
+
+Speeds and corrections to the reference formulas:
+
+* Use signed sL=min(0,lambdaL-,lambdaR-) and
+  sR=max(0,lambdaL+,lambdaR+). The consistent HLLE expression is
+  (sR*FL-sL*FR+sL*sR*(UR-UL))/(sR-sL), not Eq. (62)'s printed state sum
+  and speed sum. A zero-width fan uses the centered physical flux.
+* Do NOT interpolate thick/thin eigenvalues as in Eq. (57): that estimate
+  need not enclose the actual closure Jacobian. For example, static Minerbo
+  f=|F|/E=0.5 aligned with the normal has lambda+=0.7541494487, while the
+  interpolated endpoint estimate gives only 0.6460308504.
+* Eddington uses the exact fixed-v thick-system roots, with p=alpha*v^d
+  and the advective root -beta^d+p in the lower MIN and upper MAX. This
+  corrects the printed p=alpha*v^d/W and two MINs in Eqs. (58)-(60).
+  The roots reproduce (v +/- 1/sqrt(3))/(1 +/- v/sqrt(3)) in 1D flat space.
+* For a static fiducial observer, differentiate the actual variable closure
+  Pij/E=(1-chi)*deltaij/2+(3*chi-1)*ni*nj/2 in a local orthonormal frame.
+  The normal cosine is mu=F^d/(sqrt(gamma^{dd})*|F|), including off-diagonal
+  metrics. Rotation about the normal reduces its four eigenvalues to a
+  three-by-three cubic plus the transverse root (3*chi-1)*mu/(2*f).
+  Minerbo uses all four roots, with explicit isotropic and streaming limits.
+  Kershaw factors analytically: two roots f*mu and the roots
+  2*f*mu/3 +/- sqrt((1-f^2)/3+f^2*mu^2/9). Transform orthonormal roots with
+  -beta^d+alpha*sqrt(gamma^{dd})*lambda. Static face chi is evaluated
+  directly from f (J=E and |H|=|F|), so fluxes and their differentiated
+  analytic closure agree without root-finding tolerance inconsistencies.
+* Nearly multiple/roundoff-ambiguous Minerbo cubics, and moving-frame
+  Minerbo/Kershaw states, use the conservative coordinate light cone
+  -beta^d +/- alpha*sqrt(gamma^{dd}), not an invented moving eigenformula.
+  Well-separated cubic roots receive a roundoff guard. The fallback can
+  make the low-order local fan an LLF fan; reconstruction and diffusion
+  correction remain active. Include the closure-derived number-current
+  advection eigenvalue in all final bounds. Thus the exact-static/exact-
+  Eddington cases and conservative causal fallback are explicit, not a
+  disclaimer attached to a knowingly underbounded interpolated fan.
+* Set A=min(1,1/(mean(kappa)*dl)), dl=dx/sqrt(gamma^{dd}), so opacities
+  multiply proper normal distance, including non-diagonal spatial metrics.
+  kappa=abs_1+scat_1 controls relaxation of H/J and therefore transports
+  both energy and the tied number current. Energy and number use A only
+  on the HLLE state-jump viscosity. Momentum uses
+  A^2*F_HLLE+(1-A^2)*(FL+FR)/2. The extra outer 1/2 printed in Eq. (64)
+  is omitted: it violates constant-state consistency already at A=1.
+  At high opacity this removes opacity-independent artificial diffusion;
+  collision integration still must resolve the coupled diffusion limit.
+
+Validation status and proposed checks
+------------------------------------
+
+No build or evolution was performed for this change. nuX_Tests now contains
+future executable assertions for constant-state consistency, signed/upwind
+and zero-speed fans, A/A^2 scaling, reconstruction slopes, moving thick
+eigenvalues, the f=0.5 counterexample, oblique/transverse static Jacobian
+spectra, streaming/isotropic/cubic-degeneracy limits, moving-frame causal
+fallback, non-diagonal GR face geometry,
+component mapping, densitization, and realizability. They run with the
+existing nuX_Tests/test/unit_tests.par after an authorized build.
+
+nuX_M1/par/nuX_M1_hlle_smoke.par is a small periodic, moving Gaussian smoke
+case. It is not a regression result or a demonstrated convergence test.
+After building and running are authorized, check positivity/realizability
+and periodic integral conservation, repeat with kappa_scat_nue=1e3 and
+closure="Eddington", and measure diffusion/advection convergence under
+resolution and opacity changes. The established beam, crossing-beam,
+adv_velocity_jump, and Kerr-Schild parfiles can be copied and opted into
+HLLE for directional/curved-space checks. Existing THC regression parfiles
+and their reference data remain unchanged. AMR transport retains the
+existing cell-local divergence infrastructure; no new refluxing algorithm
+is supplied or claimed.
+
 A. Acknowledgements
 
 This code is ported from THC_M1 (https://bitbucket.org/FreeTHC/thccore/src/master/) of Radice et al. 
