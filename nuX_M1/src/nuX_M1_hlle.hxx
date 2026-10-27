@@ -10,6 +10,22 @@ namespace nuX_M1 {
 
 enum hlle_component : int { HLLE_N = 0, HLLE_FX, HLLE_FY, HLLE_FZ, HLLE_E };
 
+CCTK_HOST CCTK_DEVICE inline bool
+hlle_velocity_is_finite(const CCTK_REAL vx, const CCTK_REAL vy,
+                        const CCTK_REAL vz) {
+  return isfinite(vx) && isfinite(vy) && isfinite(vz);
+}
+
+CCTK_HOST CCTK_DEVICE inline bool
+hlle_reconstruction_is_finite(const CCTK_REAL E, const CCTK_REAL q[5]) {
+  if (!isfinite(E))
+    return false;
+  for (int a = 0; a < 5; ++a)
+    if (!isfinite(q[a]) || (a != HLLE_E && !isfinite(E * q[a])))
+      return false;
+  return true;
+}
+
 CCTK_HOST CCTK_DEVICE inline CCTK_REAL
 hlle_slope(const CCTK_REAL qm, const CCTK_REAL q, const CCTK_REAL qp,
            const CCTK_REAL theta) {
@@ -135,10 +151,11 @@ CCTK_HOST CCTK_DEVICE inline void hlle_static_speeds(
   *lp = fmin(CCTK_REAL(1), upper + guard);
 }
 
-// Enclosing coordinate-speed bounds, never a chi-weighted interpolation of
-// endpoint eigenvalues. Eddington's fixed-v system has analytic exact roots.
-// Minerbo/Kershaw are reduced exactly only for a static fiducial observer;
-// moving variable closures use the conservative coordinate light cone.
+// Eddington's fixed-v system has analytic exact roots. Minerbo/Kershaw are
+// reduced exactly only for a static fiducial observer. The current moving
+// light-cone estimate is NOT an enclosing bound for the inherited mixed
+// closure in general; see README's open moving-closure limitation. It must
+// not be treated as a validated moving-fluid characteristic solver.
 CCTK_HOST CCTK_DEVICE inline void
 hlle_radiation_speeds(const CCTK_REAL alpha, const CCTK_REAL beta_dir,
                       const CCTK_REAL gamma_uu_dir, const CCTK_REAL W,
@@ -199,6 +216,10 @@ struct hlle_geometry_t {
     for (int a = 1; a < 4; ++a)
       if (!isfinite(beta_u(a)))
         device_abort();
+    // The shared helper repairs finite interpolation overshoots, but also
+    // maps NaN/Inf to rest. Do not hide corrupt face inputs behind that policy.
+    if (!hlle_velocity_is_finite(vx, vy, vz))
+      device_abort();
     volume = sqrt(det);
     g_dd.from_adm(alpha, beta_u(1), beta_u(2), beta_u(3), gamma(0, 0),
                   gamma(0, 1), gamma(0, 2), gamma(1, 1), gamma(1, 2),
@@ -238,16 +259,15 @@ hlle_state(cGH const *cctkGH, const int i, const int j, const int k,
   hlle_state_t result;
   // Reject invalid reconstruction before floors, vacuum handling or cone
   // repair can turn non-finite input into a finite radiation state.
-  for (int a = 0; a < 5; ++a)
-    if (!isfinite(q[a]))
-      device_abort();
   // Floors are specified for densitized evolved moments elsewhere in M1.
   CCTK_REAL E = fmax(q[HLLE_E], E_floor / g.volume);
+  if (!hlle_reconstruction_is_finite(E, q))
+    device_abort();
   if (E == 0 && N_floor == 0) {
     // Exact vacuum: all physical moments and fluxes vanish, independently of
     // reconstructed direction ratios. Do not divide 0/0 or rootfind a closure
-    // whose entire vacuum equation is identically zero. For variable models
-    // the full causal fan encloses every directional approach to vacuum;
+    // whose entire vacuum equation is identically zero. The moving variable
+    // closure's wave-bound limitation still applies to approaches to vacuum;
     // Eddington retains its exact fixed-v isotropic regular-limit spectrum.
     for (int a = 0; a < 5; ++a)
       result.u[a] = result.flux[a] = 0;
@@ -259,6 +279,9 @@ hlle_state(cGH const *cctkGH, const int i, const int j, const int k,
   tensor::generic<CCTK_REAL, 4, 1> F_d, F_u;
   pack_F_d(g.beta_u(1), g.beta_u(2), g.beta_u(3), E * q[HLLE_FX],
            E * q[HLLE_FY], E * q[HLLE_FZ], &F_d);
+  for (int a = 0; a < 4; ++a)
+    if (!isfinite(F_d(a)))
+      device_abort();
   // Componentwise limiting of Fi/E alone is not a multidimensional cone
   // constraint. Project once in the COMMON face metric after reconstruction.
   repair_moments(g.g_uu, &E, &F_d, E_floor / g.volume, eps);

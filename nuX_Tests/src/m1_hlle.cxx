@@ -47,6 +47,34 @@ int check_hlle_algebra() {
   return failures;
 }
 
+int check_face_input_validation() {
+  int failures = 0;
+  const CCTK_REAL nan = std::numeric_limits<CCTK_REAL>::quiet_NaN();
+  const CCTK_REAL inf = std::numeric_limits<CCTK_REAL>::infinity();
+  failures += !hlle_velocity_is_finite(0.2, -0.1, 0.05);
+  for (const CCTK_REAL invalid : {nan, inf, -inf}) {
+    failures += hlle_velocity_is_finite(invalid, 0, 0);
+    failures += hlle_velocity_is_finite(0, invalid, 0);
+    failures += hlle_velocity_is_finite(0, 0, invalid);
+  }
+  const CCTK_REAL vacuum[5] = {};
+  failures += !hlle_reconstruction_is_finite(0, vacuum);
+  CCTK_REAL q[5] = {0.4, 0.15, -0.08, 0.06, 2};
+  failures += !hlle_reconstruction_is_finite(q[HLLE_E], q);
+  for (int a = 0; a < 5; ++a) {
+    const CCTK_REAL saved = q[a];
+    q[a] = nan;
+    failures += hlle_reconstruction_is_finite(2, q);
+    q[a] = saved;
+  }
+  // Finite primitive ratios can still overflow when multiplied by E. Reject
+  // that arithmetic before cone repair can silently turn the flux into zero.
+  q[HLLE_FX] = 2;
+  failures += hlle_reconstruction_is_finite(
+      std::numeric_limits<CCTK_REAL>::max(), q);
+  return failures;
+}
+
 int check_radiation_speeds() {
   int failures = 0;
   CCTK_REAL lm, lp;
@@ -93,8 +121,8 @@ int check_radiation_speeds() {
                         CLOSURE_MINERBO, true, &lm, &lp);
   failures += !near(lm, -0.1 - 0.3 / std::sqrt(CCTK_REAL(3)));
   failures += !near(lp, -0.1 + 0.3 / std::sqrt(CCTK_REAL(3)));
-  // Unsupported moving variable-closure spectra use an enclosing light cone,
-  // never the underbounded endpoint interpolation.
+  // Check the current moving estimate's coordinate mapping only. This does
+  // NOT establish enclosure of the inherited moving pressure Jacobian.
   hlle_radiation_speeds(0.6, 0.1, 0.25, 1.1, 0.1, 0.1, 0.3, 1,
                         CLOSURE_MINERBO, false, &lm, &lp);
   failures += !near(lm, -0.4);
@@ -189,8 +217,8 @@ int check_face_mapping(cGH const *cctkGH) {
 } // namespace
 
 int hlle_unit_tests(cGH const *cctkGH) {
-  return check_hlle_algebra() + check_radiation_speeds() +
-         check_face_mapping(cctkGH);
+  return check_hlle_algebra() + check_face_input_validation() +
+         check_radiation_speeds() + check_face_mapping(cctkGH);
 }
 
 } // namespace nuX_M1

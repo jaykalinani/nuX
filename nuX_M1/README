@@ -82,15 +82,23 @@ Speeds and corrections to the reference formulas:
   -beta^d+alpha*sqrt(gamma^{dd})*lambda. Static face chi is evaluated
   directly from f (J=E and |H|=|F|), so fluxes and their differentiated
   analytic closure agree without root-finding tolerance inconsistencies.
-* Nearly multiple/roundoff-ambiguous Minerbo cubics, and moving-frame
-  Minerbo/Kershaw states, use the conservative coordinate light cone
-  -beta^d +/- alpha*sqrt(gamma^{dd}), not an invented moving eigenformula.
-  Well-separated cubic roots receive a roundoff guard. The fallback can
-  make the low-order local fan an LLF fan; reconstruction and diffusion
-  correction remain active. Include the closure-derived number-current
-  advection eigenvalue in all final bounds. Thus the exact-static/exact-
-  Eddington cases and conservative causal fallback are explicit, not a
-  disclaimer attached to a knowingly underbounded interpolated fan.
+* Nearly multiple/roundoff-ambiguous STATIC Minerbo cubics use the coordinate
+  light cone -beta^d +/- alpha*sqrt(gamma^{dd}); well-separated roots receive
+  a roundoff guard. Include the closure-derived number-current advection
+  eigenvalue in the final bounds.
+* OPEN MOVING-CLOSURE LIMITATION: the current moving Minerbo/Kershaw estimate
+  also uses the light cone, but it is not generally an enclosing fan of the
+  inherited lab-thin/comoving-thick pressure model. For example, in flat
+  geometry E=1, F=(0.01,0,0), v=(0.5,0,0) gives a Minerbo transverse
+  characteristic about 26.3918122094, outside [-1,1]. An independent
+  high-precision pressure-Jacobian check also finds a complex pair for
+  E=1, F=(0.999,0,0), v=(0.005,sqrt(3)*0.005,0). These are accepted moment
+  states, not invalid inputs. Closure fallback to the fixed thin tensor can
+  invalidate the bound too. Widening numerical viscosity does not repair
+  lost hyperbolicity; clipping speeds does not establish causality. This
+  branch is NOT ready for general moving-fluid HLLE production use. A
+  separately reviewed physical closure/characteristic decision is required;
+  this input-validation patch does not replace the global pressure model.
 * Set A=min(1,1/(mean(kappa)*dl)), dl=dx/sqrt(gamma^{dd}), so opacities
   multiply proper normal distance, including non-diagonal spatial metrics.
   kappa=abs_1+scat_1 controls relaxation of H/J and therefore transports
@@ -108,8 +116,8 @@ No build or evolution was performed for this change. nuX_Tests now contains
 future executable assertions for constant-state consistency, signed/upwind
 and zero-speed fans, A/A^2 scaling, reconstruction slopes, moving thick
 eigenvalues, the f=0.5 counterexample, oblique/transverse static Jacobian
-spectra, streaming/isotropic/cubic-degeneracy limits, moving-frame causal
-fallback, non-diagonal GR face geometry,
+spectra, streaming/isotropic/cubic-degeneracy limits, mapping of the current
+moving speed estimate (not proof of enclosure), non-diagonal GR face geometry,
 component mapping, densitization, and realizability. They run with the
 existing nuX_Tests/test/unit_tests.par after an authorized build.
 
