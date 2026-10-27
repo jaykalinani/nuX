@@ -50,10 +50,16 @@ STRING emab_table "WeakLib EmAb HDF5 file (g/cm3, K, MeV, cm^-1 convention)"
   ".*" :: "File accessible to the AMReX I/O root"
 } ""
 
-STRING iso_table "WeakLib Iso HDF5 file (kernel units cm^-1 MeV^-2)"
+STRING iso_table "WeakLib Iso HDF5 raw-kernel file; see iso_table_convention"
 {
   ".*" :: "File accessible to the AMReX I/O root"
 } ""
+
+KEYWORD iso_table_convention "Host-only Iso raw-kernel convention/provenance declaration"
+{
+  "explicit-kernel-units" :: "Raw Legendre expansion coefficients labeled cm^-1 MeV^-2"
+  "weaklib-fullweakphysics-5836de98" :: "User attests the pinned native FullWeakPhysics raw-kernel convention with legacy Per Centimeter label"
+} "explicit-kernel-units"
 
 KEYWORD chemical_potentials "EOSX nucleon chemical-potential rest-mass convention"
 {
@@ -66,6 +72,6 @@ REAL spectral_tail_tolerance "Maximum conservative omitted FD number/energy tail
   (0:1) :: "Require coverage of the full equilibrium spectrum without extrapolation"
 } 1.0e-2
 
-BOOLEAN run_self_tests "Run synthetic provider tests on the active AMReX backend at table setup"
+BOOLEAN run_self_tests "Run tiny host HDF fixtures plus synthetic provider tests on the active AMReX backend at table setup"
 {
 } "no"

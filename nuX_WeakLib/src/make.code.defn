@@ -1,2 +1,2 @@
-SRCS = nuX_weaklib.cxx test_weaklib.cxx
+SRCS = nuX_weaklib.cxx nuX_weaklib_io.cxx test_weaklib.cxx test_weaklib_io.cxx
 SUBDIRS =

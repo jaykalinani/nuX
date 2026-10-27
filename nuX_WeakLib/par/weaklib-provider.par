@@ -9,6 +9,12 @@ nuX_M1::opacity_corr_fac_max = 1
 
 nuX_WeakLib::emab_table = "/path/to/wl-Op-SFHo-15-25-50-E40-EmAb.h5"
 nuX_WeakLib::iso_table = "/path/to/wl-Op-SFHo-15-25-50-E40-Iso.h5"
+# Strict default: the file must label raw kernels explicitly as cm^-1 MeV^-2.
+nuX_WeakLib::iso_table_convention = "explicit-kernel-units"
+# For provenance-checked native FullWeakPhysics raw kernels labeled Per Centimeter,
+# REPLACE the preceding declaration with this; filenames do not establish format:
+# nuX_WeakLib::iso_table_convention = "weaklib-fullweakphysics-5836de98"
+# This is a user convention declaration, not verified generator/EOS compatibility.
 nuX_WeakLib::include_emab = yes
 nuX_WeakLib::include_iso = yes
 nuX_WeakLib::include_pair = no

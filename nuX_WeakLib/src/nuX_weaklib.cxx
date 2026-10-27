@@ -1,14 +1,10 @@
 #include <algorithm>
 #include <array>
-#include <cctype>
-#include <cstdio>
-#include <initializer_list>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-#include <H5Cpp.h>
 #include <AMReX_GpuAtomic.H>
 #include <AMReX_GpuControl.H>
 #include <AMReX_GpuContainers.H>
@@ -26,6 +22,7 @@
 #include "setup_eos.hxx"
 #include "wli_io_opacity.H"
 #include "nuX_weaklib.hxx"
+#include "nuX_weaklib_io.hxx"
 
 namespace nuX_WeakLib {
 using namespace Loop;
@@ -44,86 +41,6 @@ std::unique_ptr<Tables> tables;
 
 void require(bool condition, const std::string &message) {
   if (!condition) throw std::runtime_error("nuX_WeakLib: " + message);
-}
-
-std::vector<std::string> strings(const H5::H5File &file, const std::string &path) {
-  const auto ds = file.openDataSet(path);
-  const auto type = ds.getStrType();
-  require(!type.isVariableStr(), path + " must use WeakLib fixed-width strings");
-  const auto n = ds.getSpace().getSimpleExtentNpoints();
-  const auto width = type.getSize();
-  require(n > 0 && n <= 3 && width > 0 && width <= 256, "invalid unit metadata: " + path);
-  std::vector<char> data(std::size_t(n) * width);
-  ds.read(data.data(), type);
-  std::vector<std::string> result;
-  for (hssize_t i = 0; i < n; ++i) {
-    std::string value(data.data() + std::size_t(i) * width, width);
-    const auto end = value.find('\0');
-    if (end != std::string::npos) value.resize(end);
-    value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char c) {
-      return std::isspace(c) || c == '^' || c == '*' || c == '(' || c == ')';
-    }), value.end());
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-      return char(std::tolower(c));
-    });
-    result.push_back(value);
-  }
-  return result;
-}
-
-bool one_of(const std::string &value, std::initializer_list<const char *> choices) {
-  return std::any_of(choices.begin(), choices.end(), [&](const char *x) { return value == x; });
-}
-
-// The public WLI host structs intentionally do not retain unit strings. Verify
-// the discarded metadata before consuming its numeric arrays. Root-only I/O,
-// collective error handshake: no peer can be left waiting in the WLI loader.
-void check_units(const std::string &path, bool iso) {
-  const int root = amrex::ParallelDescriptor::IOProcessorNumber();
-  int bad = 0;
-  std::array<char, 1024> message{};
-  if (amrex::ParallelDescriptor::IOProcessor()) {
-    try {
-      H5::H5File file(path, H5F_ACC_RDONLY);
-      const auto e = strings(file, "/EnergyGrid/Unit");
-      const auto thermo = strings(file, "/ThermoState/Units");
-      require(e.size() == 1 && e[0] == "mev", "EnergyGrid must be in MeV");
-      // The roles and canonical names are checked again against the loaded axes.
-      require(thermo.size() == 3 &&
-                  one_of(thermo[0], {"g/cm3", "gram/cm3", "gramspercm3", "gcm-3"}) &&
-                  one_of(thermo[1], {"k", "kelvin"}) &&
-                  one_of(thermo[2], {"none", "1", "dimensionless"}),
-              "ThermoState units must be [g/cm3, K, dimensionless]");
-      const std::string group = iso ? "/Scat_Iso_Kernels" :
-          file.nameExists("/EmAb") ? "/EmAb" : "/EmAb_CorrectedAbsorption";
-      const auto units = strings(file, group + "/Units");
-      require(units.size() == 2, "expected exactly two species units");
-      for (const auto &unit : units)
-        require(iso ? one_of(unit, {"1/cmmev2", "1/cm/mev2", "cm-1mev-2", "1percmpermev2", "percentimeterpermev2"})
-                    : one_of(unit, {"1/cm", "cm-1", "1percm", "percentimeter"}),
-                "unsupported kernel unit '" + unit + "' in " + group);
-      // read_emab_table records only the first species' shape. Reject a second
-      // species with a different shape even when its element count agrees.
-      std::vector<hsize_t> previous;
-      for (const auto *name : {"Electron Neutrino", "Electron Antineutrino"}) {
-        const auto space = file.openDataSet(group + "/" + name).getSpace();
-        require(space.getSimpleExtentNdims() == (iso ? 5 : 4), "wrong table rank");
-        std::vector<hsize_t> dims(iso ? 5 : 4);
-        space.getSimpleExtentDims(dims.data());
-        require(previous.empty() || previous == dims, "species table shapes disagree");
-        previous = dims;
-      }
-    } catch (const H5::Exception &e) {
-      bad = 1;
-      std::snprintf(message.data(), message.size(), "%s", e.getDetailMsg().c_str());
-    } catch (const std::exception &e) {
-      bad = 1;
-      std::snprintf(message.data(), message.size(), "%s", e.what());
-    }
-  }
-  amrex::ParallelDescriptor::Bcast(&bad, 1, root);
-  amrex::ParallelDescriptor::Bcast(message.data(), int(message.size()), root);
-  require(!bad, "unit/schema validation failed for " + path + ": " + message.data());
 }
 
 void upload(amrex::Gpu::DeviceVector<double> &dest, const std::vector<double> &src) {
@@ -257,7 +174,7 @@ extern "C" void nuX_WeakLib_Load(CCTK_ARGUMENTS) {
     owner->view.tail_tolerance = spectral_tail_tolerance;
     std::vector<double> energies;
     if (include_emab) {
-      check_units(emab_table, false);
+      host_io::check_emab_file_collective(emab_table);
       const auto host = wli::io::read_emab_table(emab_table);
       if (host.hasECTable)
         CCTK_INFO("WeakLib EmAb file contains an optional EC_table; include_nuclei_ec=no, so only its main EmAb arrays are used");
@@ -277,7 +194,17 @@ extern "C" void nuX_WeakLib_Load(CCTK_ARGUMENTS) {
       owner->view.include_emab = true;
     }
     if (include_iso) {
-      check_units(iso_table, true);
+      const auto metadata = host_io::check_iso_file_collective(iso_table, iso_table_convention);
+      CCTK_VINFO("WeakLib Iso convention=%s, Units=['%s','%s']; raw Legendre expansion "
+                 "coefficients interpreted as cm^-1 MeV^-2; user-declared convention, "
+                 "EOS/model provenance not verified",
+                 host_io::iso_convention_name(metadata.convention),
+                 metadata.units[0].data(), metadata.units[1].data());
+      if (metadata.convention == host_io::IsoConvention::fullweakphysics_5836de98)
+        CCTK_VINFO("WeakLib Iso native metadata: weak_magnetism_corr=%d ion_ion_corr=%d "
+                   "many_body_corr=%d ga_strange=%.17g (recorded, not changed)",
+                   metadata.corrections[0], metadata.corrections[1],
+                   metadata.corrections[2], metadata.ga_strange);
       const auto host = wli::io::read_scat_iso_table(iso_table);
       require(host.nOpacities == 2 && host.nMoments == 2 &&
                   host.values.size() == 2 && host.offset.size() == 4,

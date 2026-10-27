@@ -7,10 +7,10 @@ table is loaded; no EOS energy or rest-energy shift is changed. Existing
 NuRates/WeakRates/FakeRates configurations do not acquire a WLI dependency.
 
 This is a **partial WeakLib coupling**, not an implementation of all WeakLib
-interactions. Pair, NES, Brem and the separate nuclear `EC_table` are not yet
-coupled. Their reserved switches fail parameter checking AND table setup when
-enabled. A file containing `EC_table` can still supply its main EmAb arrays;
-startup explicitly reports that the separate nuclear subtable is not used.
+interactions. Pair, NES, Brem, plasmon and the separate nuclear `EC_table` are
+not yet coupled. The Pair/NES/Brem/EC reserved switches fail parameter checking
+AND table setup when enabled. A file containing `EC_table` can still supply its
+main EmAb arrays; startup reports that the separate nuclear subtable is not used.
 
 ## Opt-in integration
 
@@ -43,8 +43,10 @@ The actual public API and production consumption were checked against
 `specs/{cactus-integration,table-format-and-io,opacity-emab-iso,amrex-device-interface}.md`,
 and the production [thornado opacity assembly](https://github.com/endeve/thornado/blob/master/Modules/Opacities/NeutrinoOpacitiesComputationModule.F90)
 and [matter solver](https://github.com/endeve/thornado/blob/master/Modules/TwoMoment/TwoMoment_NeutrinoMatterSolverModule.F90).
-WeakLib's [table creator](https://github.com/starkiller-astro/weaklib/blob/5836de983d2ea1305af31bf971099702759b1889/TableCreator/OpacitySource/Bruenn85/wlCreateOpacityTable.f90)
-records the kernel unit strings.
+WeakLib's [Bruenn85 table creator](https://github.com/starkiller-astro/weaklib/blob/5836de983d2ea1305af31bf971099702759b1889/TableCreator/OpacitySource/Bruenn85/wlCreateOpacityTable.f90)
+records explicit Iso kernel units. The native FullWeakPhysics creator uses a
+different label for the same raw-kernel normalization; see the explicit host-only
+format declaration below.
 
 - WLI interpolation receives `log10(E/MeV)`, `log10(rho/[g cm^-3])`,
   `log10(T/K)`, and raw Ye. EOSX temperature is MeV and is converted with
@@ -82,7 +84,7 @@ records the kernel unit strings.
   ratios; densities and emissivities are restored in logarithms. A physically
   negligible absolute population may round to zero without destroying its
   finite mean energy or attenuation. No occupation floor or eta cap is added.
-- Iso entries are in `cm^-1 MeV^-2`. They are Legendre expansion coefficients,
+- Accepted Iso entries are interpreted as raw `cm^-1 MeV^-2` kernels. They are Legendre expansion coefficients,
   not already-normalized angular moments: WeakLib's table creator multiplies
   the l-th moment by `(2*l+1)/2`. The physical transport opacity is therefore
   `4*pi*E^2*(phi_0-phi_1/3)`, as in thornado's `Sigma_Iso_P` assembly, averaged
@@ -113,6 +115,40 @@ default; this consumer never calls its interpolator outside validated ranges.
 There is no atmosphere-density cutoff, EOS boundary clamp, arbitrary opacity
 cap, or silent invalid-rate fallback.
 
+## Iso file convention (host-only, non-steerable)
+
+`iso_table_convention="explicit-kernel-units"` is the strict default: both
+species must carry one of the supported explicit `cm^-1 MeV^-2` labels. It does
+not accept `Per Centimeter` or a literal `1/cm` Iso opacity. For a table whose
+provenance you have checked against WeakLib's native FullWeakPhysics raw-kernel
+convention, explicitly select `"weaklib-fullweakphysics-5836de98"`. This names
+[generator revision 5836de983d2ea1305af31bf971099702759b1889](https://github.com/starkiller-astro/weaklib/blob/5836de983d2ea1305af31bf971099702759b1889/TableCreator/OpacitySource/FullWeakPhysics/wlCreateOpacityTable.F90),
+which writes `Per Centimeter` but stores the raw Legendre expansion coefficients
+with the `(2*l+1)/2` factor. Its [kernel source](https://github.com/starkiller-astro/weaklib/blob/5836de983d2ea1305af31bf971099702759b1889/TableCreator/OpacitySource/FullWeakPhysics/Chimera/scatical_weaklib.f90)
+and thornado's consumer establish the numerical interpretation; the legacy
+label alone does not. The native option accepts only that spelling (ignoring
+case/space padding), not arbitrary inverse-length aliases. Cross-format or
+mixed-species labels fail; no format is inferred from a filename or magnitudes.
+
+Both selections pass identical unscaled arrays to the existing
+`4*pi*E^2*(phi_0-phi_1/3)` contraction. Neither changes angular physics, an EOS,
+or any reaction activation. The selector is not copied into device views.
+The host validator checks actual HDF types, ranks and extents, including
+two-dimensional `{2,2}` offsets, two matching species arrays, and integer
+species/moment counts and coordinate flags. The native option additionally
+requires the generator's `{1}` integer `weak_magnetism_corr`, `ion_ion_corr`,
+`many_body_corr` (each 0 or 1), and finite double `ga_strange`. Their values
+are logged, not changed. Existing numeric-axis, uniform-coordinate, table-range
+and physical-kernel checks remain in force. Unsupported nonuniform/zoomed
+coordinate grids do not become supported through the format selector.
+
+Only the AMReX I/O root reads HDF metadata. Failure status and bounded diagnostic
+text reach every rank before a WLI table-load broadcast. Startup records the
+declaration, original unit labels and native corrections. This is a user-declared
+convention plus schema validation, **not authenticated generator provenance or
+verified opacity/EOSX-model compatibility**. Check those separately; no WLI
+matter EOS is loaded. A successful native Iso load is not full WeakLib coupling.
+
 ## Lifecycle, tests and remaining work
 
 Tables load collectively at `CCTK_WRAGH` after `EOSX_Setup_EOS`. CarpetX has
@@ -126,12 +162,22 @@ transient integer error flag per grid call provides strict host-side errors
 even when release GPU builds compile out device assertions.
 
 `run_self_tests=yes` runs [src/test_weaklib.cxx](src/test_weaklib.cxx) on the
-active AMReX backend during table setup. Synthetic tests cover distinct E^2
-and E^3 opacity averages, signed first scattering moment, angular/E^2
+active AMReX backend during table setup, plus opt-in host-only
+[actual-HDF Iso fixtures](src/test_weaklib_io.cxx). The latter create a private
+`/tmp/nux-weaklib-iso-XXXXXX` directory only on the I/O root, exclusively create
+small files (768 bytes of raw species data per fixture), and remove only those
+owned paths after readers finish. They exercise both declarations through the
+real metadata validator and public WLI reader, node/interior recovery, unchanged
+angular normalization, malformed units/counts/types/shapes/native flags, and
+collective missing-file/root-creation failures. No production table is rewritten.
+Fixture data need no EOS, but their opt-in startup entry still follows the
+provider's normal EOSX/production-table setup. Synthetic device tests cover
+distinct E^2 and E^3 opacity averages, signed first scattering moment, angular/E^2
 normalization, four-heavy-species moments, detailed balance, positive vacuum
 emission, elastic-only behavior, EOS-independent table bounds, invalid inputs
-and inadequate energy coverage. This implementation was only statically
-validated: **no C++ compilation, library rebuild, or simulation was run**.
+and inadequate energy coverage. The new host interoperability code and fixture
+sources have only been statically checked: **no compilation or fixture execution
+was performed for this change**; their presence is not a passing test result.
 Validate CPU, GPU, multi-rank missing/malformed files, restart cleanup and
 source/equilibrium evolution before scientific use.
 
@@ -148,3 +194,5 @@ conserve number while redistributing energy; Brem additionally needs the
 needs a loader for `EC_table`, which the current public WLI reader does not
 expose. These processes remain unfinished work, explicitly rejected rather
 than silently approximated.
+Plasmon also remains unimplemented and has no native channel in WLI's five-table
+API; the format adapter does not resolve that required full-reaction gap.

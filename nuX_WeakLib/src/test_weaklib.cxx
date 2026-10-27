@@ -10,6 +10,7 @@
 
 #include "cctk.h"
 #include "nuX_weaklib.hxx"
+#include "nuX_weaklib_io.hxx"
 
 namespace nuX_WeakLib {
 namespace {
@@ -26,6 +27,7 @@ bool near(double got, double want) {
 // Opt-in tests run on the SAME backend as CarpetX. They are source-only until
 // a future authorized build/run; no production table is needed by the math.
 void self_test() {
+  host_io::io_self_test(); // host files/collectives only, never inside a device lambda
   const amrex::Gpu::LaunchSafeGuard launch_region(true);
   constexpr int ne = 256;
   const std::array<int, 4> emab_shape{ne, 2, 2, 2};
