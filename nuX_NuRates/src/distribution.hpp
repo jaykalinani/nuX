@@ -42,8 +42,7 @@ BS_REAL NuFThick(const BS_REAL omega, const NuDistributionParams* distr_pars,
     return arg <= 0 ? e / (1 + e) : 1 / (1 + e);
 }
 
-// Check normalization, not just finiteness. In particular, the eta cap must
-// not silently accept a spectrum with the wrong number and energy densities.
+// Check normalization, not just finiteness, against both original moments.
 CCTK_HOST CCTK_DEVICE inline
 bool ThickDistributionMatchesM1(const BS_REAL n, const BS_REAL J,
                                 const BS_REAL T, const BS_REAL eta)
@@ -70,6 +69,83 @@ bool ThickDistributionMatchesM1(const BS_REAL n, const BS_REAL J,
            fabs(log_J - log(J)) <= tolerance;
 }
 
+// Positive-eta reflection identities, scaled by eta^3 and eta^4. In the
+// high-degeneracy inverse use s=eta^-2: its Pauli deficit has a finite,
+// nonzero derivative as s -> 0, unlike the ratio as a function of eta.
+CCTK_HOST CCTK_DEVICE inline
+BS_REAL DegenerateFDLogGap(const BS_REAL s, BS_REAL* derivative,
+                           BS_REAL* log_ratio)
+{
+    constexpr BS_REAL pi2 = kBS_Pi * kBS_Pi;
+    const BS_REAL root_s = sqrt(s);
+    const BS_REAL eta = 1 / root_s;
+    const BS_REAL fm1 = FDI_p1(-eta);
+    const BS_REAL fm2 = FDI_p2(-eta);
+    const BS_REAL fm3 = FDI_p3(-eta);
+    const BS_REAL a = pi2 * s + 3 * fm2 * s * root_s;
+    const BS_REAL b = 2 * pi2 * s + 7 * pi2 * pi2 * s * s / 15 -
+                      4 * fm3 * s * s;
+    const BS_REAL da = pi2 + 3 * fm1 + BS_REAL(4.5) * fm2 * root_s;
+    const BS_REAL db = 2 * pi2 + 14 * pi2 * pi2 * s / 15 -
+                       6 * fm2 * root_s - 8 * fm3 * s;
+    const BS_REAL la = log1p(a), lb = log1p(b);
+    *derivative = 3 * db / (1 + b) - 4 * da / (1 + a);
+    *log_ratio = log(BS_REAL(4) / 3) + BS_REAL(0.5) * log(s) + la - lb;
+    return 3 * lb - 4 * la;
+}
+
+CCTK_HOST CCTK_DEVICE inline
+bool CalculateDegenerateThickParams(const BS_REAL log_n, const BS_REAL log_J,
+                                    BS_REAL* temperature, BS_REAL* eta)
+{
+    const BS_REAL log_c = log(kBS_FourPi_hc3);
+    const BS_REAL log_y_max = log(BS_REAL(64) / 81);
+    const BS_REAL target = log_y_max - (4 * log_n - 3 * log_J - log_c);
+    constexpr BS_REAL eps = std::numeric_limits<BS_REAL>::epsilon();
+    // At the zero-T boundary these rounded moments cannot identify a finite
+    // spectral width. Do not clip them to an invented maximum degeneracy.
+    const BS_REAL uncertainty = 8 * eps *
+        (4 * fabs(log_n) + 3 * fabs(log_J) + fabs(log_c) + 1);
+    if (!isfinite(target) || target <= uncertainty)
+        return false;
+
+    // Y(eta=10) < 0.7, the existing high-fit matching point. Thus this
+    // interval brackets every supported high-degeneracy root, without an
+    // upper bound on eta. The lower endpoint's analytic gap is zero.
+    BS_REAL lower = 0, upper = BS_REAL(0.01);
+    BS_REAL derivative, log_ratio;
+    const BS_REAL upper_gap = DegenerateFDLogGap(upper, &derivative, &log_ratio);
+    if (!(target < upper_gap))
+        return false;
+    BS_REAL s = target / (2 * kBS_Pi * kBS_Pi);
+    for (int iteration = 0; iteration < 64; ++iteration)
+    {
+        const BS_REAL gap = DegenerateFDLogGap(s, &derivative, &log_ratio);
+        const BS_REAL residual = gap - target;
+        if (!isfinite(gap) || !isfinite(derivative) || derivative <= 0)
+            return false;
+        const BS_REAL correction = residual / derivative;
+        if (fabs(residual) <= 64 * eps * target &&
+            fabs(correction) <= 64 * eps * s)
+        {
+            *eta = 1 / sqrt(s);
+            *temperature = exp(log_J - log_n + log_ratio);
+            return isfinite(*eta) && isfinite(*temperature) && *temperature > 0;
+        }
+        if (residual > 0)
+            upper = s;
+        else
+            lower = s;
+        const BS_REAL candidate = s - correction;
+        const BS_REAL next = candidate > lower && candidate < upper
+                                 ? candidate : BS_REAL(0.5) * (lower + upper);
+        if (next == s)
+            return false;
+        s = next;
+    }
+    return false;
+}
+
 /* Recover distribution function parameters for optically thick regime from M1
 quantities
  *
@@ -88,12 +164,10 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
     constexpr BS_REAL three_halves = 1.5;
     [[maybe_unused]] constexpr BS_REAL one_third    = 1. / 3.;
 
-    constexpr BS_REAL twenty = 20;
     constexpr BS_REAL thirty = 30;
 
     constexpr BS_REAL y1 = 0.005;
     constexpr BS_REAL y2 = 0.7;
-    constexpr BS_REAL y3 = 0.7901234567745267;
 
     constexpr BS_REAL kBS_ThickDistr_num_1[6] = {
         0.19926987701997, 38865.0149220478, 14364.6331099737,
@@ -102,10 +176,6 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
         41.3836568203438,    32.5515666786612, 157.774993512235,
         66.5726772426253,    14.4883415579211, 0.315360380575709,
         0.000660414331285249};
-    constexpr BS_REAL kBS_ThickDistr_num_3[7] = {
-        3852.81416018959,    5316.18895799799, 1102.91561586553,
-        1.54082262710661e-6, 1732.89925128741, 1769.59868329086,
-        586.406885304906};
 
     constexpr BS_REAL kBS_ThickDistr_den_1[6] = {1.0,
                                                  38840.0743174942,
@@ -116,9 +186,6 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
     constexpr BS_REAL kBS_ThickDistr_den_2[6] = {
         1.8888797407042,   5.35488690539183,   1.94673781342617,
         0.483128792035557, 0.0113386564109086, 2.64160073447322e-5};
-    constexpr BS_REAL kBS_ThickDistr_den_3[6] = {
-        255.936658313629, 9.42360945627147e-5, 81.2467063138386,
-        180.100197053091, 89.0343496217014,    143.849128123195};
 
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
@@ -136,12 +203,36 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                   "Invalid Eddington factor (chi[%d]=%e).", nuid, chi);
 
         out_distribution_pars->w_t[nuid] = three_halves * (one - chi);
+        if (out_distribution_pars->w_t[nuid] == 0)
+        {
+            // UNUSED component: a valid thin spectrum need not admit any FD
+            // inverse. Keep finite placeholders because TotalNuF evaluates
+            // both components before applying their weights.
+            out_distribution_pars->eta_t[nuid] = 0;
+            out_distribution_pars->temp_t[nuid] = 1;
+            continue;
+        }
 
         // y = F_2(eta)^4 / F_3(eta)^3. The rational fit below has a
         // nonzero constant term and must not be extrapolated to y -> 0.
         // Work in logs so dilute moments do not underflow before inversion.
-        const BS_REAL log_y =
-            4 * log(n) - 3 * log(J) - log(kBS_FourPi_hc3);
+        const BS_REAL log_n = log(n), log_J = log(J);
+        const BS_REAL log_y = 4 * log_n - 3 * log_J - log(kBS_FourPi_hc3);
+        if (log_y > log(y2))
+        {
+            if (!CalculateDegenerateThickParams(
+                    log_n, log_J, &out_distribution_pars->temp_t[nuid],
+                    &out_distribution_pars->eta_t[nuid]))
+            {
+                // Existing callers reject invalid trials through their finite
+                // checks; never replace an unresolved/forbidden FD state.
+                out_distribution_pars->temp_t[nuid] =
+                    std::numeric_limits<BS_REAL>::quiet_NaN();
+                out_distribution_pars->eta_t[nuid] =
+                    std::numeric_limits<BS_REAL>::quiet_NaN();
+            }
+            continue;
+        }
         if (log_y < log(BS_REAL(1e-4)))
         {
             // For fugacity z << 1, y = (2/27) z (1 - 5 z/16 + ...).
@@ -154,7 +245,7 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                 (J / n) * (1 - z / 16) / 3;
             continue;
         }
-        const BS_REAL y = log_y < log(y3) ? exp(log_y) : y3;
+        const BS_REAL y = exp(log_y);
 
         if (y < y1)
         {
@@ -172,7 +263,7 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                           kBS_ThickDistr_den_1[4]) +
                      kBS_ThickDistr_den_1[5]));
         }
-        else if (y <= y2)
+        else
         {
             out_distribution_pars->eta_t[nuid] =
                 (y * (y * (y * (y * (y * (kBS_ThickDistr_num_2[0] * y +
@@ -190,33 +281,6 @@ void CalculateThickParamsFromM1(const M1Quantities* M1_pars,
                      kBS_ThickDistr_den_2[5]) -
                 thirty;
         }
-        else if (y > y2 && y < y3)
-        {
-            out_distribution_pars->eta_t[nuid] =
-                exp((y * (y * (y * (y * (y * (kBS_ThickDistr_num_3[0] * y -
-                                              kBS_ThickDistr_num_3[1]) +
-                                         kBS_ThickDistr_num_3[2]) +
-                                    kBS_ThickDistr_num_3[3]) +
-                               kBS_ThickDistr_num_3[4]) -
-                          kBS_ThickDistr_num_3[5]) +
-                     kBS_ThickDistr_num_3[6]) /
-                    (y * (y * (y * (y * (y * (y + kBS_ThickDistr_den_3[0]) +
-                                         kBS_ThickDistr_den_3[1]) -
-                                    kBS_ThickDistr_den_3[2]) -
-                               kBS_ThickDistr_den_3[3]) -
-                          kBS_ThickDistr_den_3[4]) +
-                     kBS_ThickDistr_den_3[5]));
-        }
-        else
-        {
-            out_distribution_pars->eta_t[nuid] = twenty;
-        }
-
-        // Use ternary instead of fmin: fmin(NaN, x) = NaN on Intel SYCL.
-        out_distribution_pars->eta_t[nuid] =
-            (out_distribution_pars->eta_t[nuid] < twenty)
-                ? out_distribution_pars->eta_t[nuid] : twenty;
-
         out_distribution_pars->temp_t[nuid] =
             FDI_p2(out_distribution_pars->eta_t[nuid]) * J /
             (FDI_p3(out_distribution_pars->eta_t[nuid]) * n);

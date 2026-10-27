@@ -96,6 +96,63 @@ int check_small_flux(cGH const *cctkGH, const CCTK_REAL scattering) {
   return failures;
 }
 
+int check_thin_source_guess(cGH const *cctkGH) {
+  const geometry_t g(0);
+  nurates_source_state_t old[3], next[3];
+  rates_t rates;
+  for (int sp = 0; sp < 3; ++sp) {
+    old[sp] = state(1, 1, 0.5);
+    old[sp].chi = 1;
+    rates.values[sp].abs_0 = rates.values[sp].abs_1 = 0.5;
+    rates.values[sp].scat_1 = 0.25;
+  }
+  auto options = nurates_source_options_t{};
+  options.closure = CLOSURE_THIN;
+  options.epsrel = 1e-9;
+  // No supplied LTE guess: the actual n/J baseline inverse must provide the
+  // Newton coordinates even though the physical thick spectral weight is zero.
+  const auto ctx = context(cctkGH, g, old[0]);
+  if (!coupled_nurates_source(ctx, 1, old, rates, options, next))
+    return 1;
+  int failures = 0;
+  for (int sp = 0; sp < 3; ++sp) {
+    failures += std::abs(next[sp].N - CCTK_REAL(2) / 3) > 2e-9;
+    failures += std::abs(next[sp].E - CCTK_REAL(2) / 3) > 2e-9;
+    failures += std::abs(next[sp].F_d(1) - CCTK_REAL(2) / 7) > 2e-9;
+  }
+  return failures;
+}
+
+int check_provisional_source_guess(cGH const *cctkGH) {
+  const geometry_t g(0);
+  // The provisional electron moments have Y=1, outside the FD domain.
+  // Absorption divides both by three, so the exact root has Y=1/3 and a
+  // valid finite FD inverse. Failure to invert the provisional state must
+  // not prevent trying an admissible Newton starting point.
+  const CCTK_REAL N = kBS_FourPi_hc3 * 1e9 / nuX_ndens_conv;
+  const CCTK_REAL E = kBS_FourPi_hc3 * 1e12 / nuX_edens_conv;
+  nurates_source_state_t old[3], next[3];
+  rates_t rates;
+  for (int sp = 0; sp < 3; ++sp) {
+    old[sp] = state(N, E, 0.5 * E);
+    old[sp].chi = 1;
+    rates.values[sp].abs_0 = rates.values[sp].abs_1 = 2;
+  }
+  auto options = nurates_source_options_t{};
+  options.closure = CLOSURE_THIN;
+  options.epsrel = 1e-9;
+  const auto ctx = context(cctkGH, g, old[0]);
+  if (!coupled_nurates_source(ctx, 1, old, rates, options, next))
+    return 1;
+  int failures = 0;
+  for (int sp = 0; sp < 3; ++sp) {
+    failures += std::abs(3 * next[sp].N / N - 1) > 2e-8;
+    failures += std::abs(3 * next[sp].E / E - 1) > 2e-8;
+    failures += std::abs(6 * next[sp].F_d(1) / E - 1) > 2e-8;
+  }
+  return failures;
+}
+
 int check_stiff_invariant(cGH const *cctkGH) {
   const geometry_t g(0.5);
   nurates_source_state_t old[3], next[3], wrong[3];
@@ -312,6 +369,7 @@ int nurates_adapter_unit_tests() {
 
 int nurates_source_unit_tests(cGH const *cctkGH) {
   return check_small_flux(cctkGH, 1) + check_small_flux(cctkGH, 1e8) +
+         check_thin_source_guess(cctkGH) + check_provisional_source_guess(cctkGH) +
          check_stiff_invariant(cctkGH) +
          check_invariant_jacobian(cctkGH) + check_inactive_species(cctkGH) +
          check_log_residual() + check_remote_initial_spectrum(cctkGH) +

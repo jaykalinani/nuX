@@ -5,6 +5,7 @@ m1_nurates_source.cxx \
 m1_nurates_matter_source.cxx \
 m1_nurates_replay.cxx \
 nurates.cxx \
+nurates_distribution.cxx \
 weakrates.cxx
 
 SUBDIRS =

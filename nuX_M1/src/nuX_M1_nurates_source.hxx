@@ -547,12 +547,30 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE bool coupled_nurates_source(
          (baseline_physical.n[sp] > 0 && baseline_physical.J[sp] > 0));
   if (baseline_guess_valid) {
     NuDistributionParams distribution = {};
+    // This local copy now supplies FD-coordinate INITIAL GUESSES, not
+    // collision weights. Even a thin baseline needs its actual n/J inverse
+    // here rather than an unused-component placeholder. The physical closure
+    // remains in baseline[] and is not modified by this choice of coordinates.
+    for (int sp = 0; sp < total_num_species; ++sp)
+      baseline_physical.chi[sp] = CCTK_REAL(1) / 3;
     CalculateThickParamsFromM1(&baseline_physical, &distribution);
     for (int sp = 0; sp < 3; ++sp) {
+      CCTK_REAL temperature = distribution.temp_t[sp];
+      CCTK_REAL eta = distribution.eta_t[sp];
+      if (options.active_species[sp] &&
+          !(isfinite(temperature) && temperature > 0 && isfinite(eta))) {
+        // A provisional state need not have an FD inverse even when the
+        // implicit root does. Use a finite mean-energy-matched INITIAL GUESS,
+        // never a replacement rate spectrum or an accepted source state.
+        eta = 0;
+        temperature = exp(log(baseline_physical.J[sp]) -
+                          log(baseline_physical.n[sp]) +
+                          log(FDI_p2(0) / FDI_p3(0)));
+      }
       baseline_guess(2 * sp) = options.active_species[sp]
-          ? log(distribution.temp_t[sp]) : CCTK_REAL(0);
+          ? log(temperature) : CCTK_REAL(0);
       baseline_guess(2 * sp + 1) = options.active_species[sp]
-          ? distribution.eta_t[sp] : CCTK_REAL(0);
+          ? eta : CCTK_REAL(0);
     }
     baseline_guess_valid = nuX_Utils::roots::finite(baseline_guess);
   }

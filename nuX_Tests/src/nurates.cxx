@@ -10,6 +10,7 @@
 #include "m1_opacities.hpp"
 
 namespace nuX_NuRates {
+int distribution_unit_tests();
 namespace {
 
 bool close_rel(const BS_REAL x, const BS_REAL y,
@@ -307,6 +308,7 @@ extern "C" void nuX_NuRates_TestKernels(CCTK_ARGUMENTS) {
 
   const BS_REAL balance = SafeExp((omega + omega_prime) / eos.temp);
   int failures = 0;
+  failures += distribution_unit_tests();
   failures += check_brt06_units();
   failures += check_direct_beta_absorptivity();
   failures += check_beta_degeneracy_boundaries();

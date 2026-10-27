@@ -84,8 +84,8 @@ in the full-star atmosphere is not yet validated.
 For a classified floor-only state, rate evaluation uses temporary moments
 `n_ref = min(n, J / (3 * T_matter))` and `J_ref = 3 * T_matter * n_ref`.
 Neither reference moment exceeds its input. The reconstructed FD component
-must reproduce both reference moments within the inverse fit's accuracy;
-nonrepresentable moments are reported, not silently accepted at the eta cap.
+must reproduce both reference moments within the inverse's accuracy;
+nonrepresentable moments are reported, not silently replaced by another spectrum.
 Evolved moments are unchanged, and spectra outside the floor-only reference
 retain their measured mean energy. Exact vacuum has zero occupation and can
 still receive spontaneous emission.
@@ -93,6 +93,43 @@ still receive spontaneous emission.
 Invalid inputs or coefficients terminate the NuRates evaluation with an error,
 including in release GPU builds. They no longer silently zero all interactions
 for the affected species. The existing `opacity_rate_max` limit is unchanged.
+
+## Highly Degenerate FD Reconstruction
+
+The high-degeneracy inverse no longer caps eta at 20 or extrapolates the
+last rational fit. It solves the forward FD moment ratio in `s=eta^-2`, using
+scaled reflection identities and a safeguarded scalar iteration. The physical
+upper ratio is `n^4/(C*J^3)=64/81`, where `C=4*pi/(hc)^3`; it is not the old
+fit endpoint. Both the gap residual and relative scalar correction must
+converge. No moments, rates, source tolerances or radiation floors are rescaled.
+
+The ordinary and dilute fits are retained. At the existing ratio matching
+point 0.7 the ordinary fit still has a small mismatch (about 2.3e-6 in moment
+normalization); the inverse is therefore not claimed to be globally smooth.
+Near the filled-sphere limit, input roundoff can make finite temperature
+unidentifiable. The routine reports failure there or outside the FD domain,
+rather than choosing a maximum eta. Exactly unused thick components retain
+finite placeholders, and exact vacuum retains zero occupation.
+The coupled solver requests actual FD coordinates for its baseline guess.
+If the provisional moments themselves have no FD inverse, a finite
+mean-energy-matched trial supplies an initial guess only; it never replaces
+the physical moments, rates, or final residual verification. A valid relaxed
+root is not rejected solely because its provisional state had no inverse.
+
+The optional test thorn checks forward/inverse round trips, eta=33/860
+production-callback reconstruction, the matching point, dilute states,
+vacuum, unused components and Pauli-boundary rejection on host and the active
+backend. These checks and the thin/provisional source-guess tests passed on
+the host and CUDA backend in validation job 3471324 on 2026-10-27. The
+configured EOS/matter-source test and historical cold-cell replay also passed;
+cold accepted host/device moments agreed to about 7.1e-15 on the declared
+radiation scales. These tests use no diagnostic grid functions.
+
+This inverse fix does not resolve the full-star atmosphere failure. The
+separately captured warm cell from job 3470487 still rejects its LTE trial
+and fails the full coupled solve on both host and CUDA in job 3471324, despite
+valid baseline rates. The later rejection requires separate localization;
+neither the unit checks nor cold replay establish full TOV stability.
 
 ## Future Updates
 
