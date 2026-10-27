@@ -33,7 +33,10 @@ Heavy-flavor coefficients average neutrino/antineutrino absorption/scattering;
 emissivity sums two flavors of each. This matters for asymmetric inelastic
 kernels. The temporary floor reference does not modify evolved moments or
 the equilibrium conservation budget. Its comoving thresholds deliberately
-replace the former lab-floor classification.
+replace the former lab-floor classification. These criteria are not
+equivalent in moving matter: a lab-floor state can exceed both comoving
+thresholds. This near-floor operator change remains under review; passing
+hot-core tests does not validate the atmosphere or this reference choice.
 
 Unrestricted source updates retain the accepted root directly. Limited
 semi-implicit updates retain the original baseline, so a zero limiter leaves
@@ -41,8 +44,9 @@ it unchanged. The source limiter must remain disabled for NuRates IMEX;
 numerical post-source repairs are not included in its implicit increment.
 WeakRates/FakeRates retain their original source paths.
 
-This solves the configured legacy corrected grey operator, not a fully
-coupled matter-radiation system. In particular, the existing separate
+This retains the legacy thermal-equilibrium correction prescription, not
+an identical operator near numerical floors or a fully coupled
+matter-radiation system. In particular, the existing separate
 electron-flavor Kirchhoff replacements need not preserve pair-only net
 electron-neutrino number away from equilibrium. Process-separated treatment
 and a pair-only conservation test remain necessary before claiming that

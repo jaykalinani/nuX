@@ -73,15 +73,22 @@ transport opacity.
 The dilute Fermi-Dirac reconstruction uses its small-fugacity expansion rather
 than extrapolating the rational fit to zero density. Numerical floors for
 number and energy are in different units and must not define a physical
-mean energy. In M1, only when both evolved moments are at their configured
-floors, rate evaluation uses temporary reference moments
+mean energy. In this `nurates` feature branch, M1 classifies a state as
+floor-only when both comoving moments are below the configured number and
+energy floors converted with the cell volume and species multiplicity.
+This differs from the original evolved-moment criterion for moving matter;
+the two criteria are not algebraically equivalent. Scheduled opacities and
+nonlinear source trials currently share the comoving criterion. Its behavior
+in the full-star atmosphere is not yet validated.
+
+For a classified floor-only state, rate evaluation uses temporary moments
 `n_ref = min(n, J / (3 * T_matter))` and `J_ref = 3 * T_matter * n_ref`.
 Neither reference moment exceeds its input. The reconstructed FD component
 must reproduce both reference moments within the inverse fit's accuracy;
 nonrepresentable moments are reported, not silently accepted at the eta cap.
-Evolved moments are unchanged, and populated spectra retain their measured
-mean energy. Exact vacuum has zero occupation and can still receive
-spontaneous emission.
+Evolved moments are unchanged, and spectra outside the floor-only reference
+retain their measured mean energy. Exact vacuum has zero occupation and can
+still receive spontaneous emission.
 
 Invalid inputs or coefficients terminate the NuRates evaluation with an error,
 including in release GPU builds. They no longer silently zero all interactions
