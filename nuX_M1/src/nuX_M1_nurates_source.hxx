@@ -404,59 +404,70 @@ template <class Rates> struct spectral_source_t {
     return true;
   }
 
-  CCTK_HOST CCTK_DEVICE bool solve(spectral_vector x,
-                                   nurates_source_state_t result[3]) const {
-    spectral_vector f;
-    if (!evaluate(x, f))
+  CCTK_HOST CCTK_DEVICE bool solve(
+      spectral_vector x, nurates_source_state_t result[3]) const {
+    if (options.maxiter <= 0)
       return false;
+    const auto *const source = this;
+    auto value = [source](spectral_vector q, spectral_vector &f) -> int {
+      return source->evaluate(q, f) ? ROOTS_SUCCESS : ROOTS_EBADFUNC;
+    };
+    auto value_jacobian = [source](
+        spectral_vector q, spectral_vector &f, spectral_matrix &J) -> int {
+      return source->evaluate(q, f) && source->jacobian(q, f, J)
+                 ? ROOTS_SUCCESS : ROOTS_EBADFUNC;
+    };
+    auto derivative = [value_jacobian](
+        spectral_vector q, spectral_matrix &J) -> int {
+      // A rejected trial need not share the last residual's coordinates.
+      // Recompute the base value for one-sided Jacobian differences.
+      spectral_vector f;
+      return value_jacobian(q, f, J);
+    };
+    // Reuse the scaled dogleg solver: a nearly null Newton direction need
+    // not be a useful step even when the residual has a substantial gradient.
+    nuX_Utils::roots::hybridsj_solver<CCTK_REAL, 6> solver{};
+    if (nuX_Utils::roots::hybridsj_set(&solver, value_jacobian, x) !=
+        ROOTS_SUCCESS)
+      return false;
+
     const CCTK_REAL step_tol = options.step_tolerance > 0
                                  ? options.step_tolerance : options.epsrel;
-    for (int iteration = 0; iteration < options.maxiter; ++iteration) {
-      spectral_matrix J, Q, R;
-      if (!jacobian(x, f, J) ||
-          nuX_Utils::roots::detail::qr_decomp_unpack(J, &Q, &R) != ROOTS_SUCCESS)
-        return false;
-      spectral_vector rhs, step;
-      nuX_Utils::roots::detail::compute_qtf(Q, f, &rhs);
-      for (int a = 0; a < 6; ++a)
-        rhs(a) = -rhs(a);
-      if (nuX_Utils::roots::detail::r_solve(R, rhs, &step) != ROOTS_SUCCESS ||
-          !nuX_Utils::roots::finite(step))
+    auto converged = [&solver, source, result, step_tol]() -> bool {
+      if (!nuX_Utils::roots::finite(solver.x) ||
+          !nuX_Utils::roots::finite(solver.f) ||
+          !nuX_Utils::roots::finite(solver.dx))
         return false;
       CCTK_REAL relative_step = 0;
       for (int a = 0; a < 6; ++a)
         relative_step = fmax(relative_step,
-                            fabs(step(a)) / fmax(CCTK_REAL(1), fabs(x(a))));
-      if (norm(f) <= options.epsrel && relative_step <= step_tol) {
-        nurates_source_state_t candidate[3];
-        if (!evaluate(x, f, candidate) || norm(f) > options.epsrel)
-          return false;
-        if (verify(candidate)) {
-          for (int sp = 0; sp < 3; ++sp)
-            result[sp] = candidate[sp];
-          return true;
-        }
-        // A very stiff coefficient can amplify a small spectral residual.
-        // Continue Newton refinement until the original physical source
-        // residual also passes; never accept the spectral test alone.
-      }
-      const CCTK_REAL old_norm = norm(f);
-      CCTK_REAL damping = 1;
-      bool accepted = false;
-      for (int backtrack = 0; backtrack < 24; ++backtrack) {
-        spectral_vector trial, trial_f;
-        for (int a = 0; a < 6; ++a)
-          trial(a) = x(a) + damping * step(a);
-        if (evaluate(trial, trial_f) &&
-            norm(trial_f) < (1 - 1e-4 * damping) * old_norm) {
-          x = trial;
-          f = trial_f;
-          accepted = true;
-          break;
-        }
-        damping *= 0.5;
-      }
-      if (!accepted)
+                            fabs(solver.dx(a)) /
+                                fmax(CCTK_REAL(1), fabs(solver.x(a))));
+      // dx is the last proposed correction, not necessarily an accepted
+      // displacement. A short trust radius alone is never convergence.
+      if (norm(solver.f) > source->options.epsrel || relative_step > step_tol)
+        return false;
+      spectral_vector residual;
+      nurates_source_state_t candidate[3];
+      if (!source->evaluate(solver.x, residual, candidate) ||
+          norm(residual) > source->options.epsrel || !source->verify(candidate))
+        return false;
+      for (int sp = 0; sp < 3; ++sp)
+        result[sp] = candidate[sp];
+      return true;
+    };
+    if (converged())
+      return true;
+    // Count every iterate call, including rejected trials; solver.iter only
+    // counts accepted steps and therefore cannot bound the work here.
+    for (CCTK_INT calls = 0; calls < options.maxiter; ++calls) {
+      const int status =
+          nuX_Utils::roots::hybridsj_iterate(&solver, value, derivative);
+      // An exact root can produce a zero step and a no-progress status.
+      // Accept only after all residual, step and physical checks still pass.
+      if (converged())
+        return true;
+      if (status != ROOTS_SUCCESS)
         return false;
     }
     return false;
