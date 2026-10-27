@@ -2,6 +2,7 @@
 #define NUX_WEAKLIB_HXX
 
 #include <cmath>
+#include <limits>
 #include <type_traits>
 
 #include <AMReX_Array.H>
@@ -55,6 +56,7 @@ static_assert(std::is_trivially_copyable_v<TableView>);
 
 struct Rates {
   double number[3]{}, energy[3]{}; // cm^-3, MeV cm^-3, nux is ALL FOUR species
+  double mean_energy[3]{}; // MeV; remains defined when absolute LTE density underflows
   double absorption_number[3]{}, absorption_energy[3]{}, scattering[3]{}; // cm^-1
   double emission_number[3]{}, emission_energy[3]{}; // cm^-4, MeV cm^-4; multiply by c
 };
@@ -70,6 +72,44 @@ double fermi(double x) noexcept {
     return e / (1 + e);
   }
   return 1 / (1 + std::exp(x));
+}
+
+// WLI's coordinate-to-index formula requires uniform interpolation
+// coordinates, not merely a monotone grid. Validate before uploading axes.
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+bool coordinate_axis_is_uniform(const double *nodes, int n) noexcept {
+  if (n < 2 || !std::isfinite(nodes[0]) || !std::isfinite(nodes[n - 1]))
+    return false;
+  const double step = (nodes[n - 1] - nodes[0]) / (n - 1);
+  if (!std::isfinite(step) || step <= 0)
+    return false;
+  // Translation of the coordinate origin must not relax the spacing check.
+  const double tolerance = 64 * std::numeric_limits<double>::epsilon() *
+                           (nodes[n - 1] - nodes[0]);
+  for (int i = 1; i < n; ++i)
+    if (!std::isfinite(nodes[i]) || nodes[i] <= nodes[i - 1] ||
+        std::abs((nodes[i] - nodes[0]) - i * step) > tolerance)
+      return false;
+  return true;
+}
+
+// Factor exp(mu/T) only for negative mu. Ratios of spectral moments then
+// stay finite even when the absolute antineutrino population underflows.
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+double scaled_fermi(double energy, double temp, double mu) noexcept {
+  return mu < 0 ? std::exp(-energy / temp) /
+                      (1 + std::exp((mu - energy) / temp))
+                : fermi((energy - mu) / temp);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+double restore_fd_scale(double integral, double prefactor, double log_scale) noexcept {
+  // Neither exp(log_scale) nor prefactor*integral need be representable on
+  // its own when the final physical density or emissivity is finite.
+  if (integral == 0)
+    return 0;
+  return log_scale == 0 ? prefactor * integral
+                       : std::exp(std::log(integral) + std::log(prefactor) + log_scale);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -105,10 +145,11 @@ Status evaluate(const TableView &v, double rho, double temp, double ye,
   const double ld = std::log10(rho), lt = std::log10(kelvin);
   for (int s = 0; s < 3; ++s) {
     const double mu = s == 0 ? mu_nu : s == 1 ? -mu_nu : 0;
+    const double log_scale = mu < 0 ? mu / temp : 0;
     double n = 0, j = 0, a0 = 0, a1 = 0, scat = 0;
     for (int ie = 0; ie < v.ne; ++ie) {
       const double e = v.energies[ie];
-      const double w = v.weights[ie] * e * e * fermi((e - mu) / temp);
+      const double w = v.weights[ie] * e * e * scaled_fermi(e, temp, mu);
       n += w;
       j += w * e;
       if (v.include_emab && s < 2) {
@@ -148,24 +189,29 @@ Status evaluate(const TableView &v, double rho, double temp, double ye,
         scat += w * e * transport;
       }
     }
-    if (!(std::isfinite(n) && n > 0 && std::isfinite(j) && j > 0))
+    if (!nonnegative_finite(n) || !nonnegative_finite(j))
       return Status::invalid_moment;
+    if (n == 0 || j == 0)
+      return Status::insufficient_energy_coverage;
     const double emin = v.energies[0], emax = v.energies[v.ne - 1];
-    const double f0 = fermi(-mu / temp);
+    const double f0 = scaled_fermi(0, temp, mu);
     const double low2 = f0 * emin * emin * emin / 3;
     const double low3 = f0 * emin * emin * emin * emin / 4;
-    if (!((low2 + high_tail(2, emax, temp, mu)) <= v.tail_tolerance * n &&
-          (low3 + high_tail(3, emax, temp, mu)) <= v.tail_tolerance * j))
+    const double tail_mu = mu < 0 ? 0 : mu;
+    if (!((low2 + high_tail(2, emax, temp, tail_mu)) <= v.tail_tolerance * n &&
+          (low3 + high_tail(3, emax, temp, tail_mu)) <= v.tail_tolerance * j))
       return Status::insufficient_energy_coverage;
     const double multiplicity = s == 2 ? 4 : 1;
-    out.number[s] = multiplicity * phase_space * n;
-    out.energy[s] = multiplicity * phase_space * j;
+    out.number[s] = restore_fd_scale(n, multiplicity * phase_space, log_scale);
+    out.energy[s] = restore_fd_scale(j, multiplicity * phase_space, log_scale);
+    out.mean_energy[s] = j / n;
     out.absorption_number[s] = a0 / n;
     out.absorption_energy[s] = a1 / j;
     out.scattering[s] = scat / j;
-    out.emission_number[s] = out.absorption_number[s] * out.number[s];
-    out.emission_energy[s] = out.absorption_energy[s] * out.energy[s];
+    out.emission_number[s] = restore_fd_scale(a0, multiplicity * phase_space, log_scale);
+    out.emission_energy[s] = restore_fd_scale(a1, multiplicity * phase_space, log_scale);
     if (!nonnegative_finite(out.number[s]) || !nonnegative_finite(out.energy[s]) ||
+        !nonnegative_finite(out.mean_energy[s]) ||
         !nonnegative_finite(out.absorption_number[s]) ||
         !nonnegative_finite(out.absorption_energy[s]) ||
         !nonnegative_finite(out.scattering[s]) ||

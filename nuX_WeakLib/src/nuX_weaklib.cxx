@@ -10,6 +10,7 @@
 
 #include <H5Cpp.h>
 #include <AMReX_GpuAtomic.H>
+#include <AMReX_GpuControl.H>
 #include <AMReX_GpuContainers.H>
 #include <AMReX_GpuMemory.H>
 #include <AMReX_ParallelDescriptor.H>
@@ -142,6 +143,8 @@ AxisView axis(amrex::Gpu::DeviceVector<double> &dest,
             "non-finite/non-monotone axis " + src.name);
     if (logarithmic) nodes[i] = std::log10(nodes[i]);
   }
+  require(coordinate_axis_is_uniform(nodes.data(), int(nodes.size())),
+          "WLI requires uniformly spaced interpolation coordinates for " + src.name);
   upload(dest, nodes);
   return {dest.data(), int(nodes.size()), src.points.front(), src.points.back()};
 }
@@ -178,6 +181,8 @@ void energy_grid(Tables &owner, const wli::io::HostOpacityCommon &common,
     const auto right = i + 1 == nodes.size() ? i : i + 1;
     weights[i] = (nodes[right] - nodes[left]) / 2;
   }
+  require(coordinate_axis_is_uniform(logs.data(), int(logs.size())),
+          "WLI requires uniformly spaced log-energy coordinates");
   upload(owner.axes[0], nodes);
   upload(owner.axes[1], logs);
   upload(owner.axes[2], weights);
@@ -316,6 +321,7 @@ extern "C" void nuX_WeakLib_CalcOpacity(CCTK_ARGUMENTS) {
   DECLARE_CCTK_PARAMETERS;
   if (!tables || !EOSX::global_eos_3p_tab3d)
     CCTK_ERROR("WeakLib provider/EOSX is not initialized; select the provider before setup");
+  const amrex::Gpu::LaunchSafeGuard launch_region(true);
   const auto view = tables->view;
   const auto eos = EOSX::global_eos_3p_tab3d;
   const bool rest_subtracted = CCTK_Equals(chemical_potentials, "rest-mass-subtracted");
@@ -358,16 +364,20 @@ extern "C" void nuX_WeakLib_CalcOpacity(CCTK_ARGUMENTS) {
           rate_units::transport_number_density_to_nm3;
       constexpr double energy_cgs_to_code = rate_units::per_cm3_to_per_nm3 /
           rate_units::code_energy_density_to_mev_nm3;
-      // c*dt_unit is length_unit. Form eta from the SAME converted equilibrium
-      // moments and kappa, avoiding a roundoff mismatch between cgs unit sets.
+      // Use the same length convention for emission and absorption. Convert
+      // the spectral emission integrals directly, retaining finite emission
+      // even if the LTE population rounded to zero before multiplication by
+      // a large opacity.
       abs_0[i] = rates.absorption_number[s] * inverse_cm_to_code;
       abs_1[i] = rates.absorption_energy[s] * inverse_cm_to_code;
       scat_1[i] = rates.scattering[s] * inverse_cm_to_code;
-      const double n = rates.number[s] * number_cgs_to_transport;
-      const double j = rates.energy[s] * energy_cgs_to_code;
-      eta_0[i] = abs_0[i] * n;
-      eta_1[i] = abs_1[i] * j;
-      nueave[i] = j / n; // nuX's legacy transport-energy unit, not MeV
+      eta_0[i] = rates.emission_number[s] *
+          (inverse_cm_to_code * number_cgs_to_transport);
+      eta_1[i] = rates.emission_energy[s] *
+          (inverse_cm_to_code * energy_cgs_to_code);
+      nueave[i] = rates.mean_energy[s] *
+          rate_units::transport_number_density_to_nm3 /
+          rate_units::code_energy_density_to_mev_nm3; // legacy transport unit, not MeV
       if (!nonnegative_finite(abs_0[i]) || !nonnegative_finite(abs_1[i]) ||
           !nonnegative_finite(scat_1[i]) || !nonnegative_finite(eta_0[i]) ||
           !nonnegative_finite(eta_1[i]) || !nonnegative_finite(nueave[i]))
@@ -381,6 +391,7 @@ extern "C" void nuX_WeakLib_SetEquilibrium(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_WeakLib_SetEquilibrium;
   DECLARE_CCTK_PARAMETERS;
   if (!tables || !EOSX::global_eos_3p_tab3d) CCTK_ERROR("WeakLib/EOSX not initialized");
+  const amrex::Gpu::LaunchSafeGuard launch_region(true);
   const auto view = tables->view;
   const auto eos = EOSX::global_eos_3p_tab3d;
   const bool rest_subtracted = CCTK_Equals(chemical_potentials, "rest-mass-subtracted");

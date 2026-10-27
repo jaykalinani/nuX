@@ -49,8 +49,11 @@ records the kernel unit strings.
 - WLI interpolation receives `log10(E/MeV)`, `log10(rho/[g cm^-3])`,
   `log10(T/K)`, and raw Ye. EOSX temperature is MeV and is converted with
   `k_B=8.617333262145e-11 MeV/K`. The HDF5 energy/thermodynamic/kernel units,
-  monotone axes, shape, species count, log/linear conventions and offsets are
+  uniform interpolation-coordinate axes, shape, species count, log/linear conventions and offsets are
   validated before use. Unsupported units/layouts fail loudly.
+  WLI's index formula is not a general nonuniform-grid search: log E/rho/T
+  and linear Ye must be uniformly spaced. Zoomed/nonuniform tables are not
+  silently interpolated using the wrong cell.
 - With `chemical_potentials="total"` (default), use
   `mu_nue=mu_p+mu_e-mu_n` and `mu_anue=-mu_nue`; heavy-lepton chemical
   potentials vanish. This also applies when the SAME reference has been
@@ -75,6 +78,10 @@ records the kernel unit strings.
   equilibrium moment. No evolved number/energy density is divided into an
   emissivity, so emission is finite in an initially empty radiation field.
   Heavy-lepton EmAb is zero, not borrowed from electron-flavor data.
+  Negative-chemical-potential spectra share a factored fugacity when forming
+  ratios; densities and emissivities are restored in logarithms. A physically
+  negligible absolute population may round to zero without destroying its
+  finite mean energy or attenuation. No occupation floor or eta cap is added.
 - Iso entries are in `cm^-1 MeV^-2`. They are Legendre expansion coefficients,
   not already-normalized angular moments: WeakLib's table creator multiplies
   the l-th moment by `(2*l+1)/2`. The physical transport opacity is therefore

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <AMReX_GpuContainers.H>
+#include <AMReX_GpuControl.H>
 #include <AMReX_GpuMemory.H>
 #include <AMReX_GpuLaunch.H>
 
@@ -25,6 +26,7 @@ bool near(double got, double want) {
 // Opt-in tests run on the SAME backend as CarpetX. They are source-only until
 // a future authorized build/run; no production table is needed by the math.
 void self_test() {
+  const amrex::Gpu::LaunchSafeGuard launch_region(true);
   constexpr int ne = 256;
   const std::array<int, 4> emab_shape{ne, 2, 2, 2};
   const std::array<int, 5> iso_shape{ne, 2, 2, 2, 2};
@@ -74,6 +76,14 @@ void self_test() {
     iso[s].upload(b, scatter.data(), scatter.size());
     v.iso[s] = iso[s].view();
   }
+  // A large finite opacity can leave representable emission even when its
+  // equilibrium population is below double precision's absolute range.
+  wli::ResidentTable<4> strong_emab;
+  wli::TableMeta<4> strong_meta{};
+  for (int d = 0; d < 4; ++d) strong_meta.n[d] = emab_shape[d];
+  const std::vector<double> strong_values(std::size_t(strong_meta.size()), 130);
+  strong_emab.upload(strong_meta, strong_values.data(), strong_values.size());
+  const auto strong_view = strong_emab.view();
 
   // Independent quadrature reference. No production helper computes these
   // moment powers or their number-versus-energy opacity averages for the test.
@@ -104,8 +114,8 @@ void self_test() {
       bad += !near(r.scattering[s], 4 * pi * transport * m5 / m3);
       // Both collision components vanish at equilibrium. Emission remains
       // finite and positive at zero evolved population (which is not an input).
-      bad += r.emission_number[s] != r.absorption_number[s] * r.number[s];
-      bad += r.emission_energy[s] != r.absorption_energy[s] * r.energy[s];
+      bad += !near(r.emission_number[s], r.absorption_number[s] * r.number[s]);
+      bad += !near(r.emission_energy[s], r.absorption_energy[s] * r.energy[s]);
       if (s < 2) bad += !(r.emission_number[s] > 0 && r.emission_energy[s] > 0);
     }
     Rates scratch;
@@ -133,6 +143,53 @@ void self_test() {
     auto negative_kernel = v;
     negative_kernel.emab_offsets[0] = 1e10;
     bad += evaluate(negative_kernel, 1e10, 5, 0.2, 0, scratch) != Status::invalid_kernel;
+    const double uniform[] = {-4, -2, 0, 2};
+    const double nonuniform[] = {0, std::log10(2.0), std::log10(3.0), 2};
+    const double narrow_nonuniform[] = {10, 10 + 1e-14, 10 + 2e-14, 10 + 1e-13};
+    bad += !coordinate_axis_is_uniform(uniform, 4);
+    bad += coordinate_axis_is_uniform(nonuniform, 4);
+    bad += coordinate_axis_is_uniform(narrow_nonuniform, 4);
+    // Large degeneracy suppresses one species below absolute representability,
+    // but its normalized absorption and mean energy still have finite limits.
+    double dilute2 = 0, dilute3 = 0, dilute4 = 0, dilute5 = 0;
+    for (int ie = 0; ie < ne; ++ie) {
+      const double e = v.energies[ie];
+      const double w = v.weights[ie] * e * e * std::exp(-e / 0.01);
+      dilute2 += w;
+      dilute3 += w * e;
+      dilute4 += w * e * e;
+      dilute5 += w * e * e * e;
+    }
+    for (const double mu : {-10.0, 10.0}) {
+      bad += evaluate(v, 1e10, 0.01, 0.2, mu, scratch) != Status::success;
+      const int suppressed = mu > 0 ? 1 : 0;
+      bad += scratch.number[suppressed] != 0 || scratch.energy[suppressed] != 0;
+      bad += !near(scratch.mean_energy[suppressed], dilute3 / dilute2);
+      const double coefficient = 0.01 * (suppressed + 1);
+      bad += !near(scratch.absorption_number[suppressed], coefficient * dilute4 / dilute2);
+      bad += !near(scratch.absorption_energy[suppressed], coefficient * dilute5 / dilute3);
+    }
+    auto strong_absorption = v;
+    strong_absorption.emab[1] = strong_view;
+    strong_absorption.emab_offsets[1] = 0;
+    bad += evaluate(strong_absorption, 1e10, 0.01, 0.2, 10, scratch) != Status::success;
+    bad += scratch.number[1] != 0 || scratch.energy[1] != 0;
+    const double log_eta_number = std::log(phase_space) + std::log(dilute2) +
+                                 130 * std::log(10.0) - 1000;
+    const double log_eta_energy = std::log(phase_space) + std::log(dilute3) +
+                                 130 * std::log(10.0) - 1000;
+    // An absolute near() floor would miss loss of these tiny positive rates.
+    bad += !(scratch.emission_number[1] > 0 &&
+             near(std::log(scratch.emission_number[1]), log_eta_number));
+    bad += !(scratch.emission_energy[1] > 0 &&
+             near(std::log(scratch.emission_energy[1]), log_eta_energy));
+    // exp(-750) alone is zero in double, but its product with a finite
+    // phase-space prefactor need not underflow. Reconstruct in logarithms.
+    const double restored = restore_fd_scale(1, 1e30, -750);
+    bad += !(restored > 0 && near(std::log(restored), std::log(1e30) - 750));
+    const double large_integral = restore_fd_scale(1e300, 1e30, -1000);
+    bad += !(large_integral > 0 &&
+             near(std::log(large_integral), std::log(1e300) + std::log(1e30) - 1000));
     *failure = bad;
   });
   amrex::Gpu::synchronize();
