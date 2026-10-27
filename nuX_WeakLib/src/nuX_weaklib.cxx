@@ -33,7 +33,7 @@ namespace {
 // after AMReX finalization. Host source arrays are discarded after upload.
 struct Tables {
   TableView view;
-  std::array<amrex::Gpu::DeviceVector<double>, 9> axes; // E, log E, weights, 2x(rho,T,Ye)
+  std::array<amrex::Gpu::DeviceVector<double>, 9> axes; // physical E, node indices, weights, 2x(rho,T,Ye)
   wli::ResidentTable<4> emab[2];
   wli::ResidentTable<5> iso[2];
 };
@@ -80,31 +80,28 @@ ThermoView thermo(Tables &owner, const wli::io::HostOpacityCommon &common, int s
 void energy_grid(Tables &owner, const wli::io::HostOpacityCommon &common,
                  std::vector<double> &reference) {
   const auto &nodes = common.energyGrid.points;
-  require(common.energyGrid.kind == wli::AxisKind::Log && nodes.size() >= 2,
-          "expected a logarithmic MeV energy grid with >=2 nodes");
+  require(common.energyGrid.kind == wli::AxisKind::Log &&
+              physical_energy_nodes_are_valid(nodes.data(), nodes.size()),
+          "expected a declared-log MeV energy grid with 2..INT_MAX finite positive increasing nodes");
   if (!reference.empty()) {
     require(nodes == reference, "enabled channels must have identical energy nodes");
     return;
   }
   reference = nodes;
-  std::vector<double> logs(nodes.size()), weights(nodes.size());
+  std::vector<double> node_coordinates(nodes.size()), weights(nodes.size());
   for (std::size_t i = 0; i < nodes.size(); ++i) {
-    require(std::isfinite(nodes[i]) && nodes[i] > 0 &&
-                (i == 0 || nodes[i] > nodes[i - 1]), "invalid energy nodes");
-    logs[i] = std::log10(nodes[i]);
+    node_coordinates[i] = double(i); // exact-node VALUE access, not physical log(E)
     // Composite trapezoidal quadrature on physical E, not log E; no implied
     // opacity extrapolation beyond the first/last tabulated node.
     const auto left = i == 0 ? 0 : i - 1;
     const auto right = i + 1 == nodes.size() ? i : i + 1;
     weights[i] = (nodes[right] - nodes[left]) / 2;
   }
-  require(coordinate_axis_is_uniform(logs.data(), int(logs.size())),
-          "WLI requires uniformly spaced log-energy coordinates");
   upload(owner.axes[0], nodes);
-  upload(owner.axes[1], logs);
+  upload(owner.axes[1], node_coordinates); // REPLACES the old log-energy buffer
   upload(owner.axes[2], weights);
   owner.view.energies = owner.axes[0].data();
-  owner.view.log_energies = owner.axes[1].data();
+  owner.view.energy_node_coordinates = owner.axes[1].data();
   owner.view.weights = owner.axes[2].data();
   owner.view.ne = int(nodes.size());
 }

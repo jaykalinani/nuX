@@ -159,7 +159,8 @@ IsoMetadata validate_iso_metadata(const H5::H5File &file, IsoConvention conventi
           group + "/Offsets contains a non-finite value");
 
   // Check the actual on-disk coordinate roles/types/extents BEFORE WLI reads
-  // arrays. Numeric ranges/uniformity are still checked by the upload path.
+  // arrays. Numeric energy ranges and MATTER-axis uniformity remain checked by
+  // the upload path; exact energy-node access does not require uniform log(E).
   const auto energy_name = strings(file, "/EnergyGrid/Name", 1);
   require(!energy_name[0].empty(), "/EnergyGrid/Name must not be empty");
   require(integer(file, "/EnergyGrid/LogInterp") == 1, "/EnergyGrid/LogInterp must be 1");

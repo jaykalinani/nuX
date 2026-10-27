@@ -28,27 +28,28 @@ bool near(double got, double want) {
 // a future authorized build/run; no production table is needed by the math.
 void self_test() {
   host_io::io_self_test(); // host files/collectives only, never inside a device lambda
+  energy_node_self_test();
   const amrex::Gpu::LaunchSafeGuard launch_region(true);
   constexpr int ne = 256;
   const std::array<int, 4> emab_shape{ne, 2, 2, 2};
   const std::array<int, 5> iso_shape{ne, 2, 2, 2, 2};
-  std::vector<double> energy(ne), loge(ne), weight(ne);
+  std::vector<double> energy(ne), node_coordinates(ne), weight(ne);
   for (int i = 0; i < ne; ++i) {
-    loge[i] = -4 + 7.0 * i / (ne - 1);
-    energy[i] = std::pow(10.0, loge[i]);
+    energy[i] = std::pow(10.0, -4 + 7.0 * i / (ne - 1));
+    node_coordinates[i] = double(i);
   }
   for (int i = 0; i < ne; ++i)
     weight[i] = (energy[i + (i + 1 < ne)] - energy[i - (i > 0)]) / 2;
   std::array<amrex::Gpu::DeviceVector<double>, 6> axes;
   upload(axes[0], energy);
-  upload(axes[1], loge);
+  upload(axes[1], node_coordinates);
   upload(axes[2], weight);
   upload(axes[3], {6, 14});
   upload(axes[4], {8, 12});
   upload(axes[5], {0.01, 0.6});
   TableView v;
   v.energies = axes[0].data();
-  v.log_energies = axes[1].data();
+  v.energy_node_coordinates = axes[1].data();
   v.weights = axes[2].data();
   v.ne = ne;
   v.tail_tolerance = 1e-6;

@@ -48,14 +48,24 @@ records explicit Iso kernel units. The native FullWeakPhysics creator uses a
 different label for the same raw-kernel normalization; see the explicit host-only
 format declaration below.
 
-- WLI interpolation receives `log10(E/MeV)`, `log10(rho/[g cm^-3])`,
-  `log10(T/K)`, and raw Ye. EOSX temperature is MeV and is converted with
-  `k_B=8.617333262145e-11 MeV/K`. The HDF5 energy/thermodynamic/kernel units,
-  uniform interpolation-coordinate axes, shape, species count, log/linear conventions and offsets are
-  validated before use. Unsupported units/layouts fail loudly.
-  WLI's index formula is not a general nonuniform-grid search: log E/rho/T
-  and linear Ye must be uniformly spaced. Zoomed/nonuniform tables are not
-  silently interpolated using the wrong cell.
+- WLI value interpolation receives the exact INTEGER energy-node index,
+  `log10(rho/[g cm^-3])`, `log10(T/K)`, and raw Ye. EOSX temperature is MeV
+  and is converted with `k_B=8.617333262145e-11 MeV/K`.
+  The HDF5 energy/thermodynamic/kernel units,
+  uniform matter-coordinate axes, shape, species count, declared log/linear
+  conventions and offsets are validated before use. Unsupported units/layouts
+  fail loudly.
+  WLI's index formula is not a general nonuniform-grid search: log rho/T and
+  linear Ye must remain uniformly spaced. Energy is queried only at stored
+  nodes: a resident `{0,...,ne-1}` coordinate array REPLACES the old log-energy
+  buffer, and value-only wrappers select the exact integer node. This supports
+  finite positive increasing nonuniform physical energy grids without physical
+  energy interpolation; enabled channels still need identical physical grids.
+  Actual energies still determine FD spectra, physical-E trapezoidal weights,
+  E^2/E^3 factors and tail endpoints. The declared `LogInterp=1` file schema is
+  retained, but physical log(E) need not be uniformly spaced. The node-index
+  adapter has NO off-node physical-energy or d/dE contract; do not use WLI
+  energy-derivative routines with the artificial index coordinates.
 - With `chemical_potentials="total"` (default), use
   `mu_nue=mu_p+mu_e-mu_n` and `mu_anue=-mu_nue`; heavy-lepton chemical
   potentials vanish. This also applies when the SAME reference has been
@@ -138,9 +148,10 @@ two-dimensional `{2,2}` offsets, two matching species arrays, and integer
 species/moment counts and coordinate flags. The native option additionally
 requires the generator's `{1}` integer `weak_magnetism_corr`, `ion_ion_corr`,
 `many_body_corr` (each 0 or 1), and finite double `ga_strange`. Their values
-are logged, not changed. Existing numeric-axis, uniform-coordinate, table-range
-and physical-kernel checks remain in force. Unsupported nonuniform/zoomed
-coordinate grids do not become supported through the format selector.
+are logged, not changed. Existing numeric-energy, uniform-matter-coordinate,
+table-range and physical-kernel checks remain in force. The convention selector
+does not relax them; exact-node access separately permits nonuniform physical
+energy grids, not nonuniform matter axes.
 
 Only the AMReX I/O root reads HDF metadata. Failure status and bounded diagnostic
 text reach every rank before a WLI table-load broadcast. Startup records the
@@ -170,6 +181,7 @@ owned paths after readers finish. They exercise both declarations through the
 real metadata validator and public WLI reader, node/interior recovery, unchanged
 angular normalization, malformed units/counts/types/shapes/native flags, and
 collective missing-file/root-creation failures. No production table is rewritten.
+The native-shaped fixture set also includes a nonuniform physical energy grid.
 Fixture data need no EOS, but their opt-in startup entry still follows the
 provider's normal EOSX/production-table setup. Synthetic device tests cover
 distinct E^2 and E^3 opacity averages, signed first scattering moment, angular/E^2
@@ -178,6 +190,13 @@ emission, elastic-only behavior, EOS-independent table bounds, invalid inputs
 and inadequate energy coverage. The new host interoperability code and fixture
 sources have only been statically checked: **no compilation or fixture execution
 was performed for this change**; their presence is not a passing test result.
+The opt-in [energy-node tests](src/test_weaklib_nodes.cxx) additionally cover
+every node (including both endpoints and ne=2), nonlinear energy-plane values,
+genuine varying rho/T/Ye interpolation, an old-locator failure sensitivity
+control, and full `evaluate()` on a broad 512-node nonuniform physical grid
+against independent physical-E sums at two matter states. Uniform-grid and
+previous degenerate/underflow regressions remain. Bounded temporary test-table
+allocations are opt-in only; the production resident buffer count is unchanged.
 Validate CPU, GPU, multi-rank missing/malformed files, restart cleanup and
 source/equilibrium evolution before scientific use.
 

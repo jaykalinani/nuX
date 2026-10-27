@@ -1,5 +1,6 @@
 // Opt-in HOST-ONLY actual-HDF fixture sources. Not an executed test result.
 #include "nuX_weaklib_io.hxx"
+#include "nuX_weaklib.hxx"
 #include "wli_io_opacity.H"
 #include "wli_opacity_emab_iso.H"
 
@@ -28,7 +29,7 @@ constexpr const char *group = "/Scat_Iso_Kernels";
 
 enum class Fault {
   none, mixed_units, unknown_units, literal_inverse_cm, native_punctuation, missing_units,
-  long_explicit_units, overwide_units,
+  long_explicit_units, overwide_units, nonuniform_energy,
   unit_count, unit_rank, variable_units, native_width, missing_flag0,
   missing_flag1, missing_flag2, flag_value, flag_float, flag_shape,
   ga_nan, ga_shape, ga_float, moments, count_float, flat_offsets,
@@ -85,7 +86,9 @@ void write_fixture(const std::string &path, bool native, Fault fault) {
   write_strings(f, "/EnergyGrid/Unit", {"MeV"}, {1});
   write_int(f, "/EnergyGrid/nPoints", {fault == Fault::energy_count ? 4 : 3}, {1});
   write_int(f, "/EnergyGrid/LogInterp", {1}, {1});
-  write_double(f, "/EnergyGrid/Values", {1, 2, 4}, {3});
+  write_double(f, "/EnergyGrid/Values",
+               fault == Fault::nonuniform_energy ? std::vector<double>{1, 2, 9} :
+                                                  std::vector<double>{1, 2, 4}, {3});
   f.createGroup("/ThermoState");
   write_strings(f, "/ThermoState/Names", {"Density", "Temperature", "Electron Fraction"}, {3});
   write_strings(f, "/ThermoState/Units", {"g/cm3", "K", "None"}, {3});
@@ -189,18 +192,27 @@ bool near(double got, double expected) {
 int check_coefficients(const wli::io::HostScatIsoTable &table) {
   if (table.nPoints != std::array<int, 5>{3, 2, 2, 2, 2} ||
       table.nOpacities != 2 || table.nMoments != 2 || table.offset.size() != 4 ||
-      table.values.size() != 2 || table.values[0].size() != 48 || table.values[1].size() != 48)
+      table.values.size() != 2 || table.values[0].size() != 48 || table.values[1].size() != 48 ||
+      table.common.energyGrid.points.size() != 3)
     return 1;
   int failures = 0;
-  const double loge[] = {0, std::log10(2.0), std::log10(4.0)};
+  const double coordinates[] = {0, 1, 2};
   const double logd[] = {8, 9}, logt[] = {10, 11}, ye[] = {0.1, 0.4};
-  for (const double energy : {2.0, std::sqrt(2.0)}) { // exact node AND interior
+  TableView v;
+  v.ne = 3;
+  v.energy_node_coordinates = coordinates;
+  v.iso_thermo = {{logd, 2, 1e8, 1e9}, {logt, 2, 1e10, 1e11}, {ye, 2, 0.1, 0.4}};
+  for (int s = 0; s < 2; ++s) {
+    v.iso[s] = {table.values[s].data(), {3, 2, 2, 2, 2}};
+    for (int m = 0; m < 2; ++m)
+      v.iso_offsets[s][m] = wli::IsoOffset(table.offset.data(), 2, 2, s, m);
+  }
+  for (int ie = 0; ie < 3; ++ie) { // exact energy nodes, interior MATTER coordinates
+    const double energy = table.common.energyGrid.points[ie];
     for (int s = 0; s < 2; ++s) {
       double phi[2];
       for (int m = 0; m < 2; ++m) {
-        phi[m] = wli::IsoInterpolateSingleVariable5DPoint(
-            std::log10(energy), 8.5, 10.5, 0.25, loge, 3, logd, 2, logt, 2,
-            ye, 2, m, 2, wli::IsoOffset(table.offset.data(), 2, 2, s, m), table.values[s].data());
+        phi[m] = iso_at_energy_node(v, s, m, ie, 8.5, 10.5, 0.25);
         const double expected = m == 0 ? (s == 0 ? 2 : 5) : (s == 0 ? -0.5 : 1.5);
         failures += !near(phi[m], expected);
       }
@@ -247,9 +259,11 @@ void io_self_test() {
   const auto explicit_path = fixture(false, Fault::none);
   const auto native_path = fixture(true, Fault::none);
   const auto long_explicit_path = fixture(false, Fault::long_explicit_units);
+  const auto nonuniform_path = fixture(true, Fault::nonuniform_energy);
   const auto explicit_metadata = check_iso_file_collective(explicit_path, explicit_name);
   const auto native_metadata = check_iso_file_collective(native_path, native_name);
   const auto long_metadata = check_iso_file_collective(long_explicit_path, explicit_name);
+  check_iso_file_collective(nonuniform_path, native_name);
   const auto long_label = long_explicit_label();
   failures += long_label.size() != 256;
   failures += long_metadata.convention != IsoConvention::explicit_kernel_units;
@@ -268,6 +282,10 @@ void io_self_test() {
   const auto explicit_table = wli::io::read_scat_iso_table(explicit_path);
   const auto native_table = wli::io::read_scat_iso_table(native_path);
   const auto long_table = wli::io::read_scat_iso_table(long_explicit_path);
+  const auto nonuniform_table = wli::io::read_scat_iso_table(nonuniform_path);
+  failures += nonuniform_table.common.energyGrid.points != std::vector<double>{1, 2, 9};
+  failures += !physical_energy_nodes_are_valid(nonuniform_table.common.energyGrid.points.data(), 3);
+  failures += check_coefficients(nonuniform_table);
   failures += explicit_table.nPoints != native_table.nPoints;
   failures += explicit_table.offset != native_table.offset;
   failures += explicit_table.values != native_table.values; // exact, no format rescaling

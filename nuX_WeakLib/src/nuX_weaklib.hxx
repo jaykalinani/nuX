@@ -2,6 +2,7 @@
 #define NUX_WEAKLIB_HXX
 
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <type_traits>
 
@@ -44,7 +45,7 @@ struct ThermoView {
 // Only POD views enter grid kernels. The owners live on the host until shutdown.
 struct TableView {
   ThermoView emab_thermo, iso_thermo;
-  const double *energies = nullptr, *log_energies = nullptr, *weights = nullptr;
+  const double *energies = nullptr, *energy_node_coordinates = nullptr, *weights = nullptr;
   int ne = 0;
   wli::TableView<4> emab[2]{};
   wli::TableView<5> iso[2]{};
@@ -63,6 +64,49 @@ struct Rates {
 
 enum class Status { success, invalid_state, out_of_range, insufficient_energy_coverage,
                     invalid_kernel, invalid_moment };
+
+// VALUE ONLY at integer energy node ie. The resident coordinate buffer is
+// {0,...,ne-1}, NOT log(E). WLI's existing value leaf then selects the exact
+// stored energy plane while retaining genuine rho/T/Ye interpolation. Never
+// use this coordinate for off-node physical energy queries or d/dE routines.
+// Invalid public node/species indices return NaN; evaluate rejects invalid_kernel.
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+double emab_at_energy_node(const TableView &v, int species, int ie,
+                          double log_rho, double log_kelvin, double ye) noexcept {
+  if (v.ne < 2 || ie < 0 || ie >= v.ne || species < 0 || species >= 2 ||
+      !v.energy_node_coordinates)
+    return std::numeric_limits<double>::quiet_NaN();
+  const auto t = v.emab[species];
+  const auto a = v.emab_thermo;
+  return wli::EmAbInterpolateSingleVariable4DPoint(
+      double(ie), log_rho, log_kelvin, ye, v.energy_node_coordinates, v.ne,
+      a.rho.log_nodes, a.rho.n, a.temp.log_nodes, a.temp.n,
+      a.ye.log_nodes, a.ye.n, v.emab_offsets[species], t.data);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+double iso_at_energy_node(const TableView &v, int species, int moment, int ie,
+                          double log_rho, double log_kelvin, double ye) noexcept {
+  if (v.ne < 2 || ie < 0 || ie >= v.ne || species < 0 || species >= 2 ||
+      !v.energy_node_coordinates || moment < 0 || moment >= 2 ||
+      moment >= v.iso[species].n[1])
+    return std::numeric_limits<double>::quiet_NaN();
+  const auto t = v.iso[species];
+  const auto a = v.iso_thermo;
+  return wli::IsoInterpolateSingleVariable5DPoint(
+      double(ie), log_rho, log_kelvin, ye, v.energy_node_coordinates, v.ne,
+      a.rho.log_nodes, a.rho.n, a.temp.log_nodes, a.temp.n,
+      a.ye.log_nodes, a.ye.n, moment, t.n[1], v.iso_offsets[species][moment], t.data);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+bool physical_energy_nodes_are_valid(const double *nodes, std::size_t n) noexcept {
+  if (!nodes || n < 2 || n > std::size_t(std::numeric_limits<int>::max())) return false;
+  for (std::size_t i = 0; i < n; ++i)
+    if (!std::isfinite(nodes[i]) || nodes[i] <= 0 || (i && nodes[i] <= nodes[i - 1]))
+      return false;
+  return true;
+}
 
 // Stable FD evaluation; no arbitrary exponent/chemical-potential clamp.
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -153,12 +197,7 @@ Status evaluate(const TableView &v, double rho, double temp, double ye,
       n += w;
       j += w * e;
       if (v.include_emab && s < 2) {
-        const auto t = v.emab[s];
-        const auto a = v.emab_thermo;
-        const double chi = wli::EmAbInterpolateSingleVariable4DPoint(
-            v.log_energies[ie], ld, lt, ye, v.log_energies, v.ne,
-            a.rho.log_nodes, a.rho.n, a.temp.log_nodes, a.temp.n,
-            a.ye.log_nodes, a.ye.n, v.emab_offsets[s], t.data);
+        const double chi = emab_at_energy_node(v, s, ie, ld, lt, ye);
         if (!nonnegative_finite(chi)) return Status::invalid_kernel;
         a0 += w * chi;
         a1 += w * e * chi;
@@ -170,13 +209,8 @@ Status evaluate(const TableView &v, double rho, double temp, double ye,
         double transport = 0;
         for (int c = first; c <= last; ++c) {
           double phi[2];
-          const auto t = v.iso[c];
-          const auto a = v.iso_thermo;
           for (int m = 0; m < 2; ++m)
-            phi[m] = wli::IsoInterpolateSingleVariable5DPoint(
-                v.log_energies[ie], ld, lt, ye, v.log_energies, v.ne,
-                a.rho.log_nodes, a.rho.n, a.temp.log_nodes, a.temp.n,
-                a.ye.log_nodes, a.ye.n, m, t.n[1], v.iso_offsets[c][m], t.data);
+            phi[m] = iso_at_energy_node(v, c, m, ie, ld, lt, ye);
           // WeakLib stores Legendre EXPANSION COEFFICIENTS: the creator
           // multiplies the l-th angular moment by (2*l+1)/2. Thus the first
           // coefficient contributes phi_1/3 to the transport moment, not
@@ -222,5 +256,6 @@ Status evaluate(const TableView &v, double rho, double temp, double ye,
 }
 
 void self_test();
+void energy_node_self_test();
 } // namespace nuX_WeakLib
 #endif
