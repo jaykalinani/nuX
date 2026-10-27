@@ -11,3 +11,8 @@ BOOLEAN run_nurates_matter_source_test "Test the production NuRates source with 
 BOOLEAN run_nurates_source_replay "Replay a captured NuRates source state on host and device"
 {
 } "no"
+
+STRING nurates_source_replay_file "Exact source replay fixture; empty selects the original captured case"
+{
+  ".*" :: "Empty for the built-in case, otherwise a source-replay-v1 text file"
+} ""

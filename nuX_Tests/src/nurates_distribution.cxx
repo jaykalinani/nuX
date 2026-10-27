@@ -164,9 +164,9 @@ int distribution_unit_tests() {
   quadrature.x2 = 1;
   GaussLegendre(&quadrature);
   int failures = check_distribution_inverse() + check_cell_reconstruction(quadrature);
-  // The established host-only test parfile activates no CarpetX driver.
-  // Keep its scalar checks usable without allocating from an uninitialized
-  // AMReX device arena. The CarpetX test additionally exercises its backend.
+  // Scalar helpers do not need AMReX; backend allocation needs its arena.
+  // The established unit_tests.par activates CarpetX and exercises both
+  // the host checks above and the active-backend checks below.
   if (!amrex::Initialized())
     return failures;
   const amrex::Gpu::LaunchSafeGuard launch_region(true);
