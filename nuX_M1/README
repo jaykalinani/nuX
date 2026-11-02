@@ -29,8 +29,8 @@ describe free streaming without that fixed-model pathology. The Lax-Friedrichs
 path's existing support for the thin model is unchanged.
 Zero radiation floors are supported: with rad_E_floor=rad_N_floor=0,
 E=N=Fi=0 is an exact vacuum with zero reconstructed ratios and zero physical
-flux. Variable closures use a conservative causal fan at vacuum; Eddington
-uses its fixed-v isotropic regular-limit fan. A zero energy floor requires
+flux. Vacuum uses the fixed-v isotropic regular-limit speed estimate without
+assigning a thin direction. A zero energy floor requires
 a zero number floor, and states with E=0 but positive N or nonzero Fi are
 rejected because their moment ratios do not define finite interface states.
 Raw HLLE stencil moments and reconstructed face ratios must be finite before
@@ -38,7 +38,7 @@ flooring, slope limiting or cone repair. These operations must not hide NaNs
 or infinities; invalid inputs abort through the existing release-safe handler.
 Finite-state floors and realizability repairs are unchanged.
 
-Following section 3.1 of https://arxiv.org/html/2304.09168v1, reconstruct
+Following section 3.1 of https://arxiv.org/pdf/2304.09168, reconstruct
 (N/E, Fx/E, Fy/E, Fz/E, E), with physical E=rE/sqrt(gamma), rather than
 reconstructing densitized components independently. Evaluate lapse, shift,
 and spatial metric with the existing nuX vertex-to-cell interpolation, then
@@ -63,42 +63,27 @@ Speeds and corrections to the reference formulas:
   sR=max(0,lambdaL+,lambdaR+). The consistent HLLE expression is
   (sR*FL-sL*FR+sL*sR*(UR-UL))/(sR-sL), not Eq. (62)'s printed state sum
   and speed sum. A zero-width fan uses the centered physical flux.
-* Do NOT interpolate thick/thin eigenvalues as in Eq. (57): that estimate
-  need not enclose the actual closure Jacobian. For example, static Minerbo
-  f=|F|/E=0.5 aligned with the normal has lambda+=0.7541494487, while the
-  interpolated endpoint estimate gives only 0.6460308504.
-* Eddington uses the exact fixed-v thick-system roots, with p=alpha*v^d
-  and the advective root -beta^d+p in the lower MIN and upper MAX. This
-  corrects the printed p=alpha*v^d/W and two MINs in Eqs. (58)-(60).
-  The roots reproduce (v +/- 1/sqrt(3))/(1 +/- v/sqrt(3)) in 1D flat space.
-* For a static fiducial observer, differentiate the actual variable closure
-  Pij/E=(1-chi)*deltaij/2+(3*chi-1)*ni*nj/2 in a local orthonormal frame.
-  The normal cosine is mu=F^d/(sqrt(gamma^{dd})*|F|), including off-diagonal
-  metrics. Rotation about the normal reduces its four eigenvalues to a
-  three-by-three cubic plus the transverse root (3*chi-1)*mu/(2*f).
-  Minerbo uses all four roots, with explicit isotropic and streaming limits.
-  Kershaw factors analytically: two roots f*mu and the roots
-  2*f*mu/3 +/- sqrt((1-f^2)/3+f^2*mu^2/9). Transform orthonormal roots with
-  -beta^d+alpha*sqrt(gamma^{dd})*lambda. Static face chi is evaluated
-  directly from f (J=E and |H|=|F|), so fluxes and their differentiated
-  analytic closure agree without root-finding tolerance inconsistencies.
-* Nearly multiple/roundoff-ambiguous STATIC Minerbo cubics use the coordinate
-  light cone -beta^d +/- alpha*sqrt(gamma^{dd}); well-separated roots receive
-  a roundoff guard. Include the closure-derived number-current advection
-  eigenvalue in the final bounds.
-* OPEN MOVING-CLOSURE LIMITATION: the current moving Minerbo/Kershaw estimate
-  also uses the light cone, but it is not generally an enclosing fan of the
-  inherited lab-thin/comoving-thick pressure model. For example, in flat
-  geometry E=1, F=(0.01,0,0), v=(0.5,0,0) gives a Minerbo transverse
-  characteristic about 26.3918122094, outside [-1,1]. An independent
-  high-precision pressure-Jacobian check also finds a complex pair for
-  E=1, F=(0.999,0,0), v=(0.005,sqrt(3)*0.005,0). These are accepted moment
-  states, not invalid inputs. Closure fallback to the fixed thin tensor can
-  invalidate the bound too. Widening numerical viscosity does not repair
-  lost hyperbolicity; clipping speeds does not establish causality. This
-  branch is NOT ready for general moving-fluid HLLE production use. A
-  separately reviewed physical closure/characteristic decision is required;
-  this input-validation patch does not replace the global pressure model.
+* Follow Eq. (57)'s practical thin/thick speed interpolation with the same
+  face chi that determines pressure: dthin=(3*chi-1)/2, dthick=1-dthin.
+  Pressure closures and their existing comoving root remain unchanged.
+  In a static frame chi can be evaluated directly from |F|/E; moving faces
+  use the usual solved chi, not an Eulerian flux factor substituted for it.
+* The thin endpoints are -beta^d +/- alpha*abs(F^d)/|F|, sorted for either
+  flux direction. At exactly zero |F| an isotropic chi=1/3 needs no thin
+  direction; otherwise the undefined thin endpoints use the two coordinate
+  light-cone speeds before interpolation. No cubic eigensolver is used.
+* The thick estimates use the fixed-v system's roots, p=alpha*v^d, and the
+  advective root -beta^d+p in the lower MIN and upper MAX. This corrects
+  the printed p=alpha*v^d/W and two MINs in Eqs. (58)-(60). In 1D flat
+  space they reproduce (v +/- 1/sqrt(3))/(1 +/- v/sqrt(3)). Include the
+  separate number-current speed alpha*fnu^d/Gamma in the final fan.
+* These are the paper's approximate endpoint-interpolated speeds, NOT an
+  exact intermediate-closure characteristic enclosure. Even static Minerbo
+  f=.5 has an actual largest Jacobian root .7541494487 rather than the
+  interpolated .6460308504. The inherited mixed-frame pressure can also
+  have superluminal or complex characteristics for some moving states.
+  This transport option does not change that constitutive model, prove
+  general hyperbolicity, or establish that increasing viscosity fixes it.
 * Set A=min(1,1/(mean(kappa)*dl)), dl=dx/sqrt(gamma^{dd}), so opacities
   multiply proper normal distance, including non-diagonal spatial metrics.
   kappa=abs_1+scat_1 controls relaxation of H/J and therefore transports
@@ -112,18 +97,20 @@ Speeds and corrections to the reference formulas:
 Validation status and proposed checks
 ------------------------------------
 
-No build or evolution was performed for this change. nuX_Tests now contains
-future executable assertions for constant-state consistency, signed/upwind
+The CUDA build, source/equilibrium/HLLE unit driver and a four-rank/four-GPU
+two-step poisoned TOV smoke have completed successfully. The unit suite contains
+assertions for constant-state consistency, signed/upwind
 and zero-speed fans, A/A^2 scaling, reconstruction slopes, moving thick
-eigenvalues, the f=0.5 counterexample, oblique/transverse static Jacobian
-spectra, streaming/isotropic/cubic-degeneracy limits, mapping of the current
-moving speed estimate (not proof of enclosure), non-diagonal GR face geometry,
-component mapping, densitization, and realizability. They run with the
-existing nuX_Tests/test/unit_tests.par after an authorized build.
+roots, interpolation at static/moving/oblique/zero-flux states, sorted thin
+endpoints, the additional number-current mode, non-diagonal GR face geometry,
+component mapping, densitization, and realizability. These are formula and
+mapping checks, not proof of eigenvalue enclosure or evolution stability.
+They run with the existing nuX_Tests/test/unit_tests.par. Longer TOV and crossing
+evolutions and resolution/opacity convergence remain separate validation tasks.
 
 nuX_M1/par/nuX_M1_hlle_smoke.par is a small periodic, moving Gaussian smoke
 case. It is not a regression result or a demonstrated convergence test.
-After building and running are authorized, check positivity/realizability
+For further validation, check positivity/realizability
 and periodic integral conservation, repeat with kappa_scat_nue=1e3 and
 closure="Eddington", and measure diffusion/advection convergence under
 resolution and opacity changes. The established beam, crossing-beam,
