@@ -29,6 +29,7 @@ bool near(double got, double want) {
 void self_test() {
   host_io::io_self_test(); // host files/collectives only, never inside a device lambda
   energy_node_self_test();
+  collision_self_test();
   const amrex::Gpu::LaunchSafeGuard launch_region(true);
   constexpr int ne = 256;
   const std::array<int, 4> emab_shape{ne, 2, 2, 2};

@@ -7,6 +7,7 @@
 
 #define NUX_M1_CLOSURE_IMPLEMENTATION
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_collision_provider.hxx"
 #include "nuX_utils.hxx"
 
 namespace nuX_M1 {
@@ -41,6 +42,7 @@ void CalcClosure(CCTK_ARGUMENTS) {
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
+  const bool physical_current = coupled_collision_active();
   tensor::slicing_geometry_const geom(layout_vc, layout_cc, alp, betax, betay,
                                       betaz, gxx, gxy, gxz, gyy, gyz, gzz, kxx,
                                       kxy, kxz, kyy, kyz, kzz);
@@ -105,7 +107,9 @@ void CalcClosure(CCTK_ARGUMENTS) {
                    rFz[i4D], &F_d);
 
           CCTK_REAL E_closure = rE[i4D];
-          repair_moments(g_uu, &E_closure, &F_d, rad_E_floor, rad_eps);
+          repair_moments(g_uu, &E_closure, &F_d,
+                         physical_current ? CCTK_REAL(0) : rad_E_floor,
+                         physical_current ? CCTK_REAL(0) : rad_eps);
 
           assert(isfinite(E_closure));
           assert(isfinite(F_d(0)));
@@ -149,10 +153,17 @@ void CalcClosure(CCTK_ARGUMENTS) {
           assert(isfinite(rHy[i4D]));
           assert(isfinite(rHz[i4D]));
 
-          CCTK_REAL const Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
-                                                rad_E_floor, rad_eps);
+          CCTK_REAL Gamma;
+          if (physical_current) {
+            if (!compute_source_Gamma(W, v_u, rJ[i4D], E_closure, F_d, &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W, v_u, rJ[i4D], E_closure, F_d,
+                                  rad_E_floor, rad_eps);
+          }
           assert(Gamma > 0);
-          rnnu[i4D] = max(rN[i4D], rad_N_floor) / Gamma;
+          rnnu[i4D] =
+              max(rN[i4D], physical_current ? CCTK_REAL(0) : rad_N_floor) / Gamma;
         }
       });
 }

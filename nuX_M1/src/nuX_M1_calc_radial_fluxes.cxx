@@ -7,6 +7,7 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_collision_provider.hxx"
 #include "nuX_utils.hxx"
 
 namespace nuX_M1 {
@@ -24,6 +25,7 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
   }
 
   const GridDescBaseDevice grid(cctkGH);
+  const bool physical_current = coupled_collision_active();
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
 
@@ -125,7 +127,8 @@ extern "C" void nuX_M1_CalcRadialFluxes(CCTK_ARGUMENTS) {
                 r_d(a) * irr * calc_E_flux(alp_cc, beta_u, rE[i4D], F_u, a);
           }
 
-          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
+          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u,
+                         physical_current ? CCTK_REAL(0) : rad_E_floor);
           const CCTK_REAL Gamma = alp_cc * fnu_u(0);
           if (!isfinite(Gamma) || !(Gamma > 0.0)) {
             radial_flux_0[i4D] = 0.0;

@@ -1,1 +1,1 @@
-REQUIRES EOSX Loop WeakLibInterp HDF5
+REQUIRES EOSX Loop WeakLibInterp HDF5 nuX_NuRates nuX_WeakRates

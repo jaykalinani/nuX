@@ -12,6 +12,7 @@
 #define NUX_M1_SOURCES_IMPLEMENTATION
 #include "nuX_M1_closure.hxx"
 #include "nuX_M1_sources.hxx"
+#include "nuX_M1_collision_provider.hxx"
 #include "nuX_baryon_mass.hxx"
 #include "nuX_utils.hxx"
 
@@ -269,7 +270,9 @@ void launch_apply_source_kernel(
     CCTK_REAL *const source_update_delta_Fy,
     CCTK_REAL *const source_update_delta_Fz, CCTK_REAL const dt,
     CCTK_REAL const mb, CCTK_INT const backreact,
-    bool const implicit_backreaction, CCTK_REAL const rad_N_floor,
+    bool const implicit_backreaction, bool const accepted_source_state,
+    bool const physical_baseline, bool const repair_final_state,
+    CCTK_REAL const rad_N_floor,
     CCTK_REAL const rad_E_floor, CCTK_REAL const rad_eps) {
   assert(dt > 0.0);
   const CCTK_REAL inv_dt = 1.0 / dt;
@@ -309,7 +312,10 @@ void launch_apply_source_kernel(
       tensor::generic<CCTK_REAL, 4, 1> F_d;
       pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D], rFz[i4D],
                &F_d);
-      apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
+      if (!accepted_source_state)
+        apply_floor(g_uu, &E, &F_d,
+                    physical_baseline ? CCTK_REAL(0) : rad_E_floor,
+                    physical_baseline ? CCTK_REAL(0) : rad_eps);
 
       const CCTK_REAL collision_delta_E = theta * source_update_delta_E[i4D];
       const CCTK_REAL collision_delta_Fx = theta * source_update_delta_Fx[i4D];
@@ -317,10 +323,11 @@ void launch_apply_source_kernel(
       const CCTK_REAL collision_delta_Fz = theta * source_update_delta_Fz[i4D];
       const CCTK_REAL collision_delta_N = theta * source_update_delta_N[i4D];
 
-      E += collision_delta_E;
-      const CCTK_REAL Fx_new = F_d(1) + collision_delta_Fx;
-      const CCTK_REAL Fy_new = F_d(2) + collision_delta_Fy;
-      const CCTK_REAL Fz_new = F_d(3) + collision_delta_Fz;
+      const CCTK_REAL rejected_fraction = accepted_source_state ? 1 - theta : -theta;
+      E -= rejected_fraction * source_update_delta_E[i4D];
+      const CCTK_REAL Fx_new = F_d(1) - rejected_fraction * source_update_delta_Fx[i4D];
+      const CCTK_REAL Fy_new = F_d(2) - rejected_fraction * source_update_delta_Fy[i4D];
+      const CCTK_REAL Fz_new = F_d(3) - rejected_fraction * source_update_delta_Fz[i4D];
 
       assert(isfinite(E));
       assert(isfinite(Fx_new));
@@ -328,10 +335,15 @@ void launch_apply_source_kernel(
       assert(isfinite(Fz_new));
 
       pack_F_d(betax_ijk, betay_ijk, betaz_ijk, Fx_new, Fy_new, Fz_new, &F_d);
-      apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
+      if (repair_final_state)
+        apply_floor(g_uu, &E, &F_d, rad_E_floor, rad_eps);
 
-      CCTK_REAL N = max(rN[i4D], rad_N_floor) + collision_delta_N;
-      N = max(N, rad_N_floor);
+      CCTK_REAL N = accepted_source_state
+          ? rN[i4D] - rejected_fraction * source_update_delta_N[i4D]
+          : max(rN[i4D], physical_baseline ? CCTK_REAL(0) : rad_N_floor) +
+                collision_delta_N;
+      if (repair_final_state)
+        N = max(N, rad_N_floor);
 
       const CCTK_REAL collision_delta_DYe =
           -mb * ((ig == 0 ? collision_delta_N : 0.0) -
@@ -432,7 +444,25 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
   // per-thread state for limiter/application kernels small. The analytic
   // thick-limit state constructed below also seeds the nonlinear solve when
   // source_force_nonlinear is enabled.
-  launch_source_increment_kernel(
+  int provider_update = 0;
+  if (CCTK_Equals(rates_lib, "WeakLib")) {
+    if (!CCTK_IsFunctionAliased("nuX_M1_CoupledCollisionUpdate"))
+      CCTK_ERROR("The selected WeakLib provider is not active");
+    collision_update_buffers_t buffers{rN, rE, rFx, rFy, rFz, chi,
+        source_update_delta_N, source_update_delta_E, source_update_delta_Fx,
+        source_update_delta_Fy, source_update_delta_Fz};
+    provider_update = nuX_M1_CoupledCollisionUpdate(
+        cctkGH, dt, int(closure_fun), source_limiter < 0, &buffers);
+    if (provider_update < 0 || provider_update > 2)
+      CCTK_ERROR("Invalid optional collision-provider update result");
+  }
+  const bool accepted_source_state = provider_update == 2;
+  // Coupled increments refer to physical moments. Keep positive numerical
+  // floors out of the limiter/application baseline, not out of the final repair.
+  const bool physical_baseline = provider_update != 0;
+  const bool repair_final_state = !accepted_source_state || semi_implicit;
+  if (provider_update == 0) {
+    launch_source_increment_kernel(
       grid, layout_cc, geom, fidu, cctkGH, closure_fun, dt, ngroups, nspecies,
       nuX_m1_mask, fidu_w_lorentz, fidu_velx, fidu_vely, fidu_velz, rN, rE,
       rFx, rFy, rFz, chi, eta_0, eta_1, abs_0, abs_1, scat_1, nueave,
@@ -441,6 +471,7 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
       rad_eps, closure_epsilon, closure_maxiter, use_fallback,
       source_force_nonlinear, source_thick_limit, source_scat_limit,
       source_therm_limit, source_maxiter, source_epsabs, source_epsrel);
+  }
 
   // Step 2: compute the per-cell source limiter from the scratch increments.
   grid.loop_int_device<1, 1, 1>(
@@ -471,13 +502,16 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
             tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
             pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D],
                      rFz[i4D], &Fstar_d);
-            apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
+            apply_floor(g_uu, &Estar, &Fstar_d,
+                        physical_baseline ? CCTK_REAL(0) : rad_E_floor,
+                        physical_baseline ? CCTK_REAL(0) : rad_eps);
             if (source_update_delta_E[i4D] < 0) {
               theta = min(theta, -source_limiter * max(Estar, 0.0) /
                                      source_update_delta_E[i4D]);
             }
 
-            CCTK_REAL Nstar = max(rN[i4D], rad_N_floor);
+            CCTK_REAL Nstar =
+                max(rN[i4D], physical_baseline ? CCTK_REAL(0) : rad_N_floor);
             if (source_update_delta_N[i4D] < 0) {
               theta = min(theta, -source_limiter * max(Nstar, 0.0) /
                                      source_update_delta_N[i4D]);
@@ -519,7 +553,8 @@ extern "C" void nuX_M1_CalcUpdate(CCTK_ARGUMENTS) {
       rN, rE, rFx, rFy, rFz, momx, momy, momz, tau, DYe,
       source_limiter_theta, source_update_delta_N, source_update_delta_E,
       source_update_delta_Fx, source_update_delta_Fy, source_update_delta_Fz,
-      dt, mb, backreact, implicit_backreaction, rad_N_floor, rad_E_floor,
+      dt, mb, backreact, implicit_backreaction, accepted_source_state,
+      physical_baseline, repair_final_state, rad_N_floor, rad_E_floor,
       rad_eps);
 }
 

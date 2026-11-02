@@ -4,6 +4,9 @@ INHERITS: ADMBaseX AsterX CarpetXRegrid HydroBaseX TmunuBaseX nuX_Base
 
 INCLUDES HEADER: nuX_M1_closure.hxx IN nuX_M1_closure.hxx 
 INCLUDES HEADER: nuX_M1_sources.hxx IN nuX_M1_sources.hxx
+INCLUDES HEADER: nuX_M1_collision_provider.hxx IN nuX_M1_collision_provider.hxx
+INCLUDES HEADER: nuX_M1_spectral_types.hxx IN nuX_M1_spectral_types.hxx
+INCLUDES HEADER: nuX_M1_spectral_source.hxx IN nuX_M1_spectral_source.hxx
 INCLUDES HEADER: nuX_M1_weak_equil.hxx IN nuX_M1_weak_equil.hxx
 
 USES INCLUDE HEADER: aster_fd.hxx aster_interp.hxx aster_utils.hxx
@@ -26,6 +29,14 @@ USES FUNCTION ODESolvers_GetStepDeltaTime
 
 CCTK_INT FUNCTION ODESolvers_InPreImplicitStage()
 USES FUNCTION ODESolvers_InPreImplicitStage
+
+# Optional microphysics providers can override ONLY the stage collision
+# increment calculation. The normal source application/limiter is shared.
+CCTK_INT FUNCTION nuX_M1_CoupledCollisionUpdate(CCTK_POINTER_TO_CONST IN cctkGH, CCTK_REAL IN dt, CCTK_INT IN closure, CCTK_INT IN store_root, CCTK_POINTER IN buffers)
+USES FUNCTION nuX_M1_CoupledCollisionUpdate
+
+CCTK_INT FUNCTION nuX_M1_CoupledCollisionActive()
+USES FUNCTION nuX_M1_CoupledCollisionActive
 
 # === Public grid functions ===
 

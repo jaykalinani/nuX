@@ -2,3 +2,12 @@ IMPLEMENTS: nuX_WeakLib
 INHERITS: ADMBaseX HydroBaseX nuX_Base nuX_M1
 
 USES INCLUDE HEADER: nuX_M1_closure.hxx nuX_utils.hxx nuX_rate_units.hxx
+USES INCLUDE HEADER: nuX_weakrates.hxx
+USES INCLUDE HEADER: nuX_M1_collision_provider.hxx nuX_M1_spectral_source.hxx nuX_M1_spectral_types.hxx m1_opacities.hpp
+
+CCTK_INT FUNCTION nuX_M1_CoupledCollisionUpdate(CCTK_POINTER_TO_CONST IN cctkGH, CCTK_REAL IN dt, CCTK_INT IN closure, CCTK_INT IN store_root, CCTK_POINTER IN buffers)
+PROVIDES FUNCTION nuX_M1_CoupledCollisionUpdate WITH nuX_WeakLib_SourceUpdate LANGUAGE C
+
+CCTK_INT FUNCTION nuX_M1_CoupledCollisionActive()
+PROVIDES FUNCTION nuX_M1_CoupledCollisionActive WITH nuX_WeakLib_CoupledCollisionActive LANGUAGE C
+USES FUNCTION nuX_M1_CoupledCollisionActive

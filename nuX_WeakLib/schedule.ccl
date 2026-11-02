@@ -55,6 +55,10 @@ if (CCTK_Equals(rates_lib, "WeakLib")) {
     LANG: C
     READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
     READS: nuX_M1::nuX_m1_mask(everywhere)
+    READS: nuX_M1::rnnu(everywhere) nuX_M1::rJ(everywhere)
+    READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+    READS: nuX_M1::fidu_vel(everywhere) nuX_M1::fidu_w_lorentz(everywhere)
     WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
   } "Evaluate strict-range tabulated grey rates for explicit transport"
 
@@ -64,6 +68,10 @@ if (CCTK_Equals(rates_lib, "WeakLib")) {
     LANG: C
     READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
     READS: nuX_M1::nuX_m1_mask(everywhere)
+    READS: nuX_M1::rnnu(everywhere) nuX_M1::rJ(everywhere)
+    READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+    READS: nuX_M1::fidu_vel(everywhere) nuX_M1::fidu_w_lorentz(everywhere)
     WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
   } "Evaluate tabulated grey rates for the IMEX stiff RHS"
 
@@ -74,6 +82,10 @@ if (CCTK_Equals(rates_lib, "WeakLib")) {
       LANG: C
       READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
       READS: nuX_M1::nuX_m1_mask(everywhere)
+      READS: nuX_M1::rnnu(everywhere) nuX_M1::rJ(everywhere)
+      READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
+      READS: ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+      READS: nuX_M1::fidu_vel(everywhere) nuX_M1::fidu_w_lorentz(everywhere)
       WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
     } "Evaluate tabulated grey rates for diagonal implicit solves"
   }
@@ -83,6 +95,10 @@ if (CCTK_Equals(rates_lib, "WeakLib")) {
     LANG: C
     READS: HydroBaseX::rho(everywhere) HydroBaseX::temperature(everywhere) HydroBaseX::Ye(everywhere)
     READS: nuX_M1::nuX_m1_mask(everywhere)
+    READS: nuX_M1::rnnu(everywhere) nuX_M1::rJ(everywhere)
+    READS: ADMBaseX::metric(everywhere) ADMBaseX::lapse(everywhere)
+    READS: ADMBaseX::shift(everywhere) ADMBaseX::curv(everywhere)
+    READS: nuX_M1::fidu_vel(everywhere) nuX_M1::fidu_w_lorentz(everywhere)
     WRITES: nuX_M1::opacs(everywhere) nuX_M1::nueave(everywhere)
   } "Refresh tabulated rates after an ODE stage"
 }

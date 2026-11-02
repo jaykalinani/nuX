@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <AMReX.H>
 #include <AMReX_GpuAtomic.H>
 #include <AMReX_GpuControl.H>
 #include <AMReX_GpuContainers.H>
@@ -16,12 +17,18 @@
 #include "cctk_Arguments.h"
 #include "cctk_Functions.h"
 #include "cctk_Parameters.h"
+#define NUX_M1_CLOSURE_IMPLEMENTATION
+#define NUX_M1_SOURCES_IMPLEMENTATION
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_spectral_source.hxx"
+#include "nuX_M1_collision_provider.hxx"
 #include "nuX_rate_units.hxx"
 #include "nuX_utils.hxx"
 #include "setup_eos.hxx"
 #include "wli_io_opacity.H"
 #include "nuX_weaklib.hxx"
+#include "nuX_weaklib_collision.hxx"
+#include "nuX_weaklib_source.hxx"
 #include "nuX_weaklib_io.hxx"
 
 namespace nuX_WeakLib {
@@ -33,9 +40,10 @@ namespace {
 // after AMReX finalization. Host source arrays are discarded after upload.
 struct Tables {
   TableView view;
-  std::array<amrex::Gpu::DeviceVector<double>, 9> axes; // physical E, node indices, weights, 2x(rho,T,Ye)
+  std::array<amrex::Gpu::DeviceVector<double>, 15> axes;
   wli::ResidentTable<4> emab[2];
   wli::ResidentTable<5> iso[2];
+  wli::ResidentTable<5> pair, nes, brem;
 };
 std::unique_ptr<Tables> tables;
 
@@ -48,8 +56,9 @@ void upload(amrex::Gpu::DeviceVector<double> &dest, const std::vector<double> &s
   amrex::Gpu::htod_memcpy(dest.data(), src.data(), src.size() * sizeof(double));
 }
 
+template <class HostAxis>
 AxisView axis(amrex::Gpu::DeviceVector<double> &dest,
-              const wli::io::HostAxis &src, bool logarithmic) {
+              const HostAxis &src, bool logarithmic) {
   require(src.kind == (logarithmic ? wli::AxisKind::Log : wli::AxisKind::Linear),
           "unexpected interpolation kind for " + src.name);
   require(src.points.size() >= 2, "axis needs at least two nodes");
@@ -66,12 +75,16 @@ AxisView axis(amrex::Gpu::DeviceVector<double> &dest,
   return {dest.data(), int(nodes.size()), src.points.front(), src.points.back()};
 }
 
-ThermoView thermo(Tables &owner, const wli::io::HostOpacityCommon &common, int start) {
+void standard_thermo_axes(const wli::io::HostOpacityCommon &common) {
   // The tables' physical shape and unit convention are rho,T,Ye. Do not guess
   // when an unsupported table layout or coordinate convention is supplied.
   require(common.tsIndices == std::array<int, 3>{1, 2, 3} &&
               common.axes[0].name == "Density" && common.axes[1].name == "Temperature" &&
               common.axes[2].name == "Electron Fraction", "unsupported thermodynamic axis order");
+}
+
+ThermoView thermo(Tables &owner, const wli::io::HostOpacityCommon &common, int start) {
+  standard_thermo_axes(common);
   return {axis(owner.axes[start], common.axes[0], true),
           axis(owner.axes[start + 1], common.axes[1], true),
           axis(owner.axes[start + 2], common.axes[2], false)};
@@ -80,9 +93,11 @@ ThermoView thermo(Tables &owner, const wli::io::HostOpacityCommon &common, int s
 void energy_grid(Tables &owner, const wli::io::HostOpacityCommon &common,
                  std::vector<double> &reference) {
   const auto &nodes = common.energyGrid.points;
-  require(common.energyGrid.kind == wli::AxisKind::Log &&
-              physical_energy_nodes_are_valid(nodes.data(), nodes.size()),
-          "expected a declared-log MeV energy grid with 2..INT_MAX finite positive increasing nodes");
+  // Native FullWeakPhysics grids declare linear interpolation, even when
+  // geometrically spaced. We access exact energy nodes and integrate in MeV;
+  // neither operation assumes an interpolation kind or uniform energy spacing.
+  require(physical_energy_nodes_are_valid(nodes.data(), nodes.size()),
+          "expected a MeV energy grid with 2..INT_MAX finite positive increasing nodes");
   if (!reference.empty()) {
     require(nodes == reference, "enabled channels must have identical energy nodes");
     return;
@@ -130,9 +145,30 @@ void finish_errors(const amrex::Gpu::DeviceScalar<int> &error) {
   if (status)
     CCTK_VERROR("nuX_WeakLib rejected a grid point (status %d): 1 invalid state, "
                 "2 outside opacity table, 3 insufficient spectral coverage, "
-                "4 invalid kernel, 5 invalid moment, 6 outside EOSX, 7 invalid geometry. "
+                "4 invalid kernel, 5 invalid moment, 6 outside EOSX, 7 invalid geometry, "
+                "8 coupled collision solve failed. "
                 "No coefficient or thermodynamic state has been clamped.", status);
 }
+
+CCTK_HOST CCTK_DEVICE bool prepare_matter(
+    const EOSX::eos_3p_tabulated3d *eos, double rho, double temp, double ye,
+    bool rest_subtracted, MatterState &matter) {
+  if (!(std::isfinite(rho) && rho > 0 && std::isfinite(temp) && temp > 0 &&
+        std::isfinite(ye) && ye >= 0 && ye <= 1 &&
+        rho >= eos->rgrho.min && rho <= eos->rgrho.max &&
+        temp >= eos->rgtemp.min && temp <= eos->rgtemp.max &&
+        ye >= eos->rgye.min && ye <= eos->rgye.max)) return false;
+  using eos_type = EOSX::eos_3p_tabulated3d;
+  const auto composition = eos->interptable->interpolate<
+      eos_type::EV::MU_P, eos_type::EV::MU_N, eos_type::EV::MU_E,
+      eos_type::EV::XP, eos_type::EV::XN>(std::log(rho), std::log(temp), ye);
+  matter = {rho * rate_units::code_density_to_g_nm3 / rate_units::per_cm3_to_per_nm3,
+      temp, ye, neutrino_chemical_potential(composition[0], composition[1], composition[2],
+      rest_subtracted), composition[2], composition[3], composition[4]};
+  return std::isfinite(matter.rho) && matter.rho > 0 &&
+      std::isfinite(matter.mu_nu) && std::isfinite(matter.mu_e);
+}
+
 } // namespace
 
 extern "C" void nuX_WeakLib_ParamCheck(CCTK_ARGUMENTS) {
@@ -141,12 +177,17 @@ extern "C" void nuX_WeakLib_ParamCheck(CCTK_ARGUMENTS) {
   if (!CCTK_Equals(rates_lib, "WeakLib")) return;
   if (nspecies != 3 || ngroups != 1)
     CCTK_PARAMWARN("WeakLib requires exactly three grey transport species");
-  if (!include_emab && !include_iso)
+  if (!include_emab && !include_iso && !include_pair && !include_nes &&
+      !include_brem && !include_plasmon)
     CCTK_PARAMWARN("WeakLib needs at least one enabled channel");
-  if (include_pair || include_nes || include_brem || include_nuclei_ec)
-    CCTK_PARAMWARN("WeakLib Pair/NES/Brem and EC_table closures are not implemented; "
-                   "enabling their interpolators alone would not define conservative collision terms");
-  if ((include_emab && !*emab_table) || (include_iso && !*iso_table))
+  if (include_nuclei_ec)
+    CCTK_PARAMWARN("WeakLib's optional separate nuclear EC_table is not implemented");
+  if ((include_pair || include_nes || include_brem || include_plasmon) &&
+      !CCTK_Equals(collision_model, "monopole"))
+    CCTK_PARAMWARN("Pair/NES/Brem/plasmon require collision_model=monopole and the coupled current-spectrum solve");
+  if ((include_emab && !*emab_table) || (include_iso && !*iso_table) ||
+      (include_pair && !*pair_table) || (include_nes && !*nes_table) ||
+      (include_brem && !*brem_table))
     CCTK_PARAMWARN("WeakLib requires a nonempty file path for every enabled channel");
   if (opacity_tau_trap >= 0 || opacity_corr_fac_max != 1)
     CCTK_PARAMWARN("WeakLib requires opacity_tau_trap=-1 and opacity_corr_fac_max=1; "
@@ -162,9 +203,12 @@ extern "C" void nuX_WeakLib_Load(CCTK_ARGUMENTS) {
     CCTK_ERROR("nuX_WeakLib requires EOSX's tabulated evolution EOS");
   try {
     require(nspecies == 3 && ngroups == 1, "only three-species grey transport is supported");
-    require(include_emab || include_iso, "no interactions enabled");
-    require(!include_pair && !include_nes && !include_brem && !include_nuclei_ec,
-            "Pair/NES/Brem/EC_table coupling is not implemented");
+    require(include_emab || include_iso || include_pair || include_nes ||
+                include_brem || include_plasmon, "no interactions enabled");
+    require(!include_nuclei_ec, "the optional separate nuclear EC_table is not implemented");
+    require(!(include_pair || include_nes || include_brem || include_plasmon) ||
+                CCTK_Equals(collision_model, "monopole"),
+            "new two-particle channels require collision_model=monopole");
     require(opacity_tau_trap < 0 && opacity_corr_fac_max == 1,
             "disable the other providers' trapped-equilibrium and energy-squared corrections");
     auto owner = std::make_unique<Tables>();
@@ -222,22 +266,79 @@ extern "C" void nuX_WeakLib_Load(CCTK_ARGUMENTS) {
       }
       owner->view.include_iso = true;
     }
+    for (int channel = 0; channel < 2; ++channel) {
+      if (!(channel == 0 ? include_pair : include_nes)) continue;
+      const char *path = channel == 0 ? pair_table : nes_table;
+      host_io::check_two_energy_file_collective(path, channel == 0 ? "Pair" : "NES");
+      const auto host = channel == 0 ? wli::io::read_scat_pair_table(path) :
+                                      wli::io::read_scat_nes_table(path);
+      require(host.nOpacities == 1 && host.nMoments == 4 && host.offset.size() == 4,
+              "Pair/NES needs one kernel with four coupling/Legendre components");
+      standard_thermo_axes(host.common);
+      energy_grid(*owner, host.common, energies);
+      const int start = 9 + 2 * channel;
+      const auto t = axis(owner->axes[start], host.common.axes[1], true);
+      const auto eta = axis(owner->axes[start + 1], host.etaGrid, true);
+      require(host.nPoints == std::array<int, 5>{owner->view.ne, owner->view.ne, 4, t.n, eta.n},
+              "Pair/NES shape disagrees with its axes");
+      auto &resident = channel == 0 ? owner->pair : owner->nes;
+      table<5>(resident, host.nPoints, host.kernels);
+      auto *offsets = channel == 0 ? owner->view.pair_offsets : owner->view.nes_offsets;
+      for (int k = 0; k < 4; ++k) {
+        require(std::isfinite(host.offset[k]), "non-finite Pair/NES offset");
+        offsets[k] = host.offset[k];
+      }
+      if (channel == 0) {
+        owner->view.pair = resident.view();
+        owner->view.pair_temp = t;
+        owner->view.pair_eta = eta;
+        owner->view.include_pair = true;
+      } else {
+        owner->view.nes = resident.view();
+        owner->view.nes_temp = t;
+        owner->view.nes_eta = eta;
+        owner->view.include_nes = true;
+      }
+    }
+    if (include_brem) {
+      host_io::check_two_energy_file_collective(brem_table, "Brem");
+      const auto host = wli::io::read_scat_brem_table(brem_table);
+      standard_thermo_axes(host.common);
+      require(host.nOpacities == 1 && host.nMoments == 1 && host.offset.size() == 1 &&
+                  std::isfinite(host.offset[0]), "Brem requires one finite S_sigma response");
+      energy_grid(*owner, host.common, energies);
+      owner->view.brem_rho = axis(owner->axes[13], host.common.axes[0], true);
+      owner->view.brem_temp = axis(owner->axes[14], host.common.axes[1], true);
+      require(host.nPoints == std::array<int, 5>{owner->view.ne, owner->view.ne, 1,
+                  owner->view.brem_rho.n, owner->view.brem_temp.n},
+              "Brem shape disagrees with its density/temperature axes");
+      table<5>(owner->brem, host.nPoints, host.sSigma);
+      owner->view.brem = owner->brem.view();
+      owner->view.brem_offset = host.offset[0];
+      owner->view.include_brem = true;
+    }
+    owner->view.include_plasmon = include_plasmon;
+    // Even a plasmon-only run needs an explicit energy grid for consistent
+    // equilibrium initialization/coverage. Require a supplied table channel.
+    require(!energies.empty(), "at least one tabulated channel is required for the common energy grid");
     amrex::Gpu::synchronize();
     if (run_self_tests) self_test();
     tables = std::move(owner);
-    CCTK_VINFO("WeakLib tables resident: EmAb=%d Iso=%d, %d energy nodes; EOS remains EOSX",
-               int(include_emab), int(include_iso), tables->view.ne);
+    CCTK_VINFO("WeakLib tables resident: EmAb=%d Iso=%d Pair=%d NES=%d Brem=%d; "
+               "analytic plasmon=%d, model=%s, %d energy nodes; EOS remains EOSX",
+               int(include_emab), int(include_iso), int(include_pair), int(include_nes),
+               int(include_brem), int(include_plasmon), collision_model, tables->view.ne);
   } catch (const std::exception &e) {
     CCTK_VERROR("WeakLib table setup failed: %s", e.what());
   }
 }
 
-extern "C" void nuX_WeakLib_Free(CCTK_ARGUMENTS) {
-  DECLARE_CCTK_ARGUMENTS_nuX_WeakLib_Free;
+extern "C" int nuX_WeakLib_Free() {
   if (tables) {
     amrex::Gpu::synchronize();
     tables.reset();
   }
+  return 0;
 }
 
 extern "C" void nuX_WeakLib_CalcOpacity(CCTK_ARGUMENTS) {
@@ -249,8 +350,12 @@ extern "C" void nuX_WeakLib_CalcOpacity(CCTK_ARGUMENTS) {
   const auto view = tables->view;
   const auto eos = EOSX::global_eos_3p_tab3d;
   const bool rest_subtracted = CCTK_Equals(chemical_potentials, "rest-mass-subtracted");
+  const bool monopole = CCTK_Equals(collision_model, "monopole");
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout(cctkGH, {1, 1, 1});
+  const GF3D2layout vertex(cctkGH, {0, 0, 0});
+  const tensor::slicing_geometry_const geom(vertex, layout, alp, betax, betay, betaz,
+      gxx, gxy, gxz, gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz, kzz);
   amrex::Gpu::DeviceScalar<int> error(0);
   auto *error_ptr = error.dataPtr();
   grid.loop_all_device<1, 1, 1>(grid.nghostzones,
@@ -263,20 +368,37 @@ extern "C" void nuX_WeakLib_CalcOpacity(CCTK_ARGUMENTS) {
       }
       return;
     }
-    const auto d = rho[ijk], t = temperature[ijk], y = Ye[ijk];
-    if (!(std::isfinite(d) && d > 0 && std::isfinite(t) && t > 0 && std::isfinite(y) && y >= 0 && y <= 1 &&
-          d >= eos->rgrho.min && d <= eos->rgrho.max &&
-          t >= eos->rgtemp.min && t <= eos->rgtemp.max &&
-          y >= eos->rgye.min && y <= eos->rgye.max)) {
+    MatterState matter;
+    if (!prepare_matter(eos, rho[ijk], temperature[ijk], Ye[ijk], rest_subtracted, matter)) {
       amrex::Gpu::Atomic::Max(error_ptr, 6);
       return;
     }
-    CCTK_REAL mup, mun, mue;
-    eos->mu_pne_from_rho_temp_ye(d, t, y, mup, mun, mue);
     Rates rates;
-    const auto status = evaluate(view, d * rate_units::code_density_to_g_nm3 /
-        rate_units::per_cm3_to_per_nm3, t, y,
-        neutrino_chemical_potential(mup, mun, mue, rest_subtracted), rates);
+    Status status;
+    if (monopole) {
+      tensor::metric<4> metric;
+      geom.get_metric(p, &metric);
+      const double volume = std::sqrt(nuX_Utils::metric::spatial_det(
+          metric(1,1), metric(1,2), metric(1,3), metric(2,2), metric(2,3), metric(3,3)));
+      if (!(std::isfinite(volume) && volume > 0)) {
+        amrex::Gpu::Atomic::Max(error_ptr, 7);
+        return;
+      }
+      M1Quantities moments{};
+      for (int s = 0; s < 3; ++s) {
+        const int i = layout.linear(p.i, p.j, p.k, s);
+        const double flavors = s == 2 ? 4 : 1;
+        moments.n[s] = rnnu[i] / (volume * flavors) * rate_units::transport_number_density_to_nm3;
+        moments.J[s] = rJ[i] / (volume * flavors) * rate_units::code_energy_density_to_mev_nm3;
+      }
+      moments.n[3] = moments.n[2];
+      moments.J[3] = moments.J[2];
+      RadiationState radiation;
+      status = radiation_from_moments(moments, matter, radiation)
+          ? evaluate_collision(view, matter, radiation, rates) : Status::invalid_moment;
+    } else {
+      status = evaluate(view, matter.rho, matter.temperature, matter.ye, matter.mu_nu, rates);
+    }
     if (status != Status::success) {
       amrex::Gpu::Atomic::Max(error_ptr, int(status));
       return;
@@ -311,6 +433,124 @@ extern "C" void nuX_WeakLib_CalcOpacity(CCTK_ARGUMENTS) {
   finish_errors(error);
 }
 
+extern "C" CCTK_INT nuX_WeakLib_CoupledCollisionActive() {
+  DECLARE_CCTK_PARAMETERS;
+  return CCTK_Equals(rates_lib, "WeakLib") &&
+         CCTK_Equals(collision_model, "monopole");
+}
+
+extern "C" CCTK_INT nuX_WeakLib_SourceUpdate(
+    CCTK_POINTER_TO_CONST const gh_pointer, CCTK_REAL const dt,
+    CCTK_INT const selected_closure, CCTK_INT const store_root,
+    CCTK_POINTER const buffer_pointer) {
+  const cGH *const cctkGH = static_cast<const cGH *>(gh_pointer);
+  DECLARE_CCTK_ARGUMENTS_nuX_WeakLib_CalcOpacity;
+  DECLARE_CCTK_PARAMETERS;
+  if (!CCTK_Equals(collision_model, "monopole")) return 0;
+  if (!tables || !EOSX::global_eos_3p_tab3d || !buffer_pointer)
+    CCTK_ERROR("The coupled WeakLib provider/EOSX/workspace is not initialized");
+  const auto buffer = *static_cast<const nuX_M1::collision_update_buffers_t *>(buffer_pointer);
+  const auto view = tables->view;
+  const auto eos = EOSX::global_eos_3p_tab3d;
+  const bool rest_subtracted = CCTK_Equals(chemical_potentials, "rest-mass-subtracted");
+  const auto closure_fun = static_cast<nuX_M1::closure_t>(selected_closure);
+  const GridDescBaseDevice grid(cctkGH);
+  const GF3D2layout cc(cctkGH, {1,1,1}), vc(cctkGH, {0,0,0});
+  const tensor::slicing_geometry_const geom(vc, cc, alp, betax, betay, betaz,
+      gxx, gxy, gxz, gyy, gyz, gzz, kxx, kxy, kxz, kyy, kyz, kzz);
+  const tensor::fluid_velocity_field_const fidu(vc, cc, alp, betax, betay, betaz,
+      fidu_w_lorentz, fidu_velx, fidu_vely, fidu_velz);
+  amrex::Gpu::DeviceScalar<int> error(0);
+  auto *const error_ptr = error.dataPtr();
+  grid.loop_int_device<1,1,1>(grid.nghostzones, [=] CCTK_DEVICE(const PointDesc &p) {
+    const int ijk = cc.linear(p.i, p.j, p.k);
+    if (nuX_m1_mask[ijk]) {
+      for (int s = 0; s < 3; ++s) {
+        const int i = cc.linear(p.i, p.j, p.k, s);
+        buffer.delta_N[i] = buffer.delta_E[i] = buffer.delta_Fx[i] =
+            buffer.delta_Fy[i] = buffer.delta_Fz[i] = 0;
+      }
+      return;
+    }
+    MatterState matter;
+    if (!prepare_matter(eos, rho[ijk], temperature[ijk], Ye[ijk], rest_subtracted, matter)) {
+      amrex::Gpu::Atomic::Max(error_ptr, 6);
+      return;
+    }
+    tensor::metric<4> gdd;
+    tensor::inv_metric<4> guu;
+    tensor::generic<CCTK_REAL,4,1> nd, nu, shift, uu, ud, vu, vd;
+    tensor::generic<CCTK_REAL,4,2> gamma, proj;
+    geom.get_metric(p, &gdd);
+    geom.get_inv_metric(p, &guu);
+    geom.get_normal_form(p, &nd);
+    geom.get_normal(p, &nu);
+    geom.get_shift_vec(p, &shift);
+    geom.get_space_proj(p, &gamma);
+    const CCTK_REAL alpha = geom.get_lapse(p), W = fidu_w_lorentz[ijk];
+    const CCTK_REAL volume = std::sqrt(nuX_Utils::metric::spatial_det(
+        gdd(1,1), gdd(1,2), gdd(1,3), gdd(2,2), gdd(2,3), gdd(3,3)));
+    if (!(std::isfinite(volume) && volume > 0 && std::isfinite(alpha) && alpha > 0 &&
+          std::isfinite(W) && W >= 1)) {
+      amrex::Gpu::Atomic::Max(error_ptr, 7);
+      return;
+    }
+    fidu.get(p, &uu);
+    tensor::contract(gdd, uu, &ud);
+    nuX_M1::calc_proj(ud, uu, &proj);
+    nuX_M1::pack_v_u(fidu_velx[ijk], fidu_vely[ijk], fidu_velz[ijk], &vu);
+    tensor::contract(gdd, vu, &vd);
+    nuX_M1::spectral_source_state_t base[3], updated[3];
+    for (int s = 0; s < 3; ++s) {
+      const int i = cc.linear(p.i, p.j, p.k, s);
+      base[s].N = std::fmax(buffer.N[i], CCTK_REAL(0));
+      base[s].E = buffer.E[i];
+      nuX_M1::pack_F_d(shift(1), shift(2), shift(3), buffer.Fx[i], buffer.Fy[i],
+                        buffer.Fz[i], &base[s].F_d);
+      nuX_M1::apply_floor(guu, &base[s].E, &base[s].F_d, 0, 0);
+      base[s].chi = buffer.chi[i];
+    }
+    const nuX_M1::SourceUpdateContext geometry(
+        cctkGH, p.i, p.j, p.k, 0, closure_epsilon, closure_maxiter, false,
+        dt, alpha, gdd, guu, nd, nu, gamma, ud, uu, vd, vu, proj, W,
+        base[0].E, base[0].F_d, base[0].E, base[0].F_d, 0, 0, 0);
+    nuX_M1::spectral_source_options_t options;
+    options.closure = closure_fun;
+    options.maxiter = options.inner_maxiter = source_maxiter;
+    options.epsrel = options.step_tolerance = source_epsrel;
+    options.use_initial_spectrum = true;
+    for (int s = 0; s < 3; ++s) {
+      options.initial_log_temperature[s] = std::log(matter.temperature);
+      options.initial_eta[s] = s == 0 ? matter.mu_nu / matter.temperature :
+          s == 1 ? -matter.mu_nu / matter.temperature : 0;
+      options.active_species[s] = view.include_pair || view.include_brem ||
+          view.include_plasmon || (s < 2 && view.include_emab) ||
+          base[s].N > 0 || base[s].E > 0;
+    }
+    const cell_rates_t rates{view, matter};
+    if (!nuX_M1::coupled_spectral_source(geometry, volume, base, rates, options, updated)) {
+      amrex::Gpu::Atomic::Max(error_ptr, 8);
+      return;
+    }
+    for (int s = 0; s < 3; ++s) {
+      const int i = cc.linear(p.i, p.j, p.k, s);
+      buffer.delta_N[i] = updated[s].N - base[s].N;
+      buffer.delta_E[i] = updated[s].E - base[s].E;
+      buffer.delta_Fx[i] = updated[s].F_d(1) - base[s].F_d(1);
+      buffer.delta_Fy[i] = updated[s].F_d(2) - base[s].F_d(2);
+      buffer.delta_Fz[i] = updated[s].F_d(3) - base[s].F_d(3);
+      if (store_root) {
+        buffer.N[i] = updated[s].N;
+        buffer.E[i] = updated[s].E;
+        nuX_M1::unpack_F_d(updated[s].F_d, &buffer.Fx[i], &buffer.Fy[i], &buffer.Fz[i]);
+      }
+      buffer.chi[i] = updated[s].chi;
+    }
+  });
+  finish_errors(error);
+  return store_root ? 2 : 1;
+}
+
 extern "C" void nuX_WeakLib_SetEquilibrium(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_WeakLib_SetEquilibrium;
   DECLARE_CCTK_PARAMETERS;
@@ -319,6 +559,7 @@ extern "C" void nuX_WeakLib_SetEquilibrium(CCTK_ARGUMENTS) {
   const auto view = tables->view;
   const auto eos = EOSX::global_eos_3p_tab3d;
   const bool rest_subtracted = CCTK_Equals(chemical_potentials, "rest-mass-subtracted");
+  const bool monopole = CCTK_Equals(collision_model, "monopole");
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout cc(cctkGH, {1, 1, 1}), vc(cctkGH, {0, 0, 0});
   const tensor::slicing_geometry_const geom(vc, cc, alp, betax, betay, betaz,
@@ -341,11 +582,20 @@ extern "C" void nuX_WeakLib_SetEquilibrium(CCTK_ARGUMENTS) {
       amrex::Gpu::Atomic::Max(error_ptr, 6);
       return;
     }
-    CCTK_REAL mup, mun, mue;
-    eos->mu_pne_from_rho_temp_ye(d, t, y, mup, mun, mue);
     Rates rates;
-    const auto status = evaluate(view, dcgs, t, y,
-        neutrino_chemical_potential(mup, mun, mue, rest_subtracted), rates);
+    Status status;
+    if (monopole) {
+      MatterState matter;
+      RadiationState radiation;
+      status = prepare_matter(eos, d, t, y, rest_subtracted, matter) &&
+          equilibrium_radiation(matter, radiation)
+          ? evaluate_collision(view, matter, radiation, rates) : Status::invalid_state;
+    } else {
+      CCTK_REAL mup, mun, mue;
+      eos->mu_pne_from_rho_temp_ye(d, t, y, mup, mun, mue);
+      status = evaluate(view, dcgs, t, y,
+          neutrino_chemical_potential(mup, mun, mue, rest_subtracted), rates);
+    }
     if (status != Status::success) {
       amrex::Gpu::Atomic::Max(error_ptr, int(status));
       return;

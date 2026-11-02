@@ -51,14 +51,20 @@ struct SourceUpdateContext {
       tensor::generic<CCTK_REAL, 4, 2> const &_proj_ud, CCTK_REAL const _W,
       CCTK_REAL const _Eold, tensor::generic<CCTK_REAL, 4, 1> const &_Fold_d,
       CCTK_REAL const _Estar, tensor::generic<CCTK_REAL, 4, 1> const &_Fstar_d,
-      CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat)
+      CCTK_REAL const _eta, CCTK_REAL const _kabs, CCTK_REAL const _kscat,
+      bool const _recoverable_closure_trials = false,
+      CCTK_REAL const *const _component_epsabs = nullptr,
+      bool const _use_source_invariant = false)
       : cctkGH(_cctkGH), i(_i), j(_j), k(_k), ig(_ig),
         closure_epsilon(_closure_epsilon), closure_maxiter(_closure_maxiter),
         closure_use_fallback(_closure_use_fallback), cdt(_cdt), alp(_alp),
         g_dd(_g_dd), g_uu(_g_uu), n_d(_n_d), n_u(_n_u), gamma_ud(_gamma_ud),
         u_d(_u_d), u_u(_u_u), v_d(_v_d), v_u(_v_u), proj_ud(_proj_ud), W(_W),
         Eold(_Eold), Fold_d(_Fold_d), Estar(_Estar), Fstar_d(_Fstar_d),
-        eta(_eta), kabs(_kabs), kscat(_kscat) {}
+        eta(_eta), kabs(_kabs), kscat(_kscat),
+        recoverable_closure_trials(_recoverable_closure_trials),
+        component_epsabs(_component_epsabs),
+        use_source_invariant(_use_source_invariant) {}
   cGH const *cctkGH;
   int const i;
   int const j;
@@ -87,6 +93,10 @@ struct SourceUpdateContext {
   CCTK_REAL const eta;
   CCTK_REAL const kabs;
   CCTK_REAL const kscat;
+  bool const recoverable_closure_trials;
+  // Optional local-solver controls. Null/false preserve legacy Weak behavior.
+  CCTK_REAL const *const component_epsabs;
+  bool const use_source_invariant;
 };
 
 // Collision-source solutions must remain in the physical lab-frame moment
@@ -158,7 +168,8 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline void
 source_jacobian_fixed_chi(double *qpre, double Fup[4], double F2, double chi,
                           double kapa, double kaps, double vup[4],
                           double vdown[4], double v2, double W, double alpha,
-                          double cdt, arith_matrix &J) {
+                          double cdt, arith_matrix &J,
+                          bool const use_source_invariant = false) {
   const double kapas = kapa + kaps;
   const double alpW = alpha * W;
 
@@ -285,6 +296,21 @@ source_jacobian_fixed_chi(double *qpre, double Fup[4], double F2, double chi,
     for (int b = 0; b < 4; ++b) {
       J(a, b) = A_data[a][b];
     }
+  if (use_source_invariant) {
+    // Replace the energy row by d(E-v.F)/dq without subtracting enormous
+    // scattering Jacobian rows. Its physical source contains NO scattering.
+    const double hka = cdt * alpha / W * kapa;
+    J(0, 0) = 1 + hka * JdE;
+    J(0, 1) = -vup[1] + hka * JdFx;
+    J(0, 2) = -vup[2] + hka * JdFy;
+    J(0, 3) = -vup[3] + hka * JdFz;
+    // Identical-equation row preconditioning prevents the QR solve from
+    // losing its O(1) invariant row next to O(dt*kappa) momentum rows.
+    const double denominator = 1 + cdt * alpha * W * kapas;
+    for (int a = 1; a < 4; ++a)
+      for (int b = 0; b < 4; ++b)
+        J(a, b) /= denominator;
+  }
 }
 
 #ifdef NUX_M1_SOURCES_IMPLEMENTATION
@@ -309,11 +335,13 @@ prepare_closure(const arith_vector &q, Params *p, PreparedState *s) {
     return ROOTS_EBADFUNC;
   }
 
+  bool closure_valid = true;
   calc_closure(c.cctkGH, c.i, c.j, c.k, c.ig, p->closure, c.g_dd, c.g_uu, c.n_d,
                c.W, c.u_u, c.v_d, c.proj_ud, s->E, s->F_d, &p->chi, &s->P_dd,
-               c.closure_epsilon, c.closure_maxiter, c.closure_use_fallback);
+               c.closure_epsilon, c.closure_maxiter, c.closure_use_fallback,
+               c.recoverable_closure_trials ? &closure_valid : nullptr);
 
-  if (!isfinite(p->chi)) {
+  if (!closure_valid || !isfinite(p->chi)) {
     return ROOTS_EBADFUNC;
   }
   for (int a = 0; a < 4; ++a)
@@ -376,10 +404,20 @@ impl_func_val(const arith_vector &q, Params *p, arith_vector &f) {
   SourceUpdateContext const &c = *p->ctx;
 
 #define EVALUATE_ZFUNC                                                         \
-  f(0) = q(0) - c.Estar - c.cdt * s.Edot;                                      \
+  f(0) = c.use_source_invariant                                                \
+      ? (q(0) - tensor::dot(s.F_d, c.v_u)) -                                  \
+        (c.Estar - tensor::dot(c.Fstar_d, c.v_u)) -                            \
+        c.cdt * c.alp / c.W * (c.eta - c.kabs * s.J)                          \
+      : q(0) - c.Estar - c.cdt * s.Edot;                                      \
   f(1) = q(1) - c.Fstar_d(1) - c.cdt * s.tS_d(1);                              \
   f(2) = q(2) - c.Fstar_d(2) - c.cdt * s.tS_d(2);                              \
-  f(3) = q(3) - c.Fstar_d(3) - c.cdt * s.tS_d(3);
+  f(3) = q(3) - c.Fstar_d(3) - c.cdt * s.tS_d(3);                              \
+  if (c.use_source_invariant) {                                               \
+    const CCTK_REAL denominator =                                             \
+        1 + c.cdt * c.alp * c.W * (c.kabs + c.kscat);                          \
+    for (int a = 1; a < 4; ++a)                                               \
+      f(a) /= denominator;                                                    \
+  }
 
   EVALUATE_ZFUNC
 
@@ -411,7 +449,8 @@ impl_func_jac(const arith_vector &q, Params *p, arith_matrix &J) {
   double m_cdt = c.cdt;                                                        \
                                                                                \
   source_jacobian_fixed_chi(m_q, m_Fup, m_F2, m_chi, m_kabs, m_kscat, m_vup,   \
-                            m_vdw, m_v2, m_W, m_alpha, m_cdt, J);
+                            m_vdw, m_v2, m_W, m_alpha, m_cdt, J,               \
+                            c.use_source_invariant);
 
   EVALUATE_ZJAC
 
@@ -626,19 +665,47 @@ source_solver_converged(
     const nuX_Utils::roots::hybridsj_solver<CCTK_REAL, 4> &solver,
     const arith_vector &baseline, const CCTK_REAL epsabs,
     const CCTK_REAL epsrel, CCTK_REAL *const scaled_residual,
-    CCTK_REAL *const scaled_step) {
+    CCTK_REAL *const scaled_step,
+    CCTK_REAL const *const component_epsabs = nullptr,
+    SourceUpdateContext const *const context = nullptr) {
   *scaled_residual = 0.0;
   *scaled_step = 0.0;
   for (int n = 0; n < 4; ++n) {
     const CCTK_REAL scale =
-        epsabs + epsrel * max(abs(solver.x(n)), abs(baseline(n)));
+        (component_epsabs ? component_epsabs[n] : epsabs) +
+        epsrel * max(abs(solver.x(n)), abs(baseline(n)));
     if (!(scale > 0.0) || !isfinite(scale) || !isfinite(solver.f(n)) ||
         !isfinite(solver.dx(n))) {
       *scaled_residual = std::numeric_limits<CCTK_REAL>::infinity();
       *scaled_step = std::numeric_limits<CCTK_REAL>::infinity();
       return false;
     }
-    *scaled_residual = max(*scaled_residual, abs(solver.f(n)) / scale);
+    CCTK_REAL residual = abs(solver.f(n));
+    CCTK_REAL residual_scale = scale;
+    if (context && context->use_source_invariant && n > 0) {
+      const auto &c = *context;
+      const CCTK_REAL denominator =
+          1 + c.cdt * c.alp * c.W * (c.kabs + c.kscat);
+      // Undo equation preconditioning ONLY for the residual test. The step
+      // remains in state units. Testing the divided residual against an
+      // undivided relative state tolerance can falsely accept Fnew=0 when
+      // Fold is small and D is large, even though the original row failed.
+      residual *= denominator;
+      // Roundoff in a physical momentum source depends on the CURRENT Fi
+      // plus velocity-coupled E. At rest Fnew=0 has no dt*kappa*E allowance;
+      // only an actually solved Fi supplies its own multiplication scale.
+      const CCTK_REAL cancellation =
+          c.W * abs(solver.x(n)) +
+          abs(c.W * c.W * c.W * c.v_d(n)) * abs(solver.x(0));
+      residual_scale += 64 * std::numeric_limits<CCTK_REAL>::epsilon() *
+          (abs(baseline(n)) + abs(solver.x(n)) + denominator * cancellation);
+    }
+    if (!(isfinite(residual) && isfinite(residual_scale) && residual_scale > 0)) {
+      *scaled_residual = std::numeric_limits<CCTK_REAL>::infinity();
+      *scaled_step = std::numeric_limits<CCTK_REAL>::infinity();
+      return false;
+    }
+    *scaled_residual = max(*scaled_residual, residual / residual_scale);
     *scaled_step = max(*scaled_step, abs(solver.dx(n)) / scale);
   }
   return *scaled_residual <= 1.0 && *scaled_step <= 1.0;
@@ -686,7 +753,8 @@ source_update_implicit_attempt(
   } else {
     bool converged =
         source_solver_converged(solver, q_baseline, source_epsabs,
-                                source_epsrel, &scaled_residual, &scaled_step);
+                                source_epsrel, &scaled_residual, &scaled_step,
+                                ctx.component_epsabs, &ctx);
     while (!converged && iter < source_maxiter) {
       ierr = nuX_Utils::roots::hybridsj_iterate(&solver, fn_nd_val, fn_nd_jac);
       ++iter;
@@ -696,7 +764,8 @@ source_update_implicit_attempt(
       // solver status so an exact solution is not rejected.
       converged = source_solver_converged(solver, q_baseline,
                                           source_epsabs, source_epsrel,
-                                          &scaled_residual, &scaled_step);
+                                          &scaled_residual, &scaled_step,
+                                          ctx.component_epsabs, &ctx);
       if (converged)
         break;
       if (ierr == ROOTS_ENOPROG || ierr == ROOTS_ENOPROGJ ||

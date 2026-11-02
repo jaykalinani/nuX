@@ -8,6 +8,8 @@
 
 #include <AMReX_Array.H>
 #include "wli_opacity_emab_iso.H"
+#include "wli_opacity_nes_pair.H"
+#include "wli_opacity_brem.H"
 
 namespace nuX_WeakLib {
 
@@ -45,12 +47,17 @@ struct ThermoView {
 // Only POD views enter grid kernels. The owners live on the host until shutdown.
 struct TableView {
   ThermoView emab_thermo, iso_thermo;
+  AxisView pair_temp, pair_eta, nes_temp, nes_eta, brem_rho, brem_temp;
   const double *energies = nullptr, *energy_node_coordinates = nullptr, *weights = nullptr;
   int ne = 0;
   wli::TableView<4> emab[2]{};
   wli::TableView<5> iso[2]{};
+  wli::TableView<5> pair{}, nes{}, brem{};
   double emab_offsets[2]{}, iso_offsets[2][2]{};
+  double pair_offsets[4]{}, nes_offsets[4]{}, brem_offset = 0;
   bool include_emab = false, include_iso = false;
+  bool include_pair = false, include_nes = false, include_brem = false;
+  bool include_plasmon = false;
   double tail_tolerance = 0;
 };
 static_assert(std::is_trivially_copyable_v<TableView>);
@@ -257,5 +264,6 @@ Status evaluate(const TableView &v, double rho, double temp, double ye,
 
 void self_test();
 void energy_node_self_test();
+void collision_self_test();
 } // namespace nuX_WeakLib
 #endif

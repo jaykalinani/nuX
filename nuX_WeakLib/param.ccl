@@ -11,6 +11,10 @@ USES REAL rad_E_floor
 USES REAL rad_eps
 USES REAL opacity_tau_trap
 USES REAL opacity_corr_fac_max
+USES REAL source_epsrel
+USES INT source_maxiter
+USES REAL closure_epsilon
+USES INT closure_maxiter
 
 SHARES: nuX_Base
 USES INT nspecies
@@ -29,17 +33,27 @@ BOOLEAN include_iso "Use both Legendre moments of elastic scattering tables"
 {
 } "yes"
 
-BOOLEAN include_pair "Reserved: coupled nonequilibrium grey pair closure is not implemented"
+BOOLEAN include_pair "Include native electron/positron pair kernels in the coupled monopole source"
 {
 } "no"
 
-BOOLEAN include_nes "Reserved: number-conserving grey NES redistribution is not implemented"
+BOOLEAN include_nes "Include native number-conserving electron/positron inelastic scattering"
 {
 } "no"
 
-BOOLEAN include_brem "Reserved: coupled nonequilibrium grey bremsstrahlung closure is not implemented"
+BOOLEAN include_brem "Include native HR98 nucleon-nucleon bremsstrahlung"
 {
 } "no"
+
+BOOLEAN include_plasmon "Add only the analytic WeakRates plasmon channel with actual partner blocking and inverse balance"
+{
+} "no"
+
+KEYWORD collision_model "Energy-spectrum approximation for grey WeakLib collision integrals"
+{
+  "equilibrium" :: "Retain the original matter-equilibrium EmAb/Iso averages"
+  "monopole" :: "Coupled current-spectrum FD moments with native zeroth-order Pair/NES/Brem kernels"
+} "equilibrium"
 
 BOOLEAN include_nuclei_ec "Reserved: the optional EC_table nuclear capture subtable is not implemented"
 {
@@ -51,6 +65,21 @@ STRING emab_table "WeakLib EmAb HDF5 file (g/cm3, K, MeV, cm^-1 convention)"
 } ""
 
 STRING iso_table "WeakLib Iso HDF5 raw-kernel file; see iso_table_convention"
+{
+  ".*" :: "File accessible to the AMReX I/O root"
+} ""
+
+STRING pair_table "WeakLib electron/positron Pair kernel HDF5 file (cm^-1 MeV^-3)"
+{
+  ".*" :: "File accessible to the AMReX I/O root"
+} ""
+
+STRING nes_table "WeakLib electron/positron NES kernel HDF5 file (NPS=1, cm^-1 MeV^-3)"
+{
+  ".*" :: "File accessible to the AMReX I/O root"
+} ""
+
+STRING brem_table "WeakLib HR98 S_sigma HDF5 file (MeV^-1 response, not opacity)"
 {
   ".*" :: "File accessible to the AMReX I/O root"
 } ""

@@ -20,7 +20,22 @@ nuX_WeakLib::include_iso = yes
 nuX_WeakLib::include_pair = no
 nuX_WeakLib::include_nes = no
 nuX_WeakLib::include_brem = no
+nuX_WeakLib::include_plasmon = no
 nuX_WeakLib::include_nuclei_ec = no
+nuX_WeakLib::collision_model = "equilibrium"
+
+# To use coupled actual-spectrum monopole collisions, REPLACE the equilibrium
+# model above with monopole, set the desired channels to yes and provide their
+# matching native tables. The sample paths alone do not establish EOS matching.
+# nuX_WeakLib::collision_model = "monopole"
+# nuX_WeakLib::pair_table = "/path/to/wl-Op-SFHo-15-25-50-E40-Pair.h5"
+# nuX_WeakLib::nes_table = "/path/to/wl-Op-SFHo-15-25-50-E40-NES.h5"
+# nuX_WeakLib::brem_table = "/path/to/wl-Op-SFHo-15-25-50-E40-Brem.h5"
+# nuX_WeakLib::include_pair = yes
+# nuX_WeakLib::include_nes = yes
+# nuX_WeakLib::include_brem = yes
+# nuX_WeakLib::include_plasmon = yes
+# nuX_M1::source_limiter = -1
 
 # Keep the direct mu_p+mu_e-mu_n combination if the relative nucleon mass
 # difference is already retained; a COMMON nucleon reference shift cancels.

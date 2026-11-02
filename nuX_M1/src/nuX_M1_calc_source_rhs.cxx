@@ -7,6 +7,7 @@
 #include "cctk_Parameters.h"
 
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_collision_provider.hxx"
 #include "nuX_utils.hxx"
 
 namespace nuX_M1 {
@@ -23,6 +24,7 @@ extern "C" void nuX_M1_CalcSourceRHS(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_CalcSourceRHS");
 
   const GridDescBaseDevice grid(cctkGH);
+  const bool physical_current = coupled_collision_active();
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
   const GF3D2layout layout_vc(cctkGH, {0, 0, 0});
 
@@ -90,10 +92,18 @@ extern "C" void nuX_M1_CalcSourceRHS(CCTK_ARGUMENTS) {
           tensor::generic<CCTK_REAL, 4, 1> F_d;
           pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D],
                    rFz[i4D], &F_d);
-          repair_moments(g_uu, &E_source, &F_d, rad_E_floor, rad_eps);
+          repair_moments(g_uu, &E_source, &F_d,
+                         physical_current ? CCTK_REAL(0) : rad_E_floor,
+                         physical_current ? CCTK_REAL(0) : rad_eps);
 
-          const CCTK_REAL Gamma = compute_Gamma(W_ijk, v_u, rJ[i4D], E_source,
-                                                F_d, rad_E_floor, rad_eps);
+          CCTK_REAL Gamma;
+          if (physical_current) {
+            if (!compute_source_Gamma(W_ijk, v_u, rJ[i4D], E_source, F_d, &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W_ijk, v_u, rJ[i4D], E_source, F_d,
+                                  rad_E_floor, rad_eps);
+          }
 
           tensor::generic<CCTK_REAL, 4, 1> H_d;
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
@@ -107,10 +117,11 @@ extern "C" void nuX_M1_CalcSourceRHS(CCTK_ARGUMENTS) {
           rFx_rhs[i4D] = tS_d(1);
           rFy_rhs[i4D] = tS_d(2);
           rFz_rhs[i4D] = tS_d(3);
-          // Match the repaired baseline used by every nonzero diagonal stage.
-          // The floor itself is numerical and is therefore not included in
-          // the collision rate copied below for matter backreaction.
-          const CCTK_REAL N_source = max(rN[i4D], rad_N_floor);
+          // The coupled provider uses actual physical moments, including
+          // below numerical floors; legacy providers retain their baseline.
+          // Numerical repairs are not part of the matter collision source.
+          const CCTK_REAL N_source =
+              max(rN[i4D], physical_current ? CCTK_REAL(0) : rad_N_floor);
           rN_rhs[i4D] = calc_rN_source(alp_ijk, volform_ijk, eta_0[i4D],
                                        abs_0[i4D], N_source, Gamma);
 

@@ -14,6 +14,7 @@
 
 #include "aster_utils.hxx"
 #include "nuX_M1_closure.hxx"
+#include "nuX_M1_collision_provider.hxx"
 #include "nuX_utils.hxx"
 
 #define PINDEX1D(ig, iv) ((iv) + (ig) * 5)
@@ -93,6 +94,7 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
                                           fidu_velx, fidu_vely, fidu_velz);
 
   const int groupspec = ngroups * nspecies;
+  const bool physical_current = coupled_collision_active();
 
   //--------------------------------------------------------------------
   // GPU loop over all cells (INCLUDING ghost zones)
@@ -143,7 +145,9 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
           // Assemble radiation tensors at cell centre
           CCTK_REAL E_transport = rE[i4D];
           pack_F_d(beta_x, beta_y, beta_z, rFx[i4D], rFy[i4D], rFz[i4D], &F_d);
-          repair_moments(g_uu, &E_transport, &F_d, rad_E_floor, rad_eps);
+          repair_moments(g_uu, &E_transport, &F_d,
+                         physical_current ? CCTK_REAL(0) : rad_E_floor,
+                         physical_current ? CCTK_REAL(0) : rad_eps);
           pack_H_d(rHt[i4D], rHx[i4D], rHy[i4D], rHz[i4D], &H_d);
           pack_P_dd(beta_x, beta_y, beta_z, rPxx[i4D], rPxy[i4D], rPxz[i4D],
                     rPyy[i4D], rPyz[i4D], rPzz[i4D], &P_dd);
@@ -152,12 +156,20 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
           tensor::contract(g_uu, F_d, &F_u);
           tensor::contract(g_uu, P_dd, &P_ud);
 
-          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
+          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u,
+                       physical_current ? CCTK_REAL(0) : rad_E_floor);
 
-          const CCTK_REAL Gamma = compute_Gamma(W, v_u, rJ[i4D], E_transport,
-                                                F_d, rad_E_floor, rad_eps);
+          CCTK_REAL Gamma;
+          if (physical_current) {
+            if (!compute_source_Gamma(W, v_u, rJ[i4D], E_transport, F_d, &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W, v_u, rJ[i4D], E_transport, F_d,
+                                  rad_E_floor, rad_eps);
+          }
 
-          const CCTK_REAL nnu = max(rN[i4D], rad_N_floor) / Gamma;
+          const CCTK_REAL nnu =
+              max(rN[i4D], physical_current ? CCTK_REAL(0) : rad_N_floor) / Gamma;
 
           const int comp_n = PINDEX1D(ig, 0);
           const int comp_fx = PINDEX1D(ig, 1);
