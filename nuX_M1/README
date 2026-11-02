@@ -38,16 +38,14 @@ resolved; an absolute tolerance larger than those moments cannot establish
 relative accuracy. The same acceptance test applies at every diagonal stage.
 
 For IMEX the stored provisional state is the source baseline, without a
-second local floor or realizability repair. In the IMEX42L/32L ODESolvers
+second local floor or realizability repair. In the corrected ODESolvers
 stage sequence, PostStep repairs the provisional state before the driver
 saves its diagonal baseline. The source kernel commits its physical root
 directly, rather than reconstructing it as qstar+(qnew-qstar). The existing
-PostStep projection of the accepted state occurs after the IMEX42L/32L driver
-extracts the diagonal rate. The older IMEX122/Implicit Euler driver instead
-copies its intermediate state after PostStep and can still include that
-projection in its recovered implicit rate; nuX does not change that driver.
-No additional final implicit projection or change of Butcher coefficients
-is introduced. Zero collision rates leave the stored
+PostStep projection of the accepted state occurs after the driver extracts
+the diagonal rate. IMEX122 now uses this same sequence, rather than recovering
+an increment after projection and multiplying it by dt again. No additional
+final implicit projection is introduced. Zero collision rates leave the stored
 state untouched. The scalar number state uses a positive-form analytic
 solution, while its matter-exchange increment is evaluated without subtracting
 two nearly equal number densities.
@@ -76,43 +74,51 @@ Stiff transport/source cancellation, frozen matter feedback, and the observed
 opaque-core TOV flux spotting remain unresolved numerical questions. The
 strict solve must not be interpreted as evidence that spotting is cured.
 
-Both current CarpetX/ODESolvers driver paths have a separate IMEX32L tableau
-problem. They reproduce the coefficients printed in Tables VIII and XI of
-Izquierdo et al., arXiv:2211.00027v2, including the last implicit row
-(1/6,1/6,2/3). This row sums to 1, not the printed explicit abscissa 1/2.
-With the stored weights, b.A_I.1=5/6 instead of the second-order condition
-1/2. Thus matching the printed table does not establish the claimed order.
+This branch requires CarpetX branch imex-scheme-fixes. The paired sources have
+compiled with CUDA. Source unit checks, short source-only relaxation runs and
+a four-rank/four-GPU two-step poisoned TOV smoke have completed. Full-resolution
+profiling and longer coupled TOV validation remain separate tests. A nuX
+parameter check does not establish that an older ODESolvers executable has
+the corrected stage sequence.
 
-For the autonomous scalar equation y'=lambda*y, with all terms implicit,
-the actual stage recurrence gives
+The corrected IMEX32L uses Pareschi and Russo's IMEX-SSP3(3,3,2), Table 5 of
+arXiv:1009.2757, with gamma=1-1/sqrt(2). Explicit stage times are (0,1,1/2),
+implicit stage times are (gamma,1-gamma,1/2), and every implicit stage has a
+nonzero diagonal. The name is retained for existing parameter files, but its
+coefficients and results deliberately change. It replaces the inconsistent
+printed CK tableau in arXiv:2211.00027v2, whose b.A_I.1=5/6 gives only
+first-order implicit convergence. The corrected driver evaluates each
+partition and its time-dependent boundary data at its own abscissa.
 
-  R_32(z) = (1-z/6) / ((1-z/2)*(1-2*z/3))
-          = 1 + z + (5/6)*z^2 + O(z^3),  z=lambda*dt.
+IMEX42L retains the published coefficients and satisfies second-order
+conditions. Pure-implicit L-stability is not a complete stiff-transport test:
+for y'=(lambda_E+lambda_I)*y its unprepared scalar amplification approaches
+-z_E/2 as z_I tends to minus infinity at fixed z_E. The corrected IMEX32L
+instead tends to zero. This comparison does not prove that IMEX32L removes
+TOV spotting, nor that prepared-state IMEX42L calculations must fail.
+Corrected IMEX32L is not globally stiffly accurate: its internal stiff-limit
+stages relax, but its accepted fast variables need not be exactly equilibrated.
+The next first implicit stage relaxes them again. Check the conserved-variable
+limit and accepted flux separately; do not append an extra implicit projection.
 
-The coefficient of z^2 must be 1/2 for second order. Refining dt for y'=-y
-to t=1 gives first-order convergence for these coefficients. In contrast,
-IMEX42L satisfies the second-order conditions and passes this scalar check;
-the IMEX32L defect does not explain IMEX42L TOV spotting.
+IMEX122 is explicit/implicit midpoint, second order but not L-stable. It
+retains an arbitrarily stiff pure-decay mode with amplification approaching
+-1. It is not supported with subcycling. "Implicit Euler" is a deprecated,
+explicitly warned compatibility alias of IMEX122, not a backward-Euler scheme.
 
-Changing only the last diagonal from 2/3 to 1/6 is not an adequate repair:
-it loses stiff accuracy and gives the trapezoidal amplification factor,
-which tends to -1 rather than 0 for arbitrarily stiff decay. More generally,
-stiff accuracy and sum(b)=1 force the last implicit row sum to be 1, so they
-cannot also give SSPRK3's last abscissa 1/2. A replacement method requires
-an independently validated design, not a guessed coefficient. This nuX-only
-branch does not change CarpetX or the published coefficients.
+Primary references: https://arxiv.org/pdf/1009.2757 ,
+https://arxiv.org/html/2211.00027v2#S3.SS3.SSS3
 
-Paper: https://arxiv.org/html/2211.00027v2#S3.SS3.SSS3
-
-3. Focused checks (added as source/parfile, not executed here)
+3. Focused checks and validation scope
 
 nuX_Tests/test/unit_tests.par exercises source math, including IMEX policy,
 nonstiff/thick/scattering thresholds, independently evaluated diagonal
 residuals, separate small-flux residual/step checks, recoverable closure trial
 failure, zero number rates, near-equilibrium number exchange, and strongly
 absorbing tiny positive energy/number roots and moving below-floor number
-currents. These checks require a future
-build and test run; adding them is not a passing test result.
+currents. The compiled source unit driver has passed. The paired ODESolvers
+standalone suite also passes all 12 coefficient/stage-contract tests.
+Neither result establishes convergence of a coupled AMR TOV evolution.
 
 par/nuX_M1_imex_relaxation_3D.par is a small, source-only FakeRates case.
 It deliberately sets all legacy source thresholds and source_force_nonlinear=no
@@ -122,9 +128,11 @@ the heavy species has zero rates and must remain unchanged. Compare each
 method's scalar RK stability function, not a diagonal backward-Euler step,
 against the whole-step output. Repeat with all three legacy thresholds set
 to -1; results should agree to roundoff. Refine dt to compare the absorption
-solution with the exponential. IMEX32L can check source-solver consistency,
-but its current driver coefficients predict only first-order implicit
-convergence, as explained above. This does not exercise the coupled TOV
+solution with the exponential. The paired CarpetX standalone check
+ODESolvers/test/test_imex_tableaux.py reads the shared production coefficients
+and checks additive order, nonautonomous forcing and stiff limits without a
+Cactus build. Those math/source checks are not compiled schedule or GPU tests.
+The source-only relaxation case does not exercise the coupled TOV
 transport/source balance or establish TOV stability.
 
 A. Acknowledgements
