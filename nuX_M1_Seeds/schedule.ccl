@@ -16,6 +16,7 @@ if (CCTK_Equals(nuX_test_case, "beam")) {
     LANG: C
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere) HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: HydroBaseX::temperature(everywhere)
   } "Setup beam test Hydro initial conditions."
 }
 
@@ -161,6 +162,7 @@ if (CCTK_Equals(nuX_test_case, "crossing_beams") ||
     WRITES: HydroBaseX::vel(everywhere) HydroBaseX::rho(everywhere)
     WRITES: HydroBaseX::eps(everywhere) HydroBaseX::press(everywhere)
     WRITES: HydroBaseX::Ye(everywhere)
+    WRITES: HydroBaseX::temperature(everywhere)
   } "Initialize uniform static matter for the radiation tests"
 
   SCHEDULE nuX_M1_Seeds_SetupNeutTest_shadow IN nuX_M1_InitialData {

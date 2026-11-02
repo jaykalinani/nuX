@@ -37,10 +37,28 @@ extern "C" void nuX_M1_Seeds_SetupHydroTest_beam(CCTK_ARGUMENTS) {
     CCTK_INFO("nuX_M1_Seeds_SetupHydroTest_beam");
 
   auto eos_3p_ig = global_eos_3p_ig;
-  if (not CCTK_EQUALS(evolution_eos, "IdealGas")) {
+  const bool tabulated = CCTK_EQUALS(evolution_eos, "Tabulated3d");
+  if (!tabulated && !CCTK_EQUALS(evolution_eos, "IdealGas")) {
     CCTK_VERROR("Invalid evolution EOS type '%s'. Please, set "
-                "EOSX::evolution_eos = \"IdealGas\" in your parameter file.",
+                "EOSX::evolution_eos to IdealGas or Tabulated3d.",
                 evolution_eos);
+  }
+  CCTK_REAL tab_eps = static_eps, tab_temp = 0, tab_press = 0;
+  if (tabulated) {
+    const auto eos = global_eos_3p_tab3d;
+    if (!eos || !std::isfinite(static_rho) || !std::isfinite(static_eps) ||
+        !std::isfinite(static_ye) ||
+        static_rho < eos->rgrho.min || static_rho > eos->rgrho.max ||
+        static_ye < eos->rgye.min || static_ye > eos->rgye.max)
+      CCTK_ERROR("Uniform beam matter is outside the initialized EOSX table");
+    const auto eps_range = eos->range_eps_from_rho_ye(static_rho, static_ye);
+    if (static_eps < eps_range.min || static_eps > eps_range.max)
+      CCTK_ERROR("Uniform beam static_eps is outside the EOSX range at static_rho/static_ye");
+    // The matter state is uniform: perform the tabulated EOS inversion once.
+    tab_temp = eos->temp_from_rho_eps_ye(static_rho, tab_eps, static_ye);
+    tab_press = eos->press_from_rho_temp_ye(static_rho, tab_temp, static_ye);
+    if (!std::isfinite(tab_temp) || !std::isfinite(tab_press))
+      CCTK_ERROR("Invalid tabulated EOSX state for the uniform beam matter");
   }
 
   const GridDescBaseDevice grid(cctkGH);
@@ -56,8 +74,16 @@ extern "C" void nuX_M1_Seeds_SetupHydroTest_beam(CCTK_ARGUMENTS) {
         rho[ijk] = static_rho;
         eps[ijk] = static_eps;
         Ye[ijk] = static_ye;
-        press[ijk] =
-            eos_3p_ig->press_from_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
+        if (tabulated) {
+          eps[ijk] = tab_eps;
+          temperature[ijk] = tab_temp;
+          press[ijk] = tab_press;
+        } else {
+          press[ijk] =
+              eos_3p_ig->press_from_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
+          temperature[ijk] =
+              eos_3p_ig->temp_from_rho_eps_ye(rho[ijk], eps[ijk], Ye[ijk]);
+        }
       });
 
 }
