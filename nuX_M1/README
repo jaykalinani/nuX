@@ -27,16 +27,18 @@ checked independently. Invalid trials are rejected rather than clamped into
 a different distribution. The implementation requires ngroups=1, nspecies=3
 and the tabulated EOS; it allocates no diagnostic grid functions.
 
-Scheduled opacities and source trials share unit conversion, equilibrium
-targets, exact number-current projection and comoving floor-reference rules.
+Scheduled opacities and source trials use the same moment-matched FD collision
+spectrum and native spectral integrals at the actual comoving moments. There
+is no floor-triggered spectrum substitution or secondary LTE Kirchhoff or
+mean-energy correction. The scalar collision spectrum does not change the
+Minerbo angular transport closure. NuRates transport and radial number fluxes
+use the physical number-current projection, including when comoving J is
+below the lab-frame energy floor. Numerical state repairs remain separate.
 Heavy-flavor coefficients average neutrino/antineutrino absorption/scattering;
 emissivity sums two flavors of each. This matters for asymmetric inelastic
-kernels. The temporary floor reference does not modify evolved moments or
-the equilibrium conservation budget. Its comoving thresholds deliberately
-replace the former lab-floor classification. These criteria are not
-equivalent in moving matter: a lab-floor state can exceed both comoving
-thresholds. This near-floor operator change remains under review; passing
-hot-core tests does not validate the atmosphere or this reference choice.
+kernels. Independent number and energy floors can still imply an unphysical
+mean energy; changing the collision spectrum does not validate those initial
+conditions or the finite energy quadrature in the atmosphere.
 
 Unrestricted source updates retain the accepted root directly. Limited
 semi-implicit updates retain the original baseline, so a zero limiter leaves
@@ -44,11 +46,12 @@ it unchanged. The source limiter must remain disabled for NuRates IMEX;
 numerical post-source repairs are not included in its implicit increment.
 WeakRates/FakeRates retain their original source paths.
 
-This retains the legacy thermal-equilibrium correction prescription, not
-an identical operator near numerical floors or a fully coupled
-matter-radiation system. In particular, the existing separate
-electron-flavor Kirchhoff replacements need not preserve pair-only net
-electron-neutrino number away from equilibrium. Process-separated treatment
-and a pair-only conservation test remain necessary before claiming that
-microphysics property. TOV stability and performance require runtime tests;
-unit tests alone cannot establish either.
+The process-separated native coefficients retain pair-process electron-lepton
+balance without independent electron-flavor Kirchhoff replacements. Matter
+remains fixed during each local collision solve; this is not a simultaneous
+matter-radiation nonlinear solve. Host/CUDA cold and warm captured-cell replays
+have passed. The current transport-current and test changes have also compiled
+with CUDA and completed a four-MPI-rank/four-GPU, two-step poisoned-grid smoke
+with finite stored norms. Full-resolution profiling and longer TOV validation
+are separate tests; local source and small-grid checks do not establish stellar
+stability, accuracy or finite-quadrature convergence.
