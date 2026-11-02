@@ -63,6 +63,27 @@ inline constexpr CCTK_REAL ca = 0.5;
 inline constexpr CCTK_REAL gamma_0 = 5.565e-2;
 inline constexpr CCTK_REAL fsc = 1.0 / 137.036;
 
+// Channel-only plasmon kinematics and UNBLOCKED prefactor. This helper has no
+// EOS provider, grey equilibrium, beta, elastic or pair-process side effects.
+// The caller chooses actual partner blocking and the inverse reaction model.
+struct PlasmonKernel {
+  CCTK_REAL gamma, energy, prefactor;
+};
+
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline PlasmonKernel
+plasmon_kernel(const CCTK_REAL temp, const CCTK_REAL eta_e) {
+  const CCTK_REAL gamma = gamma_0 * sqrt((pi * pi + 3.0 * eta_e * eta_e) / 3.0);
+  const CCTK_REAL gamma2 = gamma * gamma;
+  const CCTK_REAL gamma6 = gamma2 * gamma2 * gamma2;
+  const CCTK_REAL temp2 = temp * temp;
+  const CCTK_REAL temp4 = temp2 * temp2;
+  const CCTK_REAL temp8 = temp4 * temp4;
+  const CCTK_REAL prefactor = pi * pi * pi * sigma_0 * clight * temp8 /
+      (me_mev * me_mev * 3.0 * fsc * pow(hc_mevcm, CCTK_REAL(6))) * gamma6;
+  const CCTK_REAL energy = 0.5 * temp * (2.0 + gamma2 / (1.0 + gamma));
+  return {gamma, energy, prefactor};
+}
+
 CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline CCTK_REAL
 safe_exp(const CCTK_REAL x) {
   return exp(fmin(CCTK_REAL(700), fmax(CCTK_REAL(-700), x)));
@@ -388,8 +409,8 @@ public:
     CCTK_REAL q_plasmon_anue = 0.0;
     CCTK_REAL q_plasmon_nux = 0.0;
     if (include_plasmon) {
-      const CCTK_REAL gamma =
-          gamma_0 * sqrt((pi * pi + 3.0 * state.eta_e * state.eta_e) / 3.0);
+      const auto kernel = plasmon_kernel(temp, state.eta_e);
+      const CCTK_REAL gamma = kernel.gamma;
       const CCTK_REAL blocking_energy =
           1.0 + 0.5 * gamma * gamma / (1.0 + gamma);
       const CCTK_REAL block_nue =
@@ -397,17 +418,9 @@ public:
       const CCTK_REAL block_anue =
           1.0 + safe_exp(state.eta_anue - blocking_energy);
       const CCTK_REAL block_nux = 1.0 + safe_exp(-blocking_energy);
-      const CCTK_REAL temp2 = temp * temp;
-      const CCTK_REAL temp4 = temp2 * temp2;
-      const CCTK_REAL temp8 = temp4 * temp4;
-      const CCTK_REAL gamma2 = gamma * gamma;
-      const CCTK_REAL gamma6 = gamma2 * gamma2 * gamma2;
       const CCTK_REAL gamma_const =
-          pi * pi * pi * sigma_0 * clight * temp8 /
-          (me_mev * me_mev * 3.0 * fsc * pow(hc_mevcm, CCTK_REAL(6))) * gamma6 *
-          safe_exp(-gamma) * (1.0 + gamma);
-      const CCTK_REAL plasmon_energy =
-          0.5 * temp * (2.0 + gamma2 / (1.0 + gamma));
+          kernel.prefactor * safe_exp(-gamma) * (1.0 + gamma);
+      const CCTK_REAL plasmon_energy = kernel.energy;
 
       const CCTK_REAL r_gamma =
           cv * cv * gamma_const / (block_nue * block_anue);
