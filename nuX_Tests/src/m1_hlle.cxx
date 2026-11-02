@@ -75,7 +75,7 @@ int check_face_input_validation() {
   return failures;
 }
 
-int check_radiation_speeds() {
+int check_radiation_speeds(cGH const *cctkGH) {
   int failures = 0;
   CCTK_REAL lm, lp;
   // Exact 1D fixed-v thick roots are the relativistic addition of v and
@@ -83,54 +83,91 @@ int check_radiation_speeds() {
   const CCTK_REAL cs = 1 / std::sqrt(CCTK_REAL(3));
   for (const CCTK_REAL v : {CCTK_REAL(-0.8), CCTK_REAL(0), CCTK_REAL(0.5)}) {
     const CCTK_REAL W = 1 / std::sqrt(1 - v * v);
-    hlle_radiation_speeds(0.7, 0.2, 1, W, v, 0, 0, 1,
-                          CLOSURE_EDDINGTON, v == 0, &lm, &lp);
+    hlle_radiation_speeds(0.7, 0.2, 1, W, v, 0, 0, CCTK_REAL(1) / 3,
+                          &lm, &lp);
     failures += !near(lm, -0.2 + 0.7 * (v - cs) / (1 - v * cs));
     failures += !near(lp, -0.2 + 0.7 * (v + cs) / (1 + v * cs));
   }
-  // The paper's chi-interpolated estimate underbounds this exact static
-  // Minerbo Jacobian: lambda+ = .7541494487418, not .6460308504.
-  hlle_static_speeds(0.5, 1, CLOSURE_MINERBO, &lm, &lp);
-  failures += lm > -0.2541494487418 || lp < 0.7541494487418;
-  failures += !near(lm, -0.2541494487418, 2e-10);
-  failures += !near(lp, 0.7541494487418, 2e-10);
-  // Independent 4x4 pressure-Jacobian eigenvalues for oblique/transverse F.
-  hlle_static_speeds(0.5, 0.3, CLOSURE_MINERBO, &lm, &lp);
-  failures += !near(lm, -0.4933818225584, 2e-10);
-  failures += !near(lp, 0.6315309560944, 2e-10);
-  hlle_static_speeds(0.5, 0, CLOSURE_MINERBO, &lm, &lp);
-  failures += !near(lm, -0.5682575707077, 2e-10);
-  failures += !near(lp, 0.5682575707077, 2e-10);
-  hlle_static_speeds(0.5, 0.3, CLOSURE_KERSHAW, &lm, &lp);
-  failures += !near(lm, -0.4024937810560, 2e-10);
-  failures += !near(lp, 0.6024937810560, 2e-10);
-  hlle_static_speeds(1, 0.4, CLOSURE_KERSHAW, &lm, &lp);
-  failures += !near(lm, 0.4 / 3);
-  failures += !near(lp, 0.4);
-  hlle_static_speeds(1, -0.4, CLOSURE_KERSHAW, &lm, &lp);
-  failures += !near(lm, -0.4);
-  failures += !near(lp, -0.4 / 3);
+  // Formula fidelity, not an exact intermediate-Jacobian enclosure test.
+  // At static f=.5 Minerbo has chi=53/120, dthin=13/80. The paper's
+  // interpolated lambda+ is .6460308504; the exact Jacobian root differs.
+  const CCTK_REAL chi_half = CCTK_REAL(53) / 120;
+  failures += !near(minerbo(0.5), chi_half);
+  for (const CCTK_REAL mu : {CCTK_REAL(-1), CCTK_REAL(-0.3),
+                              CCTK_REAL(0), CCTK_REAL(0.3), CCTK_REAL(1)}) {
+    hlle_radiation_speeds(1, 0, 1, 1, 0, 0.5 * mu, 0.5, chi_half,
+                          &lm, &lp);
+    const CCTK_REAL speed = (67 * cs + 13 * std::abs(mu)) / 80;
+    failures += !near(lm, -speed);
+    failures += !near(lp, speed);
+  }
+  // All supported chi models use the same endpoint interpolation; the
+  // pressure closure itself still selects chi, not the flux solver.
+  for (const closure_t model : {CLOSURE_MINERBO, CLOSURE_KERSHAW}) {
+    const CCTK_REAL chi = eval_closure(model, 0.5);
+    const CCTK_REAL dthin = (3 * chi - 1) / 2;
+    hlle_radiation_speeds(1, 0, 1, 1, 0, 0.15, 0.5, chi, &lm, &lp);
+    failures += !near(lp, dthin * 0.3 + (1 - dthin) * cs);
+    failures += !near(lm, -lp);
+  }
   // Shift sign, lapse scaling, inverse metric, and oblique streaming. With
   // gamma^{dd}=.25, F^d=-.2, |F|=.5, the unit-normal cosine is -.8.
   hlle_radiation_speeds(0.6, -0.3, 0.25, 1, 0, -0.2, 0.5, 0.5,
-                        CLOSURE_MINERBO, true, &lm, &lp);
+                        &lm, &lp);
+  // chi=.5 gives dthin=.25, with sorted thin endpoints .3 +/- .24.
+  const CCTK_REAL oblique = 0.25 * 0.24 + 0.75 * 0.3 * cs;
+  failures += !near(lm, 0.3 - oblique);
+  failures += !near(lp, 0.3 + oblique);
+  hlle_radiation_speeds(0.6, -0.3, 0.25, 1, 0, -0.2, 0.5, 1,
+                        &lm, &lp);
   failures += !near(lm, 0.3 - 0.24);
-  failures += !near(lp, 0.3 - 0.24);
-  // The isotropic exact limit does not divide by |F| or a cubic discriminant.
-  hlle_radiation_speeds(0.6, 0.1, 0.25, 1, 0, 0, 0, 1,
-                        CLOSURE_MINERBO, true, &lm, &lp);
+  failures += !near(lp, 0.3 + 0.24);
+  // Isotropy needs no thin direction, even with zero norm.
+  hlle_radiation_speeds(0.6, 0.1, 0.25, 1, 0, 0, 0, CCTK_REAL(1) / 3,
+                        &lm, &lp);
   failures += !near(lm, -0.1 - 0.3 / std::sqrt(CCTK_REAL(3)));
   failures += !near(lp, -0.1 + 0.3 / std::sqrt(CCTK_REAL(3)));
-  // Check the current moving estimate's coordinate mapping only. This does
-  // NOT establish enclosure of the inherited moving pressure Jacobian.
-  hlle_radiation_speeds(0.6, 0.1, 0.25, 1.1, 0.1, 0.1, 0.3, 1,
-                        CLOSURE_MINERBO, false, &lm, &lp);
-  failures += !near(lm, -0.4);
-  failures += !near(lp, 0.2);
+  // Independent full closure-root value for E=1,Fx=.01,vx=.5. The
+  // resulting interpolated fan is NOT a bound on every closure eigenmode.
+  const CCTK_REAL W = 1 / std::sqrt(CCTK_REAL(0.75));
+  const CCTK_REAL chi_moving = 0.50681281212312319137;
+  hlle_radiation_speeds(1, 0, 1, W, 0.5, 0.01, 0.01, chi_moving,
+                        &lm, &lp);
+  failures += !near(lm, -0.34066381586106619922);
+  failures += !near(lp, 0.87868620263584089954);
+  // At nonzero thin weight and exactly zero F, use the two-sided light
+  // cone for the otherwise undefined thin direction, then blend normally.
+  hlle_radiation_speeds(0.6, 0.1, 0.25, 1, 0, 0, 0, 0.5, &lm, &lp);
+  failures += !near(lm, -0.1 - 0.3 * (0.25 + 0.75 * cs));
+  failures += !near(lp, -0.1 + 0.3 * (0.25 + 0.75 * cs));
   for (const CCTK_REAL f : {CCTK_REAL(1e-12), CCTK_REAL(1 - 1e-12)}) {
-    hlle_static_speeds(f, 0.4, CLOSURE_MINERBO, &lm, &lp);
+    hlle_radiation_speeds(1, 0, 1, 1, 0, 0.4 * f, f,
+                          minerbo(f), &lm, &lp);
     failures += !(std::isfinite(lm) && std::isfinite(lp) && lm <= lp &&
                   lm >= -1 && lp <= 1);
+  }
+  // The extra number-current mode can lie outside the radiation speed
+  // interpolation even at rest. Include it in the final five-field fan.
+  tensor::metric<3> flat;
+  flat(0, 0) = flat(1, 1) = flat(2, 2) = 1;
+  flat(0, 1) = flat(0, 2) = flat(1, 2) = 0;
+  tensor::generic<CCTK_REAL, 4, 1> zero_shift;
+  for (int a = 0; a < 4; ++a)
+    zero_shift(a) = 0;
+  hlle_geometry_t rest;
+  rest.set(1, zero_shift, flat, 0, 0, 0);
+  for (const CCTK_REAL fx : {CCTK_REAL(-0.9), CCTK_REAL(0.9)}) {
+    const CCTK_REAL beam[5] = {0.4, fx, 0, 0, 1};
+    const auto state = hlle_state(cctkGH, 0, 0, 0, 0, 0, rest, beam,
+                                    CLOSURE_MINERBO, 0, 0, 0,
+                                    1e-12, 128, false);
+    const CCTK_REAL speed = state.flux[HLLE_N] / state.u[HLLE_N];
+    failures += !near(speed, fx);
+    failures += !(state.lm <= speed && speed <= state.lp);
+    if (fx > 0)
+      failures += !near(state.lp, fx);
+    else
+      failures += !near(state.lm, fx);
   }
   return failures;
 }
@@ -218,7 +255,7 @@ int check_face_mapping(cGH const *cctkGH) {
 
 int hlle_unit_tests(cGH const *cctkGH) {
   return check_hlle_algebra() + check_face_input_validation() +
-         check_radiation_speeds() + check_face_mapping(cctkGH);
+         check_radiation_speeds(cctkGH) + check_face_mapping(cctkGH);
 }
 
 } // namespace nuX_M1

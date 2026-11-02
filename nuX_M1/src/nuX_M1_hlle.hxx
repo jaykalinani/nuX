@@ -74,123 +74,44 @@ hlle_flux(const CCTK_REAL ul, const CCTK_REAL ur, const CCTK_REAL fl,
   return weighted + A * jump;
 }
 
-// Exact static-frame variable-closure spectrum. In an orthonormal basis put
-// the face normal along x and the radiation direction in the xy plane:
-// n=(mu,sqrt(1-mu^2),0), Pij/E=a*deltaij+b*ni*nj. Differentiating this actual
-// closure gives a 3x3 energy/Fx/Fy block plus the eigenvalue b*mu/f for Fz.
-// A nearly multiple cubic is deliberately enclosed by the causal light cone
-// instead of trusting an ill-conditioned acos/cube-root evaluation.
-CCTK_HOST CCTK_DEVICE inline void hlle_static_speeds(
-    const CCTK_REAL f, const CCTK_REAL mu, const closure_t closure_fun,
-    CCTK_REAL *lm, CCTK_REAL *lp) {
-  *lm = -1;
-  *lp = 1;
-  if (f == 0) {
-    *lp = 1 / sqrt(CCTK_REAL(3));
-    *lm = -*lp;
-    return;
-  }
-  if (closure_fun == CLOSURE_KERSHAW) {
-    // For chi=(1+2*f^2)/3 the characteristic polynomial factors:
-    // two roots f*mu, and 2*f*mu/3 +/- sqrt((1-f^2)/3+f^2*mu^2/9).
-    const CCTK_REAL center = 2 * f * mu / 3;
-    const CCTK_REAL root = sqrt(fmax(CCTK_REAL(0),
-        (1 - f * f) / 3 + f * f * mu * mu / 9));
-    const CCTK_REAL guard = 64 * std::numeric_limits<CCTK_REAL>::epsilon();
-    *lm = fmax(CCTK_REAL(-1), fmin(f * mu, center - root) - guard);
-    *lp = fmin(CCTK_REAL(1), fmax(f * mu, center + root) + guard);
-    return;
-  }
-  if (closure_fun == CLOSURE_MINERBO && f == 1) {
-    // Minerbo has chi(1)=1, chi'(1)=2: all four roots coincide at mu.
-    *lm = *lp = mu;
-    return;
-  }
-  const CCTK_REAL derivative = f * (12 - 6 * f + 24 * f * f) / 15;
-  // Evaluate b directly: subtracting 3*chi-1 loses its O(f^2) part near
-  // isotropy, and dividing that cancellation error by f pollutes the roots.
-  const CCTK_REAL b = f * f * (6 - 2 * f + 6 * f * f) / 10;
-  const CCTK_REAL a = (1 - b) / 3;
-  const CCTK_REAL ap = -0.5 * derivative, bp = 1.5 * derivative;
-  const CCTK_REAL c = b / f;
-  const CCTK_REAL mu2 = mu * mu, s = sqrt(fmax(CCTK_REAL(0), 1 - mu2));
-  // The reduced Jacobian is [0,1,0; d,m,n; e,o,p].
-  const CCTK_REAL d = a - f * ap + (b - f * bp) * mu2;
-  const CCTK_REAL e = (b - f * bp) * mu * s;
-  const CCTK_REAL m = (ap + bp * mu2 - 2 * c * mu2) * mu + 2 * c * mu;
-  const CCTK_REAL n = (ap + bp * mu2 - 2 * c * mu2) * s;
-  const CCTK_REAL o = (bp - 2 * c) * mu2 * s + c * s;
-  const CCTK_REAL p = (bp - 2 * c) * mu * s * s + c * mu;
-  const CCTK_REAL t = (m + p) / 3;
-  const CCTK_REAL q2 = (2 * d + m * m + 2 * n * o + p * p - 3 * t * t) / 6;
-  const CCTK_REAL eps = std::numeric_limits<CCTK_REAL>::epsilon();
-  // q2 is nonnegative for a real three-root spectrum; cancellation can
-  // obscure it near the streaming triple root. No division by q2 there.
-  if (!(isfinite(q2) && q2 > 128 * eps))
-    return;
-  const CCTK_REAL q = sqrt(q2);
-  const CCTK_REAL det_shifted =
-      -t * ((m - t) * (p - t) - n * o) - d * (p - t) + n * e;
-  const CCTK_REAL r = det_shifted / (2 * q * q2);
-  if (!(isfinite(r) && fabs(r) < 1 - 128 * sqrt(eps)))
-    return;
-  const CCTK_REAL angle = acos(r) / 3;
-  constexpr CCTK_REAL two_pi_over_three = 2.0943951023931954923084289221863353;
-  CCTK_REAL lower = c * mu, upper = lower;
-  for (int k = 0; k < 3; ++k) {
-    const CCTK_REAL root = t + 2 * q * cos(angle + k * two_pi_over_three);
-    lower = fmin(lower, root);
-    upper = fmax(upper, root);
-  }
-  // Away from multiple roots, guard the analytic solve against cancellation
-  // in the depressed-cubic coefficients and the inverse cosine.
-  const CCTK_REAL guard = 256 * eps / (q2 * sqrt(1 - r * r));
-  if (!(isfinite(lower) && isfinite(upper) && isfinite(guard)))
-    return;
-  *lm = fmax(CCTK_REAL(-1), lower - guard);
-  *lp = fmin(CCTK_REAL(1), upper + guard);
-}
-
-// Eddington's fixed-v system has analytic exact roots. Minerbo/Kershaw are
-// reduced exactly only for a static fiducial observer. The current moving
-// light-cone estimate is NOT an enclosing bound for the inherited mixed
-// closure in general; see README's open moving-closure limitation. It must
-// not be treated as a validated moving-fluid characteristic solver.
+// Musolino & Rezzolla (2023), Sec. 3.1: blend optically thin and thick
+// speed estimates with the SAME chi as the face pressure. These are not
+// exact bounds for the intermediate variable-closure flux Jacobian.
 CCTK_HOST CCTK_DEVICE inline void
 hlle_radiation_speeds(const CCTK_REAL alpha, const CCTK_REAL beta_dir,
                       const CCTK_REAL gamma_uu_dir, const CCTK_REAL W,
                       const CCTK_REAL v_dir, const CCTK_REAL F_up_dir,
-                      const CCTK_REAL Fnorm, const CCTK_REAL E,
-                      const closure_t closure_fun, const bool static_frame,
+                      const CCTK_REAL Fnorm, const CCTK_REAL chi,
                       CCTK_REAL *lm, CCTK_REAL *lp) {
-  const CCTK_REAL light = alpha * sqrt(gamma_uu_dir);
-  *lm = -beta_dir - light;
-  *lp = -beta_dir + light;
-  if (closure_fun != CLOSURE_EDDINGTON) {
-    // The fixed thin tensor is singular at F=0 and can have superluminal
-    // transverse Jacobian roots away from streaming. HLLE rejects this model.
-    if (closure_fun != CLOSURE_MINERBO && closure_fun != CLOSURE_KERSHAW)
-      device_abort();
-    if (static_frame) {
-      const CCTK_REAL f = fmin(CCTK_REAL(1), Fnorm / E);
-      const CCTK_REAL mu = Fnorm > 0
-          ? fmax(CCTK_REAL(-1), fmin(CCTK_REAL(1),
-                    F_up_dir / (sqrt(gamma_uu_dir) * Fnorm))) : CCTK_REAL(0);
-      CCTK_REAL lower, upper;
-      hlle_static_speeds(f, mu, closure_fun, &lower, &upper);
-      *lm = -beta_dir + light * lower;
-      *lp = -beta_dir + light * upper;
-    }
-    return;
-  }
+  if (!(isfinite(alpha) && alpha > 0 && isfinite(beta_dir) &&
+        isfinite(gamma_uu_dir) && gamma_uu_dir > 0 && isfinite(W) && W >= 1 &&
+        isfinite(v_dir) && isfinite(F_up_dir) && isfinite(Fnorm) && Fnorm >= 0 &&
+        isfinite(chi) && chi >= CCTK_REAL(1) / 3 && chi <= 1))
+    device_abort();
+
+  // Fixed-v thick roots. p=alpha*v^d, not the printed alpha*v^d/W;
+  // lower MIN/upper MAX includes the transverse advective characteristic.
   const CCTK_REAL p = alpha * v_dir;
   const CCTK_REAL W2 = W * W, den = 2 * W2 + 1;
   const CCTK_REAL radicand =
       alpha * alpha * gamma_uu_dir * den - 2 * W2 * p * p;
   const CCTK_REAL root = sqrt(fmax(CCTK_REAL(0), radicand));
   const CCTK_REAL adv = -beta_dir + p;
-  *lm = fmin(adv, -beta_dir + (2 * W2 * p - root) / den);
-  *lp = fmax(adv, -beta_dir + (2 * W2 * p + root) / den);
+  const CCTK_REAL thick_m = fmin(adv, -beta_dir + (2 * W2 * p - root) / den);
+  const CCTK_REAL thick_p = fmax(adv, -beta_dir + (2 * W2 * p + root) / den);
+  const CCTK_REAL dthin = (3 * chi - 1) / 2, dthick = 1 - dthin;
+  *lm = thick_m;
+  *lp = thick_p;
+  if (dthin > 0) {
+    // Sort the signed thin endpoints for either sign of F^d. At F=0 the
+    // direction is undefined; use the two coordinate light-cone endpoints.
+    // Isotropic chi=1/3 needs no thin direction and takes no division here.
+    const CCTK_REAL thin_offset = Fnorm > 0
+        ? alpha * (fabs(F_up_dir) / Fnorm)
+        : alpha * sqrt(gamma_uu_dir);
+    *lm = dthick * thick_m + dthin * (-beta_dir - thin_offset);
+    *lp = dthick * thick_p + dthin * (-beta_dir + thin_offset);
+  }
   if (!(isfinite(*lm) && isfinite(*lp) && *lm <= *lp))
     device_abort();
 }
@@ -266,14 +187,13 @@ hlle_state(cGH const *cctkGH, const int i, const int j, const int k,
   if (E == 0 && N_floor == 0) {
     // Exact vacuum: all physical moments and fluxes vanish, independently of
     // reconstructed direction ratios. Do not divide 0/0 or rootfind a closure
-    // whose entire vacuum equation is identically zero. The moving variable
-    // closure's wave-bound limitation still applies to approaches to vacuum;
-    // Eddington retains its exact fixed-v isotropic regular-limit spectrum.
+    // whose entire vacuum equation is identically zero. Use the isotropic
+    // regular-limit speed estimate, without assigning a thin flux direction.
     for (int a = 0; a < 5; ++a)
       result.u[a] = result.flux[a] = 0;
     hlle_radiation_speeds(g.alpha, g.beta_u(dir + 1), g.gamma_uu(dir, dir),
-                          g.W, g.v_u(dir + 1), 0, 0, 1,
-                          closure_fun, false, &result.lm, &result.lp);
+                          g.W, g.v_u(dir + 1), 0, 0, CCTK_REAL(1) / 3,
+                          &result.lm, &result.lp);
     return result;
   }
   tensor::generic<CCTK_REAL, 4, 1> F_d, F_u;
@@ -295,7 +215,7 @@ hlle_state(cGH const *cctkGH, const int i, const int j, const int k,
   if (static_frame && (closure_fun == CLOSURE_MINERBO ||
                        closure_fun == CLOSURE_KERSHAW)) {
     // Here J=E, |H|=|F|, so no nonlinear closure inversion is required.
-    // Use the same analytic chi(f) differentiated by the static eigensolver.
+    // The face pressure and speed interpolation use this same chi(f).
     chi = eval_closure(closure_fun, fmin(CCTK_REAL(1), Fnorm / E));
     apply_closure(g.g_dd, g.g_uu, g.n_d, g.W, g.u_u, g.v_d, g.proj_ud,
                   E, F_d, chi, &P_dd);
@@ -335,8 +255,7 @@ hlle_state(cGH const *cctkGH, const int i, const int j, const int k,
         g.volume * calc_F_flux(g.alpha, g.beta_u, F_d, P_ud, dir + 1, a);
   }
   hlle_radiation_speeds(g.alpha, g.beta_u(dir + 1), g.gamma_uu(dir, dir),
-                        g.W, g.v_u(dir + 1), F_u(dir + 1), Fnorm, E,
-                        closure_fun, static_frame,
+                        g.W, g.v_u(dir + 1), F_u(dir + 1), Fnorm, chi,
                         &result.lm, &result.lp);
   // N is advected by the same closure-derived number current. Include its
   // scalar eigenvalue, which need not be inside the interpolated estimates.
