@@ -1,0 +1,617 @@
+\documentclass[aps,prd,reprint,nofootinbib,notitlepage]{revtex4-2}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,bm,booktabs}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+
+\newcommand{\nue}{\nu_e}
+\newcommand{\anue}{\bar{\nu}_e}
+\newcommand{\nux}{\nu_x}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\eq}{\mathrm{eq}}
+
+\begin{document}
+
+\title{WeakLib neutrino interactions in the grey M1 formulation of nuX}
+\date{}
+
+\begin{abstract}
+We describe the coupling of WeakLib neutrino interaction tables to the grey
+M1 radiation equations in nuX. The matter equation of state is supplied by
+EOSX, whereas WeakLib supplies energy-dependent absorption and scattering
+data. The coupling includes charged-current emission and absorption,
+elastic scattering, electron--positron pair annihilation, nucleon--nucleon
+bremsstrahlung, and inelastic scattering on electrons and positrons.
+Plasmon decay can be added through a separate analytic approximation.
+A Fermi--Dirac spectrum inferred from the evolved number and energy
+densities is used to evaluate the collision integrals. We distinguish this
+spectral approximation from the Minerbo angular closure, explain the
+conditions for detailed balance and lepton-number conservation, and compare
+the reaction content with WeakRates and NuRates. A final section describes
+table preparation, interpolation, and the parameters needed to use the
+coupling.
+\end{abstract}
+
+\maketitle
+
+\section{Radiation and matter variables}
+
+Grey M1 transport evolves the energy density and flux integrated over
+neutrino energy, together with a neutrino-number density. It does not evolve
+an independent radiation field at each neutrino energy
+\cite{MusolinoRezzolla2023}. The three species groups considered here are
+$\nue$, $\anue$, and $\nux$, where the last group is the sum of
+$\nu_\mu$, $\bar{\nu}_\mu$, $\nu_\tau$, and $\bar{\nu}_\tau$.
+Muon charged-current reactions and neutrino flavor conversion are not
+included.
+
+With metric signature $(-,+,+,+)$ and fluid four-velocity $u^\mu$, the
+radiation stress-energy tensor is decomposed as
+\begin{equation}
+ T_s^{\mu\nu}=J_s u^\mu u^\nu
+       +H_s^\mu u^\nu+u^\mu H_s^\nu+K_s^{\mu\nu}.
+ \label{eq:stress}
+\end{equation}
+Here $J_s$ is the comoving energy density, $H_s^\mu u_\mu=0$, and
+$K_s^{\mu\nu}u_\nu=0$. The comoving number density is denoted by $n_s$.
+These are physical local densities, not coordinate-volume-weighted
+evolution variables. In units with $c=1$, the exchange equations are
+\begin{align}
+ \nabla_\mu T_s^{\mu\nu}&=G_s^\nu, &
+ \nabla_\mu {\cal N}_s^\mu&=R_s, \label{eq:radiation_exchange}\\
+ \nabla_\mu T_{\mathrm{m}}^{\mu\nu}&=-\sum_s G_s^\nu, &
+ \nabla_\mu(n_bY_eu^\mu)&=-R_{\nue}+R_{\anue}.
+ \label{eq:matter_exchange}
+\end{align}
+The matter tensor includes the fluid and electromagnetic contributions;
+$n_b$ is the baryon number density. The sign in the last equation means
+that emission of an electron neutrino reduces the matter electron fraction.
+
+The angular pressure closure remains Minerbo's maximum-entropy closure
+\cite{Minerbo1978}. nuX uses the polynomial approximation
+\begin{equation}
+ \chi(\xi)=\frac13+
+       \frac{\xi^2(6-2\xi+6\xi^2)}{15},\qquad
+ \xi=\frac{\sqrt{H_{s\mu}H_s^\mu}}{J_s}.
+ \label{eq:minerbo}
+\end{equation}
+It connects the isotropic and freely streaming limits, $\chi=1/3$ and
+$\chi=1$. Selecting WeakLib changes the collision terms, not this angular
+closure. In particular, a scalar Fermi--Dirac spectrum for collisions does
+not turn M1 into an energy-resolved or angle-resolved transport scheme.
+
+\section{Matter state and spectral approximation}
+
+\subsection{A common equation of state}
+
+EOSX supplies the mass density $\rho$, temperature $T$, electron fraction
+$Y_e$, chemical potentials, and nuclear composition used by both the fluid
+and the interaction calculation. WeakLibInterp reads and interpolates
+opacity tables; it does not replace the hydrodynamic equation of state
+\cite{WeakLib,WeakLibInterp}. An EOS table used to generate the opacities
+is an offline input, not a second matter model evolved during a simulation.
+
+Temperatures and chemical potentials below are expressed in energy units.
+Chemical equilibrium for charged-current reactions requires
+\begin{equation}
+ \mu_{\nue}^{\eq}=\mu_e+\mu_p-\mu_n,\qquad
+ \mu_{\anue}^{\eq}=-\mu_{\nue}^{\eq}.
+ \label{eq:chemical_equilibrium}
+\end{equation}
+The heavy-lepton equilibrium chemical potential is zero. The nucleon
+rest-mass difference must be included once in Eq.~\eqref{eq:chemical_equilibrium}.
+A common reference subtracted from both nucleon chemical potentials
+cancels; subtracting each nucleon's own rest mass does not. This convention
+must agree between EOSX and the table generator. An arbitrary shift of the
+EOS specific internal energy is not a neutrino chemical-potential correction.
+
+\subsection{Reconstructing a spectrum from grey moments}
+
+For the coupled collision model, the scalar occupation of one neutrino
+species is approximated by
+\begin{equation}
+ f_s(\epsilon)=\frac{1}{\exp(\epsilon/T_{\nu,s}-\eta_{\nu,s})+1},
+ \label{eq:fd}
+\end{equation}
+where $\epsilon$ is comoving neutrino energy. The radiation temperature
+$T_{\nu,s}$ and degeneracy parameter $\eta_{\nu,s}$ are determined from
+the current radiation moments, not set equal to the matter temperature and
+chemical potential. With one helicity state per physical species,
+\begin{align}
+ n_s&=g_s C\int_0^\infty\epsilon^2f_s(\epsilon)\dd\epsilon,
+ & C&=\frac{1}{2\pi^2(\hbar c)^3},\label{eq:number_moment}\\
+ J_s&=g_s C\int_0^\infty\epsilon^3f_s(\epsilon)\dd\epsilon.
+ \label{eq:energy_moment}
+\end{align}
+Here $g_{\nue}=g_{\anue}=1$ and $g_{\nux}=4$ count physical species.
+Thus $n_s=g_s CT_{\nu,s}^3F_2(\eta_{\nu,s})$ and
+$J_s=g_s CT_{\nu,s}^4F_3(\eta_{\nu,s})$, with
+$F_k(\eta)=\int_0^\infty x^k/(e^{x-\eta}+1)\dd x$.
+For the heavy-lepton group, the reconstructed per-species moments are
+$n_{\nux}/4$ and $J_{\nux}/4$.
+
+This assumption gives $0\leq f_s\leq1$, but cannot describe an arbitrary
+spectrum. For positive number and energy densities, admissible moments
+must satisfy
+\begin{equation}
+ \frac{n_s^4}{g_s CJ_s^3}\leq\frac{64}{81}
+ \label{eq:fd_bound}
+\end{equation}
+where equality is the zero-temperature filled-sphere limit. Number and
+energy floors chosen independently can violate this
+condition or imply a mean energy outside the tables. Moreover, bounded
+scalar occupations do not establish a complete fermionic angular closure
+when the radiation is strongly directed.
+
+An alternative, simpler prescription averages emission, absorption, and
+elastic scattering over the matter-equilibrium spectrum. It does not
+describe energy redistribution of a general existing radiation field.
+The pair, inelastic, and bremsstrahlung coupling discussed below uses the
+reconstructed spectrum of Eq.~\eqref{eq:fd} instead.
+
+\section{Included interactions}
+
+The distinction between an interaction kernel and its grey average is
+essential. A kernel specifies emission, absorption, or scattering as a
+function of neutrino energies. The grey source additionally depends on
+the assumed radiation spectrum and, for two-particle processes, on the
+partner population \cite{Bruenn1985,Burrows2006,Chiesa2025}.
+
+\subsection{Charged-current emission and absorption}
+
+The electron-flavor reactions on free nucleons are
+\begin{align}
+ e^-+p&\rightleftharpoons n+\nue,\\
+ e^++n&\rightleftharpoons p+\anue.
+\end{align}
+They exchange radiation energy and electron lepton number with matter.
+WeakLib stores a corrected absorption coefficient $\chi_s(\epsilon)$
+that includes the stimulated-absorption convention. The occupation source
+can therefore be written in local proper time $\tau$ as
+\begin{equation}
+ \left.\frac{\partial f_s}{\partial\tau}\right|_{\mathrm{cc}}
+   =c\chi_s(\epsilon)
+       [f_s^{\eq}(\epsilon)-f_s(\epsilon)].
+ \label{eq:cc_source}
+\end{equation}
+Multiplying $\chi_s$ by an additional final-state neutrino blocking factor
+would count that correction twice. Matter blocking, thresholds, recoil,
+and weak-magnetism corrections depend on the model used to generate the
+tables; they are not guaranteed by the name WeakLib.
+
+For a nonempty population, the number- and energy-weighted absorption
+coefficients are
+\begin{equation}
+ \bar\chi_s^{(q)}=
+ \frac{\int\epsilon^q\chi_s(\epsilon)f_s(\epsilon)\dd\epsilon}
+      {\int\epsilon^q f_s(\epsilon)\dd\epsilon},\qquad q=2,3.
+\end{equation}
+The corresponding emissivities use $\chi_s f_s^{\eq}$ rather than
+$\chi_s f_s$. Emission is therefore finite in an initially empty radiation
+field and does not require dividing an emissivity by the evolved density.
+
+The present reference tables use the isoenergetic free-nucleon model.
+Additional nuclear electron-capture data are not included in this reference
+set, and the separate nuclear-capture table is not coupled. Other WeakLib
+tables may already incorporate nuclear capture in their main absorption
+arrays. Such a contribution must not be added a second time.
+
+\subsection{Elastic scattering}
+
+Neutral-current scattering,
+\begin{equation}
+ \nu_s+b\longrightarrow\nu_s+b,\qquad b\in\{n,p\},
+\end{equation}
+redistributes direction without changing neutrino energy in the
+isoenergetic approximation. Depending on the supplied tables, coherent
+scattering on nuclei and scattering on alpha particles can also contribute.
+The zeroth and first Legendre coefficients are needed for the transport
+opacity. With the WeakLib expansion convention used here,
+\begin{equation}
+ \kappa_{\mathrm{tr},s}(\epsilon)
+    =4\pi\epsilon^2
+       \left[\phi_{0,s}(\epsilon)-\frac{\phi_{1,s}(\epsilon)}{3}\right].
+ \label{eq:transport_opacity}
+\end{equation}
+The factor $1/3$ follows from the normalization of the stored expansion
+coefficients. Elastic scattering damps the comoving flux but contributes
+neither a number source nor a comoving energy source. For the combined
+heavy-lepton group, neutrino and antineutrino coefficients are averaged;
+the opacity itself is not multiplied by four.
+
+\subsection{Electron--positron annihilation and bremsstrahlung}
+
+The pair-production reactions are
+\begin{align}
+ e^-+e^+&\rightleftharpoons\nu_s+\bar\nu_s,\\
+ b+b'&\rightleftharpoons b+b'+\nu_s+\bar\nu_s,
+ \qquad b,b'\in\{n,p\}.
+\end{align}
+The second process is nucleon--nucleon bremsstrahlung. Both create a
+neutrino and an antineutrino in one event and conserve electron lepton
+number. Bremsstrahlung is especially relevant to heavy-lepton production
+in dense matter, where charged-current emission is absent in the reaction
+set considered here \cite{HannestadRaffelt1998}.
+
+Writing the angularly averaged production and annihilation kernels as
+$\mathcal R^+$ and $\mathcal R^-$, respectively, the pair collision term
+contains
+\begin{equation}
+ \mathcal R^+(1-f_s)(1-f_{\bar s})
+       -\mathcal R^- f_s f_{\bar s}.
+ \label{eq:pair_source}
+\end{equation}
+Matter in thermal equilibrium imposes
+\begin{equation}
+ \mathcal R^+(\epsilon,\epsilon')
+    =e^{-(\epsilon+\epsilon')/T}
+       \mathcal R^-(\epsilon,\epsilon').
+ \label{eq:pair_balance}
+\end{equation}
+The partner occupations in Eq.~\eqref{eq:pair_source} are reconstructed from
+the current antineutrino and neutrino moments. They are not independently
+replaced by thermal populations. Consequently, the two species receive
+equal net number sources, although their energy sources need not be equal.
+The heavy-lepton sum contains two flavor pairs, accounting for four
+individual species without duplicating a physical pair event.
+
+The WeakLib coupling uses the Hannestad--Raffelt spin-response model for
+bremsstrahlung \cite{HannestadRaffelt1998}. The neutron--neutron,
+proton--proton, and mixed contributions are assembled from the supplied
+response tables and free-nucleon fractions. This is not the same model as
+the Burrows--Reddy--Thompson prescription available in NuRates and the
+analytic WeakRates fit \cite{Burrows2006}. Agreement of the reaction names
+therefore does not imply agreement of their rates.
+
+\subsection{Inelastic scattering on electrons and positrons}
+
+The reactions
+\begin{equation}
+ \nu_s+e^\pm\longrightarrow\nu_s+e^\pm
+\end{equation}
+exchange energy and momentum with matter but preserve neutrino number.
+Their kernels connect different neutrino energies. For any interacting
+pair of energies, detailed balance requires
+\begin{align}
+ &\mathcal R(\epsilon'\!\to\epsilon)
+       f^{\eq}(\epsilon')[1-f^{\eq}(\epsilon)]\nonumber\\
+ &\hspace{1em}=\mathcal R(\epsilon\!\to\epsilon')
+       f^{\eq}(\epsilon)[1-f^{\eq}(\epsilon')].
+\end{align}
+The integrated number source is identically zero, whereas the energy
+source can heat or cool the radiation. This channel is important for
+heavy-lepton thermalization \cite{Chiesa2025}.
+
+The present pair and inelastic terms retain the angular monopole of the
+collision kernels: they use the angle-averaged occupations. Flux attenuation
+is evaluated with a spectrum proportional to $f_s(\epsilon)H_s^\mu/J_s$.
+This is an additional approximation beyond grey M1, not the complete
+angular dependence of the WeakLib kernels. The Minerbo transport closure
+is retained independently.
+
+\subsection{Plasmon decay}
+
+Collective electromagnetic excitations of the electron plasma can decay,
+\begin{equation}
+ \gamma^*\rightleftharpoons\nu_s+\bar\nu_s.
+\end{equation}
+This contribution is not taken from a native WeakLib table. It is a
+separately selectable analytic supplement using the WeakRates plasmon
+emission formula and a monoenergetic approximation. Its inverse is
+constructed with the same thermal balance relation and the actual partner
+blocking factors. Only this channel is borrowed from WeakRates; adding it
+does not superpose an additional complete rate calculation.
+
+\section{Grey collision sources and time integration}
+
+Let $\mathcal C_s(\epsilon)$ denote the net angle-averaged occupation
+change per unit path length, with the kernel normalizations included.
+For the grouped heavy species, $\mathcal C_s$ is the mean of the four
+physical species' collision terms. The physical number and energy
+production rates are
+\begin{align}
+ Q_{N,s}&=cg_s C\int\epsilon^2\mathcal C_s(\epsilon)\dd\epsilon,\\
+ Q_{E,s}&=cg_s C\int\epsilon^3\mathcal C_s(\epsilon)\dd\epsilon.
+\end{align}
+Emission and attenuation must be averaged separately with these two
+weights; a number opacity is not generally an energy opacity.
+The finite-band integrals use a common quadrature in physical energy,
+not in its logarithm. The same nodes, weights, and reaction normalizations
+are used for forward and inverse processes so that discrete thermal
+equilibrium is preserved.
+
+Collision coefficients are recomputed from the trial radiation state
+during the coupled nonlinear solve. This includes the partner dependence
+of the pair reactions. Matter density, temperature, composition, velocity,
+and geometry are held fixed within that local radiation solve; the
+matter exchange is applied according to the selected time integrator.
+This is not a simultaneous nonlinear solution for the matter equation of
+state and all radiation moments.
+
+The available integration choices include an RK4 fluid evolution with a
+semi-implicit M1 predictor--corrector and implicit--explicit Runge--Kutta
+methods \cite{Izquierdo2023}. RK4 in the former name does not establish
+fourth-order accuracy for the combined stiff collision update. For an
+implicit--explicit method, the collision increments must enter with its
+stage and final weights; an extra unweighted final collision solve would
+define a different method. Time-integration errors and spectral-average
+errors are separate from errors in the microscopic rates.
+
+\section{Comparison with WeakRates and NuRates}
+
+Table~\ref{tab:reactions} summarizes the reactions available through the
+three nuX couplings. It describes capabilities, not a requirement to
+activate every channel in every calculation.
+
+\begin{table*}[t]
+\caption{Reaction content of the nuX rate couplings. ``Table dependent''
+means that the physical process and its corrections must be present in
+the supplied WeakLib tables. The WeakLib column describes the coupled
+angle-averaged collision model.}
+\label{tab:reactions}
+\begin{ruledtabular}
+\begin{tabular}{llll}
+Interaction & WeakRates & NuRates & WeakLib coupling \\
+\hline
+Free-nucleon charged currents & Analytic grey rates & Energy-dependent rates & Tabulated absorption \\
+Elastic scattering on nucleons & Included & Included & Included \\
+Elastic scattering on nuclei & Included & Not in the present coupling & Table dependent \\
+$e^-e^+$ pair annihilation & Analytic grey emission$^{a}$ & Two-energy kernels & Tabulated two-energy kernels \\
+Nucleon bremsstrahlung & Optional analytic fit$^{a}$ & Selectable microscopic models$^{b}$ & Hannestad--Raffelt tables \\
+Inelastic $\nu e^\pm$ scattering & Not included & Included & Tabulated kernels \\
+Plasmon decay & Analytic emission$^{a}$ & Not included & Optional analytic supplement \\
+Nuclear electron capture & Not included & Not included & Not in the present reference set$^{c}$ \\
+\end{tabular}
+\end{ruledtabular}
+\vspace{2pt}
+\parbox{\textwidth}{\footnotesize
+$^{a}$In the legacy M1 use of WeakRates, electron-flavor emissivities are
+reconstructed from charged-current absorption. Electron-flavor pair,
+plasmon, and bremsstrahlung contributions require the optional non-beta
+detailed-balance extension. Heavy-lepton emission uses these pair sources
+directly.
+$^{b}$Hannestad--Raffelt and Burrows--Reddy--Thompson prescriptions are
+available for GPU calculations. The Guo--Mart\'inez-Pinedo option requires
+additional device-table support in the present coupling.
+$^{c}$Main absorption arrays may contain nuclear capture if generated with
+that physics, but a separate nuclear-capture table is not coupled.}
+\end{table*}
+
+WeakRates evaluates analytic expressions with thermal spectral averages
+and approximate blocking \cite{WeakRates}. It avoids explicit two-energy
+collision integrals, but lacks inelastic neutrino--electron scattering. Its
+legacy electron-flavor prescription and the optional extension in
+Table~\ref{tab:reactions} must be distinguished when comparing luminosities
+or cooling rates.
+
+NuRates uses the \textsc{bns\_nurates} library, which evaluates
+energy-dependent rates and two-energy kernels during the calculation
+\cite{Chiesa2025,BNSNuRates}. It provides optional mean-field,
+effective-mass, weak-magnetism, recoil, and nucleon-decay corrections.
+Their availability does not mean they are enabled in a particular run.
+The current nuX collision prescription reconstructs a moment-matched
+Fermi--Dirac spectrum; this differs from the more general distribution
+mixture offered by the underlying library. Inelastic scattering contributes
+to energy exchange, not to neutrino-number creation.
+
+WeakLib moves the microscopic rate calculation into an offline table
+generation step. It can represent additional nuclear-composition and
+scattering corrections when the chosen tables contain them, but still
+requires spectral integrals during grey transport. Interpolation error,
+energy quadrature, table extent, and the adopted angular and spectral
+approximations remain. It is therefore not possible to rank the three
+couplings by physical accuracy from their names or number of activated
+channels alone. A controlled comparison must match the EOS, composition,
+reaction models, corrections, boundary conditions, resolution, numerical
+floors, and time-integration method. Adding a reaction can change the
+solution physically without demonstrating that either solution is more
+accurate.
+
+\section{Using WeakLib in nuX}
+\label{sec:usage}
+
+\subsection{What the interpolator supplies}
+
+WeakLibInterp loads the interaction tables and makes their data available
+for local interpolation on the GPU \cite{WeakLibInterp}. It evaluates
+absorption coefficients, elastic-scattering coefficients, and pair or
+inelastic kernels at the requested matter state. nuX then performs the
+energy integrals using the inferred radiation spectrum. The interpolator
+does not solve radiation transport, choose a neutrino spectrum, or supply
+the fluid pressure and internal energy.
+
+Absorption and elastic tables use $\rho$, $T$, and $Y_e$; the present
+interpolation requires uniform spacing in $\log\rho$, $\log T$, and $Y_e$.
+Pair and neutrino--electron scattering tables instead use the matter
+temperature and electron degeneracy $\eta_e=\mu_e/T$ for their thermodynamic
+coordinates. The supported pair and inelastic tables require positive
+$\eta_e$ within their tabulated range. The temperature passed to the tables
+is converted from MeV to kelvin. Stored logarithms, additive offsets, units,
+and angular normalizations must be interpreted as specified by the table
+family; a signed first Legendre coefficient is not an invalid negative
+physical opacity.
+
+The present nuX quadrature queries the coefficients at stored energy
+nodes. All enabled channels must share the same positive, increasing
+physical energy grid. The nodes need not be uniformly spaced in energy.
+Coefficients are interpolated in their matter coordinates, whereas the
+subsequent quadrature uses physical energy separations. No out-of-range
+opacity extrapolation is used by this coupling.
+
+\subsection{Preparing compatible tables}
+
+Existing tables may be used if they describe the same matter model and
+cover the required state space. Otherwise they must be generated with
+WeakLib's opacity-table generator \cite{WeakLibTables}. The preparation
+has four steps:
+\begin{enumerate}
+ \item Supply an EOS in the generator's input format. If the original
+ EOSX table uses another format, convert it offline, preserving density,
+ temperature, chemical potentials, and the free-nucleon and nuclear mass
+ fractions. Check the decoded quantities against the original EOS and
+ verify Eq.~\eqref{eq:chemical_equilibrium}. A change of file format must
+ not change the physical EOS or silently move unrepresented nuclear
+ species into other composition fractions.
+
+ \item Choose the reaction model and grids in the table-creation driver.
+ Specify the charged-current approximation, scattering corrections,
+ energy nodes, thermodynamic extent, and electron-degeneracy range.
+ Generate the emission/absorption, elastic, pair, inelastic, and
+ bremsstrahlung families with compatible energy grids. This is where
+ microscopic corrections are selected; interpolation cannot add a
+ correction absent from a table.
+
+ \item Configure a Fortran compiler and HDF5 for the WeakLib generator,
+ build its \texttt{wlCreateOpacityTable} target, and run the resulting
+ executable with the prepared EOS selected by the driver. Use a fresh
+ output directory. This produces the channel-specific HDF5 tables;
+ no native plasmon table is required for the analytic supplement.
+ The generated EOS-format copy is not used as the runtime matter EOS.
+
+ \item Check table units and grid coverage, compare interpolated rates
+ with direct generator values, and test reaction balance before an
+ evolution. Repeat representative collision calculations with finer
+ energy and thermodynamic grids and a wider energy interval. Small
+ omitted number and energy tails alone do not bound errors in an
+ opacity-weighted integral.
+\end{enumerate}
+
+Bremsstrahlung needs an additional range check: the response is sampled
+at effective densities $\rho X_p$, $\rho X_n$, and
+$\rho\sqrt{X_pX_n}$. These can be much smaller than the total mass density.
+The bremsstrahlung table must cover the positive effective densities that
+occur in the calculation, not just the total-density range of the EOS.
+Similarly, dilute radiation and strongly degenerate radiation can require
+energy coverage different from an equilibrium spectrum at the matter
+temperature. A table generated for one EOS, such as SFHo, is not a
+consistent substitute for a missing APRLDP table.
+
+\subsection{Selecting the coupled reaction model}
+
+The executable must include WeakLibInterp and the nuX WeakLib support.
+Activate \texttt{nuX\_WeakLib} together with EOSX and M1 in the simulation;
+the interpolator is a supporting library, not a second EOS to activate.
+The following fragment selects the coupled collision model and its
+available channels. Replace the example paths with compatible tables.
+
+\begingroup\footnotesize
+\begin{verbatim}
+nuX_M1::rates_lib = "WeakLib"
+nuX_M1::opacity_tau_trap = -1
+nuX_M1::opacity_corr_fac_max = 1
+nuX_M1::source_limiter = -1
+
+nuX_WeakLib::collision_model = "monopole"
+nuX_WeakLib::include_emab = yes
+nuX_WeakLib::include_iso = yes
+nuX_WeakLib::include_pair = yes
+nuX_WeakLib::include_nes = yes
+nuX_WeakLib::include_brem = yes
+nuX_WeakLib::include_plasmon = yes
+nuX_WeakLib::include_nuclei_ec = no
+
+nuX_WeakLib::emab_table = "tables/EmAb.h5"
+nuX_WeakLib::iso_table = "tables/Iso.h5"
+nuX_WeakLib::pair_table = "tables/Pair.h5"
+nuX_WeakLib::nes_table = "tables/NES.h5"
+nuX_WeakLib::brem_table = "tables/Brem.h5"
+
+nuX_WeakLib::chemical_potentials = "total"
+nuX_WeakLib::spectral_tail_tolerance = 1e-2
+nuX_WeakLib::run_self_tests = yes
+\end{verbatim}
+\endgroup
+
+The disabled trapped-equilibrium blend and unit mean-energy correction
+prevent an additional equilibrium prescription from being superposed on
+the explicitly reconstructed collision spectrum. Disabling the source
+limiter retains the accepted nonlinear source solution. Radiation floors
+still require a physically consistent choice of number and energy density.
+
+The scattering table also requires a convention declaration. For files
+that explicitly label the raw kernels in
+$\mathrm{cm}^{-1}\,\mathrm{MeV}^{-2}$, retain the default
+\texttt{iso\_table\_convention = "explicit-kernel-units"}.
+For native FullWeakPhysics tables verified to use the corresponding raw
+kernel normalization despite their older unit label, select
+\texttt{"weaklib-fullweakphysics-5836de98"} instead. This declaration
+does not alter the rates or establish EOS compatibility; it identifies
+how to interpret the supplied scattering coefficients.
+
+The chemical-potential choice shown above assumes the total-potential
+convention of Eq.~\eqref{eq:chemical_equilibrium}. The alternative
+\texttt{"rest-mass-subtracted"} choice is appropriate only if the EOS
+removes each nucleon's own rest mass. The spectral-tail
+tolerance is a coverage check, not an accuracy guarantee for the rates.
+For validation, first enable the collision self-tests and run a small
+thermal-equilibrium and relaxation problem. Only then compare full
+evolutions with the same matter state, enabled reactions, and transport
+settings. These checks are necessary but do not replace convergence
+studies in space, time, and the tabulated energy grid.
+
+\begin{thebibliography}{99}
+
+\bibitem{Minerbo1978}
+G.~N.~Minerbo, Maximum entropy Eddington factors,
+\href{https://doi.org/10.1016/0022-4073(78)90024-9}{J. Quant. Spectrosc.
+Radiat. Transfer \textbf{20}, 541 (1978)}.
+
+\bibitem{Bruenn1985}
+S.~W.~Bruenn, Stellar core collapse: Numerical model and infall epoch,
+\href{https://doi.org/10.1086/191056}{Astrophys. J. Suppl. Ser.
+\textbf{58}, 771 (1985)}.
+
+\bibitem{HannestadRaffelt1998}
+S.~Hannestad and G.~Raffelt, Supernova neutrino opacity from
+nucleon--nucleon bremsstrahlung and related processes,
+\href{https://doi.org/10.1086/306303}{Astrophys. J. \textbf{507}, 339 (1998)},
+\href{https://arxiv.org/abs/astro-ph/9711132}{arXiv:astro-ph/9711132}.
+
+\bibitem{Burrows2006}
+A.~Burrows, S.~Reddy, and T.~A.~Thompson, Neutrino opacities in nuclear matter,
+\href{https://doi.org/10.1016/j.nuclphysa.2004.06.012}{Nucl. Phys. A
+\textbf{777}, 356 (2006)},
+\href{https://arxiv.org/abs/astro-ph/0404432}{arXiv:astro-ph/0404432}.
+
+\bibitem{Chiesa2025}
+L.~Chiesa, M.~Bhattacharyya, F.~Mazzini, F.~M.~Guercilena, A.~Perego,
+and D.~Radice, Open-source library for performance-portable neutrino
+reaction rates: Application to neutron star mergers,
+\href{https://doi.org/10.1103/PhysRevD.111.063053}{Phys. Rev. D
+\textbf{111}, 063053 (2025)},
+\href{https://arxiv.org/abs/2412.04570}{arXiv:2412.04570}.
+
+\bibitem{MusolinoRezzolla2023}
+C.~Musolino and L.~Rezzolla, A practical guide to a moment approach for
+neutrino transport in numerical relativity,
+\href{https://arxiv.org/abs/2304.09168}{arXiv:2304.09168}.
+
+\bibitem{Izquierdo2023}
+M.~R.~Izquierdo, L.~Pareschi, B.~Mi\~nano, J.~Mass\'o, and C.~Palenzuela,
+Global high-order numerical schemes for the time evolution of the
+general relativistic radiation magnetohydrodynamics equations,
+\href{https://doi.org/10.1088/1361-6382/acd97f}{Class. Quantum Grav. (2023)},
+\href{https://arxiv.org/abs/2211.00027}{arXiv:2211.00027}.
+
+\bibitem{WeakLib}
+WeakLib, neutrino opacity and equation-of-state tables,
+\url{https://github.com/starkiller-astro/weaklib}.
+
+\bibitem{WeakLibInterp}
+WeakLibInterp, interpolation of WeakLib interaction tables,
+\url{https://github.com/jaykalinani/WeakLibInterp}.
+
+\bibitem{BNSNuRates}
+\textsc{bns\_nurates}, neutrino interaction-rate library,
+\url{https://github.com/RelNucAs/bns_nurates}.
+
+\bibitem{WeakRates}
+WeakRates analytic neutrino interaction rates as used in nuX,
+\url{https://github.com/jaykalinani/nuX/tree/odesolvers/nuX_WeakRates}.
+
+\bibitem{WeakLibTables}
+WeakLib, opacity-table generation guide,
+\url{https://github.com/starkiller-astro/weaklib/blob/master/TableCreator/OpacitySource/BuildOpacityTable.md}.
+
+\end{thebibliography}
+
+\end{document}
