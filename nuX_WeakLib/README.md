@@ -1,16 +1,37 @@
 # Optional WeakLibInterp provider
 
-`nuX_WeakLib` is a real, opt-in grey M1 provider for WeakLib's main EmAb
-corrected-absorption arrays and both elastic-scattering Legendre moments.
+`nuX_WeakLib` is an opt-in grey M1 provider for WeakLib interaction tables.
+It includes the main EmAb corrected-absorption arrays, both elastic-scattering
+Legendre coefficients, and an optional coupled collision model.
 EOSX remains the hydrodynamic EOS and supplies chemical potentials. No WLI EOS
 table is loaded; no EOS energy or rest-energy shift is changed. Existing
 NuRates/WeakRates/FakeRates configurations do not acquire a WLI dependency.
 
-This is a **partial WeakLib coupling**, not an implementation of all WeakLib
-interactions. Pair, NES, Brem, plasmon and the separate nuclear `EC_table` are
-not yet coupled. The Pair/NES/Brem/EC reserved switches fail parameter checking
-AND table setup when enabled. A file containing `EC_table` can still supply its
-main EmAb arrays; startup reports that the separate nuclear subtable is not used.
+The original equilibrium-spectrum EmAb/Iso model remains the default. The
+opt-in `collision_model="monopole"` adds current-spectrum electron/positron
+Pair, NES and native HR98 bremsstrahlung, with an optional analytic plasmon
+supplement. This is an angular-monopole approximation, not full first-order
+angular WeakLib collision physics. The separate nuclear `EC_table` remains
+unsupported and fails setup if selected. A file containing it may still supply
+its main EmAb arrays; those arrays can already contain nuclear capture, so
+the separate table must never be added blindly.
+
+| Interaction | Coupling | Enabled by default |
+|---|---|---|
+| Charged-current emission/absorption | Native EmAb arrays | Yes |
+| Elastic scattering | Native zeroth/first Legendre coefficients | Yes |
+| Electron-positron pair annihilation | Native Pair kernels, angular monopole | No |
+| Inelastic electron/positron scattering | Native NES kernels; zero number source | No |
+| Nucleon bremsstrahlung | Native HR98 response tables | No |
+| Plasmon decay | Analytic supplement with partner blocking and inverse balance | No |
+| Separate nuclear electron capture | Not coupled | No |
+
+The coupled source, table loading and optional tests compile with CUDA.
+CPU checks and earlier GPU table/source/two-step smokes have passed. The
+latest clean executable's GPU startup gate and full TOV validation remain
+pending. Compilation and local checks do not establish stellar accuracy.
+The physics, comparison with WeakRates/NuRates, and table preparation are
+described in [the LaTeX note](../Docs/nuX_WeakLib.tex).
 
 ## Opt-in integration
 
@@ -21,6 +42,9 @@ second AMReX: the wrapper already requires the ET AMReX, HDF5 and MPI providers
 and builds/locates `wli_lib` against the AMReX CarpetX uses. To consume an
 existing compatible installation, set `WEAKLIBINTERP_DIR` in the option list.
 No repository thornlist or local machine configuration is changed here.
+The reusable FD math and channel-only plasmon helper require the NuRates and
+WeakRates thorns in the build, but neither provider needs to be active at
+runtime. Their EOS adapters and complete reaction providers are not called.
 
 Activate `nuX_WeakLib`, select `nuX_M1::rates_lib="WeakLib"` before setup, and
 adapt [par/weaklib-provider.par](par/weaklib-provider.par), a configuration
@@ -62,8 +86,9 @@ format declaration below.
   finite positive increasing nonuniform physical energy grids without physical
   energy interpolation; enabled channels still need identical physical grids.
   Actual energies still determine FD spectra, physical-E trapezoidal weights,
-  E^2/E^3 factors and tail endpoints. The declared `LogInterp=1` file schema is
-  retained, but physical log(E) need not be uniformly spaced. The node-index
+  E^2/E^3 factors and tail endpoints. Declared `LogInterp=0` and `1` energy
+  grids are accepted, including native geometric grids; physical log(E) need
+  not be uniformly spaced. The node-index
   adapter has NO off-node physical-energy or d/dE contract; do not use WLI
   energy-derivative routines with the artificial index coordinates.
 - With `chemical_potentials="total"` (default), use
@@ -124,6 +149,83 @@ rate, or non-finite arithmetic aborts. WLI deliberately extrapolates by
 default; this consumer never calls its interpolator outside validated ranges.
 There is no atmosphere-density cutoff, EOS boundary clamp, arbitrary opacity
 cap, or silent invalid-rate fallback.
+
+## Coupled monopole reactions
+
+Set `collision_model="monopole"`, enable the desired `include_pair`,
+`include_nes`, `include_brem` and `include_plasmon` switches, and supply
+`pair_table`, `nes_table` and `brem_table` paths for the native channels.
+All remain disabled by default. See the commented additions in
+[par/weaklib-provider.par](par/weaklib-provider.par). Keep Minerbo (or the
+already selected transport pressure closure): choosing an FD scalar collision
+spectrum does not change angular transport or force transport chi to 1/3.
+
+- EOSX supplies fixed matter T, rho, Ye, chemical potentials and free-nucleon
+  mass fractions. No WeakLib EOS is read or called. The supplied opacity family
+  must still match the EOSX model; an SFHo file is not an APRLDP substitute.
+- A bounded FD scalar spectrum is reconstructed from the **current trial**
+  comoving number and energy of each species. Heavy occupations are per member
+  of the evolved four-species sum. The existing FD integrals/inverse are reused,
+  with an explicit conversion between their h*c convention and this provider's
+  phase-space measure. No MB mixing, occupation clipping or floor-temperature
+  replacement is used. Positive moments outside the FD domain reject a trial.
+- Pair and HR98 Brem integrate one physical neutrino/antineutrino event once.
+  Both receive the same net particle-number exchange. Heavy sources sum two
+  mu/tau pairs, not four copies of a partner population. Pair upper triangles
+  transpose energies **and** I/II components/offsets; NES uses its separate
+  detailed-balance transpose, without a Pair-style coupling swap.
+  Exact Pair crossing also requires matching physical I0/II0 diagonals;
+  supplied production tables still need that generation/reciprocity check.
+  The operator never averages or clamps an inconsistent table diagonal.
+- NES leaves its integrated number coefficients identically zero while
+  exchanging energy. Its stimulated A+B attenuation includes diagonal angular
+  damping. The optional grey angular ansatz is h(E)=g(E)H/J, not a full l=1
+  partner-flux/pressure contraction or a fermionic-angular realizability proof.
+- Pair/NES require cm^-1 MeV^-3 kernels, Kelvin matter grids, positive tabulated
+  electron eta=mu_e/T and identical physical energy nodes. NES requires NPS=1
+  (electron **and** positron scattering). No absolute-value eta substitution,
+  extrapolation, silent channel switch or new thermodynamic cutoff is added.
+- Brem consumes S_sigma in MeV^-1, not an opacity. It sums the three effective
+  densities rho*Xp, rho*Xn, rho*sqrt(Xp*Xn) with weights 1,1,28/3. Its native
+  prefactor follows the pinned [thornado consumer](https://github.com/endeve/thornado/blob/1c0ed66b702656d9f7d300317c5debc1bd3ec55a/Modules/Opacities/NeutrinoOpacitiesComputationModule.F90)
+  and [physical constants](https://github.com/endeve/thornado/blob/1c0ed66b702656d9f7d300317c5debc1bd3ec55a/Modules/Units/PhysicalConstantsModule.f90),
+  including the reference-density normalization already implicit in S_sigma.
+  It does not multiply by the local baryon density again. Exactly absent
+  constituents contribute zero; positive effective densities outside the table
+  fail explicitly. Native HR98 is not the NuRates BRT06 model.
+- Plasmon has no native table family. Its separately selectable supplement
+  reuses **only** the unblocked WeakRates plasmon kinematics/prefactor helper,
+  with a named monoenergetic approximation and a conservative inverse reaction.
+  Actual partner blocking and exp[-(E+Eprime)/T] balance replace independent
+  per-species Kirchhoff estimates. No beta, pair or elastic WeakRates provider
+  is overlaid. Stable FD hole probabilities avoid loss of dilute partner
+  emissivity when the occupied spectrum rounds to one.
+- The same callback feeds scheduled rates and every all-species nonlinear
+  source trial. A Cactus function alias passes existing M1 stage workspace to
+  the optional provider, so M1 builds without WLI remain independent. The shared
+  six-coordinate source/inner solver is reused; no partner coefficients are
+  frozen. The accepted root is stored directly when source_limiter<0 to avoid
+  base+(root-base) cancellation. The normal M1 application/backreaction logic
+  stays shared; IMEX does not receive a final unweighted source projection.
+  One optional host-side alias query selects physical number-current Gamma
+  consistently in closure, transport, source RHS and matter backreaction.
+  These collision/temporary-current calculations do not replace sub-floor
+  moments by configured positive floors. The limiter/application baseline
+  uses the same physical moments; any configured final numerical repair is
+  applied only after the collision increment. The separately scheduled numerical
+  `RepairState` policy is unchanged and remains distinct from collisions.
+- Equilibrium initialization uses continuous FD moments consistent with this
+  inverse, not coarse finite-band moment sums followed by a different inverse.
+  Emissivity and attenuation share the same actual energy quadrature, preserving
+  discrete LTE balance. Tail checks bound omitted number/energy populations,
+  not opacity-weighted tails or coarse-grid quadrature error: both still require
+  physical resolution/energy-band convergence studies.
+
+All two-energy contractions stream scalar accumulators through the resident
+tables. No private energy-pair matrices or new diagnostic GFs are allocated.
+The large evaluator/source entries are not forcibly inlined. The CUDA build
+has completed, but WeakLib throughput and register use have not yet been
+measured in the profiling campaign.
 
 ## Iso file convention (host-only, non-steerable)
 
@@ -187,9 +289,10 @@ provider's normal EOSX/production-table setup. Synthetic device tests cover
 distinct E^2 and E^3 opacity averages, signed first scattering moment, angular/E^2
 normalization, four-heavy-species moments, detailed balance, positive vacuum
 emission, elastic-only behavior, EOS-independent table bounds, invalid inputs
-and inadequate energy coverage. The new host interoperability code and fixture
-sources have only been statically checked: **no compilation or fixture execution
-was performed for this change**; their presence is not a passing test result.
+and inadequate energy coverage. The host interoperability and fixture sources
+have compiled; earlier GPU startup checks exercised the actual-HDF fixtures
+and provider self-tests. This does not establish exhaustive multi-rank failure
+coverage, restart correctness or full-resolution evolution stability.
 The opt-in [energy-node tests](src/test_weaklib_nodes.cxx) additionally cover
 every node (including both endpoints and ne=2), nonlinear energy-plane values,
 genuine varying rho/T/Ye interpolation, an old-locator failure sensitivity
@@ -200,18 +303,26 @@ allocations are opt-in only; the production resident buffer count is unchanged.
 Validate CPU, GPU, multi-rank missing/malformed files, restart cleanup and
 source/equilibrium evolution before scientific use.
 
-WLI also exposes two-energy Pair/NES/Brem interpolation. Those APIs alone are
-not grey collision models. Pair requires lower-triangle JI/JII interpolation,
-upper-triangle energy AND component swapping, flavor C1/C2 assembly and a
-coupled evolved-antineutrino spectral closure that gives identical net nue
-and anti-nue pair-number sources. An equilibrium-partner bath applied
-independently to each grey species violates electron-lepton conservation away
-from equilibrium, so it is deliberately not substituted here. NES must
-conserve number while redistributing energy; Brem additionally needs the
-`rho*xp`, `rho*xn`, `rho*sqrt(xp*xn)` density decomposition with weights
-`[1,1,28/3]`, its own normalization and coupled pair closure. Nuclear capture
-needs a loader for `EC_table`, which the current public WLI reader does not
-expose. These processes remain unfinished work, explicitly rejected rather
-than silently approximated.
-Plasmon also remains unimplemented and has no native channel in WLI's five-table
-API; the format adapter does not resolve that required full-reaction gap.
+The new opt-in [collision tests](src/test_weaklib_collision.cxx) add native
+Pair/Brem and analytic-plasmon LTE balance, strongly degenerate opposite
+chemical potentials (+/-40 and +/-80), finite vacuum emission, off-equilibrium
+pair lepton conservation, heavy multiplicity, NES zero-number redistribution,
+heating/cooling signs, continuous-FD initialization/inverse consistency and
+sub-floor physical number-current consistency, plus explicit domain rejection.
+CPU collision/source checks and earlier GPU self-tests and short physical
+evolutions have passed. APRLDP candidate tables have been generated and
+sample-checked; spectral resolution, table extent and microscopic-model
+compatibility still need convergence studies. The latest clean build removes
+temporary failure capture without changing the collision equations; its GPU
+startup gate precedes the queued full-resolution TOV run. A previous combined
+gate ended nonzero at its final provenance-path check after the physical
+checks had completed; that job is not reported as an entirely passing gate.
+Full TOV stability, broad CPU/GPU comparisons, multi-rank failures and restart
+coverage remain to be demonstrated. Exercise the real
+scheduled limiter/application path with a sub-floor state,
+`provider_update=1` and a nontrivial limiter fraction; the direct stored-root
+path alone does not test that baseline contract. Run CST/alias binding and
+compare native HDF-family results against an independent absolute-unit oracle,
+not only the synthetic-kernel conservation tests. Unit-level native monopole
+invariants do not establish angular completeness,
+stellar accuracy, general IMEX stability or a stable TOV run.
