@@ -2,6 +2,7 @@
 #define NUX_M1_CLOSURE_IMPLEMENTATION
 #define NUX_M1_SOURCES_IMPLEMENTATION
 #include "nuX_M1_sources.hxx"
+#include "nuX_M1_spectral_source.hxx"
 
 #include <algorithm>
 #include <array>
@@ -414,6 +415,37 @@ int check_roundoff_closure(cGH const *cctkGH) {
   return failures;
 }
 
+int check_roundoff_streaming_endpoint(cGH const *cctkGH) {
+  const source_test_geometry_t geom(1, {0, 0, 0});
+  int failures = 0;
+  const CCTK_REAL eps = std::numeric_limits<CCTK_REAL>::epsilon();
+  for (const CCTK_REAL E : {CCTK_REAL(1), CCTK_REAL(1e-15), CCTK_REAL(1e-40)}) {
+    for (const auto closure : {CLOSURE_MINERBO, CLOSURE_KERSHAW}) {
+      for (const CCTK_REAL factor : {CCTK_REAL(1) + 4 * eps,
+                                     CCTK_REAL(0.99), CCTK_REAL(1.01)}) {
+        tensor::generic<CCTK_REAL, 4, 1> F{};
+        F(1) = factor * E;
+        tensor::symmetric2<CCTK_REAL, 4, 2> P;
+        CCTK_REAL chi = CCTK_REAL(1) / 3;
+        bool valid = false;
+        calc_closure(cctkGH, 0, 0, 0, 0, closure, geom.g_dd, geom.g_uu,
+                     geom.n_d, geom.W, geom.u_u, geom.v_d, geom.proj_ud,
+                     E, F, &chi, &P, 1e-12, 128, false, &valid);
+        if (factor == CCTK_REAL(1.01)) {
+          // A genuine cone violation must not become a thin endpoint root.
+          failures += valid;
+        } else {
+          failures += !valid;
+          const CCTK_REAL expected = eval_closure(closure, std::min(factor, CCTK_REAL(1)));
+          failures += std::abs(chi - expected) > 1e-10;
+        }
+        failures += F(1) != factor * E; // Closure does not repair the moments.
+      }
+    }
+  }
+  return failures;
+}
+
 int check_lapse_relaxation(cGH const *cctkGH) {
   int failures = 0;
   constexpr CCTK_REAL Estar = 2.0;
@@ -442,6 +474,60 @@ int check_lapse_relaxation(cGH const *cctkGH) {
     failures += std::abs(Enew - expected) > 2.0e-12;
     failures += std::abs(Fnew_d(1)) > 2.0e-14 ||
                 std::abs(Fnew_d(2)) > 2.0e-14 || std::abs(Fnew_d(3)) > 2.0e-14;
+  }
+  return failures;
+}
+
+int check_emitting_vacuum(cGH const *cctkGH) {
+  struct fixed_rates_t {
+    CCTK_HOST CCTK_DEVICE bool operator()(
+        const M1Quantities &, spectral_opacities_t coefficients[3]) const {
+      for (int sp = 0; sp < 3; ++sp)
+        coefficients[sp] = {0.1, 0.2, 0.4, 4.9e-20, 3.0e-36};
+      return true;
+    }
+  };
+  int failures = 0;
+  for (const CCTK_REAL lapse : {0.3, 1.0}) {
+    const source_test_geometry_t g(lapse, {0.0, 0.0, 0.0});
+    spectral_source_state_t base[3], result[3];
+    for (int sp = 0; sp < 3; ++sp) {
+      base[sp].N = sp == 2 ? 1.0e-24 : 0;
+      base[sp].E = sp == 2 ? 1.0e-40 : 0;
+      base[sp].chi = CCTK_REAL(1) / 3;
+      for (int a = 0; a < 4; ++a)
+        base[sp].F_d(a) = 0;
+    }
+    constexpr CCTK_REAL dt = 0.5;
+    const SourceUpdateContext geometry(
+        cctkGH, 0, 0, 0, 0, 1.0e-10, 1000, false, dt, g.alpha,
+        g.g_dd, g.g_uu, g.n_d, g.n_u, g.gamma_ud, g.u_d, g.u_u,
+        g.v_d, g.v_u, g.proj_ud, g.W, 0, base[0].F_d,
+        0, base[0].F_d, 0, 0, 0);
+    spectral_source_options_t options;
+    options.use_initial_spectrum = true;
+    for (int sp = 0; sp < 3; ++sp) {
+      options.initial_log_temperature[sp] = std::log(0.01);
+      options.initial_eta[sp] = sp == 0 ? 861 : sp == 1 ? -861 : 0;
+    }
+    // The matter-LTE antineutrino guess underflows, and the two vacuum
+    // baseline species have no FD inverse. An emission-seeded initial guess
+    // must recover the SAME exact implicit equations without a population floor.
+    if (!coupled_spectral_source(geometry, 1, base, fixed_rates_t{}, options,
+                                 result)) {
+      ++failures;
+      continue;
+    }
+    for (int sp = 0; sp < 3; ++sp) {
+      const CCTK_REAL expected_N =
+          (base[sp].N + lapse * dt * 4.9e-20) / (1 + lapse * dt * 0.1);
+      const CCTK_REAL expected_E =
+          (base[sp].E + lapse * dt * 3.0e-36) / (1 + lapse * dt * 0.2);
+      failures += std::abs(result[sp].N - expected_N) > 2.0e-8 * expected_N;
+      failures += std::abs(result[sp].E - expected_E) > 2.0e-8 * expected_E;
+      for (int a = 1; a < 4; ++a)
+        failures += result[sp].F_d(a) != 0;
+    }
   }
   return failures;
 }
@@ -476,6 +562,8 @@ int source_math_unit_tests(cGH const *cctkGH) {
   run("vertex velocity repair", check_vertex_velocity_repair());
   run("lapse relaxation", check_lapse_relaxation(cctkGH));
   run("roundoff-negative closure norm", check_roundoff_closure(cctkGH));
+  run("roundoff streaming endpoint", check_roundoff_streaming_endpoint(cctkGH));
+  run("emitting vacuum spectral guess", check_emitting_vacuum(cctkGH));
 
   // A low lapse and finite W reduce the collision interval in fluid proper
   // time. This case would be classified stiff if alpha/W were omitted.
