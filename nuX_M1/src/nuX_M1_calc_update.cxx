@@ -128,7 +128,7 @@ void launch_source_increment_kernel(
       pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D], rFz[i4D],
                &Fstar_d);
       // Use the stored provisional IMEX state without a second local repair.
-      // IMEX42L/32L repair it before saving their diagonal baseline, then
+      // The IMEX drivers repair it before saving their diagonal baseline, then
       // extract g=(accepted-stored_baseline)/dt before the next PostStep.
       if (!imex_stage)
         apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
@@ -278,7 +278,7 @@ void launch_source_increment_kernel(
         // Commit the physical root itself, not Estar+(Enew-Estar), which can
         // round to zero when absorption leaves a tiny positive root. The
         // scratch increments remain available for conservative backreaction.
-        // In IMEX42L/32L, the existing PostStep applies numerical floors and
+        // The IMEX drivers apply PostStep numerical floors and
         // margins only after the driver extracts the physical diagonal rate.
         rN[i4D] = Nnew;
         rE[i4D] = Enew;

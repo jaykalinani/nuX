@@ -22,9 +22,7 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
       CCTK_Equals(method, "IMEX122") || CCTK_Equals(method, "Implicit Euler");
   const bool is_semi_implicit = CCTK_Equals(method, "semi-implicit");
   const bool has_implicit_source = is_imex || is_semi_implicit;
-  const bool supports_backreaction =
-      CCTK_Equals(method, "IMEX42L") || CCTK_Equals(method, "IMEX32L") ||
-      is_semi_implicit;
+  const bool supports_backreaction = is_imex || is_semi_implicit;
   if (!has_implicit_source) {
     CCTK_PARAMWARN(
         "nuX_M1 collision terms require an implicit-capable ODESolvers "
@@ -34,8 +32,8 @@ extern "C" void nuX_M1_ParamCheck(CCTK_ARGUMENTS) {
   }
   if (backreact && !supports_backreaction) {
     CCTK_PARAMWARN(
-        "nuX_M1::backreact requires ODESolvers::method=semi-implicit, "
-        "IMEX42L, or IMEX32L");
+        "nuX_M1::backreact requires an implicit-capable ODESolvers method "
+        "(semi-implicit, IMEX42L, IMEX32L, IMEX122, or Implicit Euler)");
   }
 
   if (is_imex && source_limiter >= 0) {
