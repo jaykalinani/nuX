@@ -129,7 +129,13 @@ and completed a four-rank/four-GPU two-step poisoned-grid smoke with finite
 norms. Full-resolution profiling and longer TOV validation are separate runs.
 Earlier results from different collision-spectrum models are not validation
 of this version. None of the local or small-grid checks establishes full TOV
-stability or finite-quadrature convergence.
+stability or finite-quadrature convergence. A subsequent full-resolution TOV
+profiling attempt failed its coupled source solve from floor-sized radiation
+moments, followed by the device-abort/CUDA error. The run did not complete its
+iteration window and must not be used as a throughput measurement. Its root
+cause and the physical consistency of the initialized number/energy floors
+remain under investigation; no parameter or rate correction is implied by
+the earlier successful small-grid checks.
 
 ## Future Updates
 

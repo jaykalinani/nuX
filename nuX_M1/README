@@ -54,4 +54,8 @@ have passed. The current transport-current and test changes have also compiled
 with CUDA and completed a four-MPI-rank/four-GPU, two-step poisoned-grid smoke
 with finite stored norms. Full-resolution profiling and longer TOV validation
 are separate tests; local source and small-grid checks do not establish stellar
-stability, accuracy or finite-quadrature convergence.
+stability, accuracy or finite-quadrature convergence. The subsequent
+full-resolution TOV profiling attempt aborted in the coupled NuRates source
+from a floor-sized radiation state before completing its requested iteration
+window. It is a failed validation, not a performance result; the failure
+requires investigation before treating this branch as production-ready.
