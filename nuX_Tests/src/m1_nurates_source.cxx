@@ -64,6 +64,45 @@ nurates_source_state_t state(const CCTK_REAL N, const CCTK_REAL E,
   return out;
 }
 
+int check_physical_number_current() {
+  const geometry_t g(0.6);
+  int failures = 0;
+  for (const CCTK_REAL E : {1.1e-15, 1e-40}) {
+    // Comoving-isotropic radiation: E=1.75J, Fx=1.25J, Gamma=W.
+    // The first state has lab E above its floor but comoving J below it.
+    const CCTK_REAL J = E / CCTK_REAL(1.75);
+    const auto radiation = state(1, E, CCTK_REAL(1.25) * J);
+    CCTK_REAL Gamma;
+    if (!compute_source_Gamma(g.W, g.vu, J, E, radiation.F_d, &Gamma))
+      return failures + 1;
+    tensor::generic<CCTK_REAL, 4, 1> H_u{}, fnu_u;
+    assemble_fnu(g.uu, J, H_u, &fnu_u, 0);
+    failures += std::abs(Gamma - g.W) > 1e-14;
+    failures += std::abs(g.alpha * fnu_u(0) - Gamma) > 1e-14;
+    failures += std::abs(g.alpha * fnu_u(1) / Gamma - 0.6) > 1e-14;
+  }
+
+  // The current's H/J contribution is physical even for a tiny lab-isotropic
+  // stress tensor. Its exact projections give Gamma=5/7, not W=1.25.
+  const CCTK_REAL E = 1e-40, J = CCTK_REAL(1.75) * E;
+  const auto radiation = state(1, E, 0);
+  tensor::generic<CCTK_REAL, 4, 1> H_u{}, fnu_u;
+  H_u(0) = g.W * (E - J);
+  H_u(1) = -g.W * 0.6 * (E / 3 + J);
+  assemble_fnu(g.uu, J, H_u, &fnu_u, 0);
+  CCTK_REAL Gamma;
+  if (!compute_source_Gamma(g.W, g.vu, J, E, radiation.F_d, &Gamma))
+    return failures + 1;
+  failures += std::abs(Gamma - CCTK_REAL(5) / 7) > 1e-14;
+  failures += std::abs(g.alpha * fnu_u(0) - Gamma) > 1e-14;
+
+  const auto vacuum = state(0, 0, 0);
+  if (!compute_source_Gamma(g.W, g.vu, 0, 0, vacuum.F_d, &Gamma))
+    return failures + 1;
+  failures += Gamma != g.W;
+  return failures;
+}
+
 int check_small_flux(cGH const *cctkGH, const CCTK_REAL scattering) {
   const geometry_t g(0);
   nurates_source_state_t old[3], next[3];
@@ -345,30 +384,19 @@ int nurates_adapter_unit_tests() {
   failures += std::abs(grouped.eta_0 * nuX_ndens_conv / nuX_time_conv - 20) >
               1e-13;
 
-  M1Quantities moments{};
-  constexpr CCTK_REAL volume = 2, temperature = 3;
-  constexpr CCTK_REAL Nfloor = 1e-20, Efloor = 1e-20;
-  for (int sp = 0; sp < 3; ++sp) {
-    const CCTK_REAL flavors = sp == 2 ? 4 : 1;
-    moments.n[sp] = Nfloor / (volume * flavors) * nuX_ndens_conv;
-    moments.J[sp] = Efloor / (volume * flavors) * nuX_edens_conv;
-  }
-  const auto original = moments;
-  bool floor_only[3];
-  nurates_rate_reference(moments, volume, temperature, Nfloor, Efloor,
-                         floor_only);
-  for (int sp = 0; sp < 3; ++sp) {
-    failures += !floor_only[sp];
-    failures += moments.n[sp] > original.n[sp];
-    failures += moments.J[sp] > original.J[sp];
-    failures += std::abs(moments.J[sp] / moments.n[sp] - 3 * temperature) > 1e-13;
-  }
-  failures += moments.n[3] != moments.n[2] || moments.J[3] != moments.J[2];
+  // Native actual-spectrum integrals must not be reconstructed from LTE
+  // targets or a floor-based mean energy after their conversion.
+  const nurates_raw_opacities_t separated{2, 3, 5, 7, 11, 13, 17};
+  const auto combined = native_nurates_opacities(separated);
+  failures += combined.abs_0 != 2 || combined.abs_1 != 8 ||
+              combined.scat_1 != 7 || combined.eta_0 != 11 ||
+              combined.eta_1 != 30;
   return failures;
 }
 
 int nurates_source_unit_tests(cGH const *cctkGH) {
-  return check_small_flux(cctkGH, 1) + check_small_flux(cctkGH, 1e8) +
+  return check_physical_number_current() +
+         check_small_flux(cctkGH, 1) + check_small_flux(cctkGH, 1e8) +
          check_thin_source_guess(cctkGH) + check_provisional_source_guess(cctkGH) +
          check_stiff_invariant(cctkGH) +
          check_invariant_jacobian(cctkGH) + check_inactive_species(cctkGH) +

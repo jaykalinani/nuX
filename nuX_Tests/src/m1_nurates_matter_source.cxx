@@ -77,9 +77,8 @@ extern "C" void nuX_NuRates_TestMatterSource(CCTK_ARGUMENTS) {
       nu, gamma, ud, uu, vd, vu, projector, 1, base[0].E, base[0].F_d,
       base[0].E, base[0].F_d, 0, 0, 0);
   const nurates_cell_rates_t rates{
-      eos, &quadrature, matter, nuX_NuRates::global_opac_flags,
-      nuX_NuRates::global_opac_params, rho, particle_mass, 2 * alpha * dt,
-      volume, 1, 1, 3, -1, 1e-10, 1e-15};
+      &quadrature, matter, nuX_NuRates::global_opac_flags,
+      nuX_NuRates::global_opac_params, -1};
   int calls = 0, rejected = 0;
   const counted_rates_t counted{rates, calls, rejected};
   nurates_source_options_t options;

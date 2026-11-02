@@ -7,8 +7,8 @@
 
 namespace nuX_M1 {
 
-// Keep thermal and number-conserving energy exchange separate until after
-// the legacy grey equilibrium correction. These are local values, not GFs.
+// Keep thermal and number-conserving energy exchange separate at the API
+// boundary. These are local values, not GFs.
 struct nurates_raw_opacities_t {
   CCTK_REAL abs_0;
   CCTK_REAL abs_1_thermal;
@@ -59,79 +59,13 @@ convert_nurates_opacities(const M1OpacitiesNonThermalSeparated &rates,
           rates.eta_non_th[species] / nuX_edens_conv * nuX_time_conv * species_factor};
 }
 
-// Independent numerical N/E floors do not specify a physical spectrum.
-// Define the temporary reference in the SAME comoving units on both the
-// scheduled-opacity and source-residual paths. Never modify evolved moments
-// or the unmodified moments used for the equilibrium conservation budget.
-CCTK_HOST CCTK_DEVICE inline void nurates_rate_reference(
-    M1Quantities &radiation, const CCTK_REAL volume,
-    const CCTK_REAL matter_temperature, const CCTK_REAL number_floor,
-    const CCTK_REAL energy_floor, bool floor_only[3]) {
-  constexpr CCTK_REAL slack =
-      1 + 64 * std::numeric_limits<CCTK_REAL>::epsilon();
-  for (int sp = 0; sp < 3; ++sp) {
-    const CCTK_REAL flavors = sp == 2 ? 4 : 1;
-    const CCTK_REAL number_limit =
-        number_floor / (volume * flavors) * nuX_ndens_conv;
-    const CCTK_REAL energy_limit =
-        energy_floor / (volume * flavors) * nuX_edens_conv;
-    floor_only[sp] = radiation.n[sp] <= slack * number_limit &&
-                     radiation.J[sp] <= slack * energy_limit;
-    if (floor_only[sp]) {
-      const CCTK_REAL reference_number =
-          fmin(radiation.n[sp], radiation.J[sp] / (3 * matter_temperature));
-      radiation.n[sp] = reference_number;
-      radiation.J[sp] = 3 * matter_temperature * reference_number;
-    }
-  }
-  radiation.n[id_anux] = radiation.n[id_nux];
-  radiation.J[id_anux] = radiation.J[id_nux];
-}
-
+// The native API already performs the spectral averaging. Preserve its
+// independent emissivity and stimulated absorption; do not impose a second
+// grey Kirchhoff prescription or multiply by a mean-energy correction.
 CCTK_HOST CCTK_DEVICE inline nurates_opacities_t
-correct_nurates_opacities(const nurates_raw_opacities_t &raw,
-                          const bool heavy_species, const bool floor_only,
-                          const CCTK_REAL number, const CCTK_REAL energy,
-                          const bool number_normalization_defined,
-                          const bool energy_normalization_defined,
-                          const CCTK_REAL equilibrium_number,
-                          const CCTK_REAL equilibrium_energy,
-                          const CCTK_REAL correction_max,
-                          const CCTK_REAL number_floor,
-                          const CCTK_REAL energy_floor) {
-  const CCTK_REAL correction =
-      floor_only ? CCTK_REAL(1)
-                 : opacity_mean_energy_correction(
-                       number, energy, equilibrium_number, equilibrium_energy,
-                       correction_max);
-  nurates_opacities_t result;
-  result.scat_1 = correction * raw.scat_1;
-
-  CCTK_REAL absorption_thermal, emission_thermal;
-  if (heavy_species) {
-    result.eta_0 = correction * raw.eta_0;
-    emission_thermal = correction * raw.eta_1_thermal;
-    result.abs_0 = equilibrium_number > number_floor
-                       ? result.eta_0 / equilibrium_number
-                       : CCTK_REAL(0);
-    absorption_thermal = equilibrium_energy > energy_floor
-                             ? emission_thermal / equilibrium_energy
-                             : CCTK_REAL(0);
-  } else {
-    result.abs_0 = correction * raw.abs_0;
-    absorption_thermal = correction * raw.abs_1_thermal;
-    // A zero grey denominator below the library threshold does not mean
-    // zero spontaneous emission. Preserve the integrated rate there.
-    result.eta_0 = number_normalization_defined
-                       ? result.abs_0 * equilibrium_number
-                       : correction * raw.eta_0;
-    emission_thermal = energy_normalization_defined
-                           ? absorption_thermal * equilibrium_energy
-                           : correction * raw.eta_1_thermal;
-  }
-  result.abs_1 = absorption_thermal + raw.abs_1_nonthermal;
-  result.eta_1 = emission_thermal + raw.eta_1_nonthermal;
-  return result;
+native_nurates_opacities(const nurates_raw_opacities_t &raw) {
+  return {raw.abs_0, raw.abs_1_thermal + raw.abs_1_nonthermal, raw.scat_1,
+          raw.eta_0, raw.eta_1_thermal + raw.eta_1_nonthermal};
 }
 
 } // namespace nuX_M1

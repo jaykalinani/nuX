@@ -2,7 +2,7 @@
 #define NUX_M1_NURATES_CELL_HXX
 
 #include "m1_opacities.hpp"
-#include "nuX_M1_nurates_equilibrium.hxx"
+#include "nuX_M1_nurates.hxx"
 #include "setup_eos.hxx"
 
 #include <cmath>
@@ -49,24 +49,14 @@ CCTK_HOST CCTK_DEVICE inline bool prepare_nurates_matter(
 }
 
 // A lightweight per-cell callable for the local nonlinear solve. The same
-// conversion and equilibrium helpers are used by CalcOpacityNuRates. Invalid
+// conversion helpers are used by CalcOpacityNuRates. Invalid
 // Newton trials are rejected, not repaired and not made fatal mid-line-search.
 struct nurates_cell_rates_t {
-  const EOSX::eos_3p_tabulated3d *eos;
   const MyQuadrature *quadrature;
   MyEOSParams matter;
   OpacityFlags flags;
   OpacityParams parameters;
-  CCTK_REAL rho;
-  CCTK_REAL particle_mass;
-  CCTK_REAL macro_proper_dt;
-  CCTK_REAL volume;
-  CCTK_REAL tau_trap;
-  CCTK_REAL tau_delta;
-  CCTK_REAL correction_max;
   CCTK_REAL rate_max;
-  CCTK_REAL number_floor;
-  CCTK_REAL energy_floor;
 
   CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE bool operator()(
       const M1Quantities &radiation, nurates_opacities_t *const result) const {
@@ -81,22 +71,9 @@ struct nurates_cell_rates_t {
           radiation.chi[sp] > 1)
         return false;
     }
-    bool floor_only[3];
-    nurates_rate_reference(trial.m1_pars, volume, matter.temp,
-                            number_floor, energy_floor, floor_only);
-    trial.distr_pars = CalculateDistrParamsFromM1(&trial.m1_pars, &matter);
-    for (int sp = 0; sp < total_num_species; ++sp) {
-      const auto &distribution = trial.distr_pars;
-      if (!isfinite(distribution.temp_t[sp]) || distribution.temp_t[sp] <= 0 ||
-          !isfinite(distribution.eta_t[sp]) ||
-          !isfinite(distribution.temp_f[sp]) || distribution.temp_f[sp] <= 0 ||
-          !isfinite(distribution.beta_f[sp]) || distribution.beta_f[sp] < 0 ||
-          (distribution.w_t[sp] > 0 && trial.m1_pars.n[sp] > 0 &&
-           !ThickDistributionMatchesM1(trial.m1_pars.n[sp], trial.m1_pars.J[sp],
-                                       distribution.temp_t[sp],
-                                       distribution.eta_t[sp])))
-        return false;
-    }
+    if (!CalculateFermiDistrParamsFromM1(&trial.m1_pars, &matter,
+                                         &trial.distr_pars))
+      return false;
 
     const auto integrated = ComputeM1OpacitiesNonThermalSeparated(
         quadrature, quadrature, &trial);
@@ -113,20 +90,11 @@ struct nurates_cell_rates_t {
           !nurates_rate_valid(rate.eta_1_nonthermal, rate_max))
         return false;
     }
-    CCTK_REAL equilibrium_number[3], equilibrium_energy[3];
-    nurates_equilibrium_targets(
-        eos, rho, matter, radiation, raw, particle_mass, macro_proper_dt,
-        tau_trap, tau_delta, equilibrium_number, equilibrium_energy);
     for (int sp = 0; sp < 3; ++sp) {
-      const CCTK_REAL factor = sp == 2 ? 4 : 1;
-      result[sp] = correct_nurates_opacities(
-          raw[sp], sp == 2, floor_only[sp],
-          factor * radiation.n[sp] / nuX_ndens_conv,
-          factor * radiation.J[sp] / nuX_edens_conv,
-          trial.m1_pars.n[sp] > THRESHOLD_N,
-          trial.m1_pars.J[sp] > THRESHOLD_J,
-          equilibrium_number[sp], equilibrium_energy[sp], correction_max,
-          number_floor, energy_floor);
+      // All coefficients were integrated against this same trial spectrum.
+      // Applying an additional LTE/mean-energy correction here would change
+      // the collision operator and spoil pair lepton/number identities.
+      result[sp] = native_nurates_opacities(raw[sp]);
       const auto &rate = result[sp];
       if (!nurates_rate_valid(rate.abs_0, rate_max) ||
           !nurates_rate_valid(rate.abs_1, rate_max) ||

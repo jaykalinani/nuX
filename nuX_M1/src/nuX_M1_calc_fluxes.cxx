@@ -93,6 +93,7 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
                                           fidu_velx, fidu_vely, fidu_velz);
 
   const int groupspec = ngroups * nspecies;
+  const bool nurates = CCTK_Equals(rates_lib, "NuRates");
 
   //--------------------------------------------------------------------
   // GPU loop over all cells (INCLUDING ghost zones)
@@ -152,10 +153,19 @@ template <int dir> void M1_ComputePhysicalFluxes(CCTK_ARGUMENTS) {
           tensor::contract(g_uu, F_d, &F_u);
           tensor::contract(g_uu, P_dd, &P_ud);
 
-          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u, rad_E_floor);
+          // Use the same physical number current as the NuRates collision
+          // solver, even when comoving J is below the lab-frame energy floor.
+          assemble_fnu(u_u, rJ[i4D], H_u, &fnu_u,
+                       nurates ? CCTK_REAL(0) : rad_E_floor);
 
-          const CCTK_REAL Gamma = compute_Gamma(W, v_u, rJ[i4D], E_transport,
-                                                F_d, rad_E_floor, rad_eps);
+          CCTK_REAL Gamma;
+          if (nurates) {
+            if (!compute_source_Gamma(W, v_u, rJ[i4D], E_transport, F_d, &Gamma))
+              device_abort();
+          } else {
+            Gamma = compute_Gamma(W, v_u, rJ[i4D], E_transport, F_d,
+                                  rad_E_floor, rad_eps);
+          }
 
           const CCTK_REAL nnu = max(rN[i4D], rad_N_floor) / Gamma;
 

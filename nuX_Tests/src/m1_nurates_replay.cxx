@@ -354,10 +354,7 @@ CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE replay_result replay_source(
       projector, input.W, base[0].E, base[0].F_d,
       base[0].E, base[0].F_d, 0, 0, 0);
   const nurates_cell_rates_t rates{
-      eos, &quadrature, matter, flags, parameters,
-      input.rho, input.particle_mass, input.macro_proper_dt,
-      volume, input.tau_trap, input.tau_delta, input.correction_max,
-      input.rate_max, input.number_floor, input.energy_floor};
+      &quadrature, matter, flags, parameters, input.rate_max};
   nurates_source_options_t options;
   options.closure = static_cast<closure_t>(input.closure);
   options.epsrel = options.step_tolerance = input.epsrel;

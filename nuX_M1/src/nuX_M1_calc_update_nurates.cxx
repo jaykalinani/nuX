@@ -19,6 +19,67 @@ namespace nuX_M1 {
 using namespace Loop;
 using namespace nuX_Utils;
 
+namespace {
+
+// Only reached after a failed solve. Keep enough round-trip-precision input
+// to replay that cell without adding diagnostic storage to successful runs.
+// Repeat physical coordinates and the source interval on every line: local
+// integer indices alone need not distinguish reports from separate AMR boxes.
+[[noreturn]] CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_NOINLINE void
+report_nurates_source_failure(
+    const SourceUpdateContext &g, const MyEOSParams &matter,
+    const nurates_source_options_t &options,
+    const nurates_source_state_t base[3], const CCTK_REAL x,
+    const CCTK_REAL y, const CCTK_REAL z, const CCTK_REAL rho,
+    const CCTK_REAL volume, const CCTK_REAL macro_proper_dt) {
+  printf("nuX_M1: coupled NuRates source failed at (%.17e,%.17e,%.17e) "
+         "cell=(%d,%d,%d): dt=%.17e macro_proper_dt=%.17e "
+         "alpha=%.17e W=%.17e volume=%.17e rho=%.17e T=%.17e Ye=%.17e\n",
+         x, y, z, g.i, g.j, g.k, g.cdt, macro_proper_dt, g.alp, g.W,
+         volume, rho, matter.temp, matter.ye);
+  printf("nuX_M1: source-context (%d,%d,%d) at=(%.17e,%.17e,%.17e) "
+         "dt=%.17e matter: nb=%.17e "
+         "mu_p=%.17e mu_n=%.17e mu_e=%.17e xn=%.17e xp=%.17e\n",
+         g.i, g.j, g.k, x, y, z, g.cdt,
+         matter.nb, matter.mu_p, matter.mu_n, matter.mu_e,
+         matter.yn, matter.yp);
+  printf("nuX_M1: source-context (%d,%d,%d) at=(%.17e,%.17e,%.17e) "
+         "dt=%.17e solver: closure=%d "
+         "closure_eps=%.17e closure_maxiter=%d epsrel=%.17e "
+         "maxiter=%d inner_maxiter=%d angular_maxiter=%d\n",
+         g.i, g.j, g.k, x, y, z, g.cdt,
+         int(options.closure), g.closure_epsilon,
+         int(g.closure_maxiter), options.epsrel, int(options.maxiter),
+         int(options.inner_maxiter), int(options.angular_maxiter));
+  for (int a = 0; a < 4; ++a) {
+    printf("nuX_M1: source-context (%d,%d,%d) at=(%.17e,%.17e,%.17e) "
+           "dt=%.17e vector[%d]: "
+           "nd=%.17e nu=%.17e ud=%.17e uu=%.17e vd=%.17e vu=%.17e\n",
+           g.i, g.j, g.k, x, y, z, g.cdt,
+           a, g.n_d(a), g.n_u(a), g.u_d(a), g.u_u(a),
+           g.v_d(a), g.v_u(a));
+    for (int b = 0; b < 4; ++b)
+      printf("nuX_M1: source-context (%d,%d,%d) at=(%.17e,%.17e,%.17e) "
+             "dt=%.17e tensor[%d,%d]: "
+             "gdd=%.17e guu=%.17e gamma=%.17e proj=%.17e\n",
+             g.i, g.j, g.k, x, y, z, g.cdt,
+             a, b, g.g_dd(a, b), g.g_uu(a, b),
+             g.gamma_ud(a, b), g.proj_ud(a, b));
+  }
+  for (int sp = 0; sp < 3; ++sp) {
+    const auto &s = base[sp];
+    printf("nuX_M1: source-context (%d,%d,%d) at=(%.17e,%.17e,%.17e) "
+           "dt=%.17e species[%d]: "
+           "N=%.17e E=%.17e Ft=%.17e Fx=%.17e Fy=%.17e Fz=%.17e chi=%.17e\n",
+           g.i, g.j, g.k, x, y, z, g.cdt,
+           sp, s.N, s.E, s.F_d(0), s.F_d(1),
+           s.F_d(2), s.F_d(3), s.chi);
+  }
+  source_solver_abort();
+}
+
+} // namespace
+
 void launch_nurates_source_increment_kernel(
     const cGH *const cctkGH, const GridDescBaseDevice &grid,
     const GF3D2layout layout_cc, const tensor::slicing_geometry_const geom,
@@ -111,9 +172,7 @@ void launch_nurates_source_increment_kernel(
           source_solver_abort();
         }
         const nurates_cell_rates_t rates{
-            eos, &quadrature, matter, flags, parameters, rho_cell, particle_mass,
-            alpha * macro_dt / W, volume, opacity_tau_trap, opacity_tau_delta,
-            opacity_corr_fac_max, opacity_rate_max, rad_N_floor, rad_E_floor};
+            &quadrature, matter, flags, parameters, opacity_rate_max};
         const SourceUpdateContext geometry(
             cctkGH, p.i, p.j, p.k, 0, closure_epsilon, closure_maxiter, false,
             dt, alpha, g_dd, g_uu, n_d, n_u, gamma_ud, u_d, u_u, v_d, v_u,
@@ -138,12 +197,9 @@ void launch_nurates_source_increment_kernel(
               base[sp].E > 0;
         }
         if (!coupled_nurates_source(geometry, volume, base, rates, options, updated)) {
-          printf("nuX_M1: coupled NuRates source failed at (%e,%e,%e): "
-                 "dt=%e rho=%e T=%e Ye=%e N=(%e,%e,%e) E=(%e,%e,%e)\n",
-                 p.x, p.y, p.z, dt, rho_cell, matter.temp, matter.ye,
-                 base[0].N, base[1].N, base[2].N,
-                 base[0].E, base[1].E, base[2].E);
-          source_solver_abort();
+          report_nurates_source_failure(geometry, matter, options, base,
+                                        p.x, p.y, p.z, rho_cell, volume,
+                                        alpha * macro_dt / W);
         }
         for (int sp = 0; sp < 3; ++sp) {
           const int index = layout_cc.linear(p.i, p.j, p.k, sp);
