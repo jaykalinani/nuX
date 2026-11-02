@@ -31,6 +31,8 @@ IsoMetadata validate_iso_metadata(const H5::H5File &file, IsoConvention conventi
 IsoMetadata check_iso_file_collective(const std::string &path,
                                      const std::string &convention);
 void check_emab_file_collective(const std::string &path);
+void check_two_energy_file_collective(const std::string &path,
+                                      const std::string &channel);
 
 // Shared host-only handshake, also used for opt-in fixture creation/cleanup.
 // action executes on the I/O root ONLY; it must not contain MPI collectives.

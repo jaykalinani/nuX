@@ -29,11 +29,12 @@ constexpr const char *group = "/Scat_Iso_Kernels";
 
 enum class Fault {
   none, mixed_units, unknown_units, literal_inverse_cm, native_punctuation, missing_units,
-  long_explicit_units, overwide_units, nonuniform_energy,
+  long_explicit_units, overwide_units, nonuniform_energy, native_energy,
   unit_count, unit_rank, variable_units, native_width, missing_flag0,
   missing_flag1, missing_flag2, flag_value, flag_float, flag_shape,
   ga_nan, ga_shape, ga_float, moments, count_float, flat_offsets,
-  nan_offset, species_shape, species_float, energy_count, log_flag_float
+  nan_offset, species_shape, species_float, energy_count, log_flag_float,
+  energy_log_value, energy_log_float
 };
 
 std::string long_explicit_label() {
@@ -85,13 +86,23 @@ void write_fixture(const std::string &path, bool native, Fault fault) {
   write_strings(f, "/EnergyGrid/Name", {"Energy"}, {1});
   write_strings(f, "/EnergyGrid/Unit", {"MeV"}, {1});
   write_int(f, "/EnergyGrid/nPoints", {fault == Fault::energy_count ? 4 : 3}, {1});
-  write_int(f, "/EnergyGrid/LogInterp", {1}, {1});
+  if (fault == Fault::energy_log_float)
+    write_double(f, "/EnergyGrid/LogInterp", {0}, {1});
+  else
+    write_int(f, "/EnergyGrid/LogInterp",
+              {fault == Fault::native_energy ? 0 : fault == Fault::energy_log_value ? 2 : 1}, {1});
+  if (fault == Fault::native_energy) {
+    write_double(f, "/EnergyGrid/Zoom", {2}, {1});
+    write_double(f, "/EnergyGrid/Edge", {0, 2, 4, 8}, {4});
+    write_double(f, "/EnergyGrid/Width", {2, 2, 4}, {3});
+  }
   write_double(f, "/EnergyGrid/Values",
                fault == Fault::nonuniform_energy ? std::vector<double>{1, 2, 9} :
                                                   std::vector<double>{1, 2, 4}, {3});
   f.createGroup("/ThermoState");
   write_strings(f, "/ThermoState/Names", {"Density", "Temperature", "Electron Fraction"}, {3});
-  write_strings(f, "/ThermoState/Units", {"g/cm3", "K", "None"}, {3});
+  write_strings(f, "/ThermoState/Units",
+                {"g/cm3", "K", fault == Fault::native_energy ? "" : "None"}, {3});
   if (fault == Fault::log_flag_float)
     write_double(f, "/ThermoState/LogInterp", {1, 1, 0}, {3});
   else
@@ -260,10 +271,12 @@ void io_self_test() {
   const auto native_path = fixture(true, Fault::none);
   const auto long_explicit_path = fixture(false, Fault::long_explicit_units);
   const auto nonuniform_path = fixture(true, Fault::nonuniform_energy);
+  const auto native_energy_path = fixture(true, Fault::native_energy);
   const auto explicit_metadata = check_iso_file_collective(explicit_path, explicit_name);
   const auto native_metadata = check_iso_file_collective(native_path, native_name);
   const auto long_metadata = check_iso_file_collective(long_explicit_path, explicit_name);
   check_iso_file_collective(nonuniform_path, native_name);
+  check_iso_file_collective(native_energy_path, native_name);
   const auto long_label = long_explicit_label();
   failures += long_label.size() != 256;
   failures += long_metadata.convention != IsoConvention::explicit_kernel_units;
@@ -283,6 +296,10 @@ void io_self_test() {
   const auto native_table = wli::io::read_scat_iso_table(native_path);
   const auto long_table = wli::io::read_scat_iso_table(long_explicit_path);
   const auto nonuniform_table = wli::io::read_scat_iso_table(nonuniform_path);
+  const auto native_energy_table = wli::io::read_scat_iso_table(native_energy_path);
+  failures += native_energy_table.common.energyGrid.kind != wli::AxisKind::Linear;
+  failures += native_energy_table.common.energyGrid.points != std::vector<double>{1, 2, 4};
+  failures += check_coefficients(native_energy_table);
   failures += nonuniform_table.common.energyGrid.points != std::vector<double>{1, 2, 9};
   failures += !physical_energy_nodes_are_valid(nonuniform_table.common.energyGrid.points.data(), 3);
   failures += check_coefficients(nonuniform_table);
@@ -323,7 +340,9 @@ void io_self_test() {
       {Fault::count_float, "/nMoments"}, {Fault::flat_offsets, "/Offsets"},
       {Fault::nan_offset, "/Offsets"}, {Fault::species_shape, "Electron Antineutrino"},
       {Fault::species_float, "Electron Antineutrino"}, {Fault::energy_count, "/EnergyGrid/nPoints"},
-      {Fault::log_flag_float, "/ThermoState/LogInterp"}};
+      {Fault::log_flag_float, "/ThermoState/LogInterp"},
+      {Fault::energy_log_value, "/EnergyGrid/LogInterp"},
+      {Fault::energy_log_float, "/EnergyGrid/LogInterp"}};
   for (const auto &[fault, diagnostic] : malformed)
     rejected(fixture(true, fault), native_name, diagnostic);
   rejected(fixture(false, Fault::literal_inverse_cm), explicit_name, "/Units");

@@ -102,7 +102,7 @@ void common_units(const H5::H5File &file) {
   const auto thermo = strings(file, "/ThermoState/Units", 3);
   require(one_of(normalized(thermo[0]), {"g/cm3", "gram/cm3", "gramspercm3", "gcm-3"}) &&
               one_of(normalized(thermo[1]), {"k", "kelvin"}) &&
-              one_of(normalized(thermo[2]), {"none", "1", "dimensionless"}),
+              one_of(normalized(thermo[2]), {"", "none", "1", "dimensionless"}),
           "/ThermoState/Units must be [g/cm3, K, dimensionless]");
 }
 
@@ -113,6 +113,19 @@ hsize_t axis_extent(const H5::H5File &file, const std::string &path) {
   require(dims.size() == 1 && dims[0] >= 2 && dims[0] <= INT_MAX,
           path + " must be a 1D axis with 2..INT_MAX nodes");
   return dims[0];
+}
+
+void standard_thermo_layout(const H5::H5File &file) {
+  const auto names = strings(file, "/ThermoState/Names", 3);
+  require(names == std::vector<std::string>{"Density", "Temperature", "Electron Fraction"},
+          "unsupported /ThermoState/Names or axis order");
+  require(integers(file, "/ThermoState/LogInterp", 3) == std::vector<long long>{1, 1, 0},
+          "/ThermoState/LogInterp must be [1,1,0]");
+  for (int i = 0; i < 3; ++i) {
+    const char *roles[] = {"iRho", "iT", "iYe"};
+    require(integer(file, std::string("/ThermoState/") + roles[i]) == i + 1,
+            std::string("unsupported /ThermoState/") + roles[i]);
+  }
 }
 } // namespace
 
@@ -163,20 +176,12 @@ IsoMetadata validate_iso_metadata(const H5::H5File &file, IsoConvention conventi
   // the upload path; exact energy-node access does not require uniform log(E).
   const auto energy_name = strings(file, "/EnergyGrid/Name", 1);
   require(!energy_name[0].empty(), "/EnergyGrid/Name must not be empty");
-  require(integer(file, "/EnergyGrid/LogInterp") == 1, "/EnergyGrid/LogInterp must be 1");
+  const auto energy_log = integer(file, "/EnergyGrid/LogInterp");
+  require(energy_log == 0 || energy_log == 1, "/EnergyGrid/LogInterp must be 0 or 1");
   const auto ne = axis_extent(file, "/EnergyGrid/Values");
   require(integer(file, "/EnergyGrid/nPoints") == static_cast<long long>(ne),
           "/EnergyGrid/nPoints disagrees with /EnergyGrid/Values");
-  const auto names = strings(file, "/ThermoState/Names", 3);
-  require(names == std::vector<std::string>{"Density", "Temperature", "Electron Fraction"},
-          "unsupported /ThermoState/Names or axis order");
-  require(integers(file, "/ThermoState/LogInterp", 3) == std::vector<long long>{1, 1, 0},
-          "/ThermoState/LogInterp must be [1,1,0]");
-  for (int i = 0; i < 3; ++i) {
-    const char *roles[] = {"iRho", "iT", "iYe"};
-    require(integer(file, std::string("/ThermoState/") + roles[i]) == i + 1,
-            std::string("unsupported /ThermoState/") + roles[i]);
-  }
+  standard_thermo_layout(file);
   const auto nd = axis_extent(file, "/ThermoState/Density");
   const auto nt = axis_extent(file, "/ThermoState/Temperature");
   const auto ny = axis_extent(file, "/ThermoState/Electron Fraction");
@@ -269,6 +274,54 @@ void check_emab_file_collective(const std::string &path) {
       require(previous.empty() || previous == dims, "species table shapes disagree in " + group);
       previous = dims;
     }
+  });
+}
+
+void check_two_energy_file_collective(const std::string &path,
+                                      const std::string &channel) {
+  collective_root_action(channel + " unit/schema validation failed for " + path, [&] {
+    require(channel == "Pair" || channel == "NES" || channel == "Brem",
+            "unsupported two-energy channel");
+    H5::H5File file(path, H5F_ACC_RDONLY);
+    common_units(file);
+    standard_thermo_layout(file);
+    const bool brem = channel == "Brem";
+    const std::string group = "/Scat_" + channel + "_Kernels";
+    const auto unit = normalized(strings(file, group + "/Units", 1)[0]);
+    require(brem ? one_of(unit, {"1/mev", "mev-1", "permev"}) :
+        one_of(unit, {"1/cmmev3", "1/cm/mev3", "cm-1mev-3", "percentimeterpermev3"}),
+        "unsupported physical unit in " + group + "/Units");
+    const int moments = brem ? 1 : 4;
+    require(integer(file, group + "/nOpacities") == 1 &&
+                integer(file, group + "/nMoments") == moments,
+            "unsupported species/moment layout in " + group);
+    const auto ne = axis_extent(file, "/EnergyGrid/Values");
+    const auto nt = axis_extent(file, "/ThermoState/Temperature");
+    const auto fourth = brem ? axis_extent(file, "/ThermoState/Density") : nt;
+    const auto fifth = brem ? nt : axis_extent(file, "/EtaGrid/Values");
+    if (!brem) {
+      const auto etaunit = normalized(strings(file, "/EtaGrid/Unit", 1)[0]);
+      require(one_of(etaunit, {"dimensionless", "none", "1"}),
+              "/EtaGrid must be dimensionless electron degeneracy");
+      require(integer(file, "/EtaGrid/LogInterp") == 1,
+              "/EtaGrid requires logarithmic interpolation");
+    }
+    if (channel == "NES")
+      require(integer(file, group + "/NPS") == 1,
+              "NES requires NPS=1 to include both electron and positron scattering");
+    const std::string values = group + (brem ? "/S_sigma" : "/Kernels");
+    const auto data = dataset(file, values);
+    require_shape(data, values, {fifth, fourth, hsize_t(moments), ne, ne});
+    require_double(data, values);
+    std::size_t count = 1;
+    for (const auto extent : shape(data, values)) {
+      require(extent <= INT_MAX / count,
+              values + " exceeds WLI's INT_MAX-element broadcast contract");
+      count *= extent;
+    }
+    const auto offsets = dataset(file, group + "/Offsets");
+    require_shape(offsets, group + "/Offsets", {hsize_t(moments), 1});
+    require_double(offsets, group + "/Offsets");
   });
 }
 } // namespace nuX_WeakLib::host_io
