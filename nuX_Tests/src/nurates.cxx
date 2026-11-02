@@ -222,6 +222,59 @@ int check_nonthermal_separation() {
   return failures;
 }
 
+int check_pair_lepton_balance() {
+  MyQuadrature quadrature{};
+  quadrature.type = kGauleg;
+  quadrature.dim = 1;
+  quadrature.nx = 10;
+  quadrature.ny = quadrature.nz = 1;
+  quadrature.x1 = 0;
+  quadrature.x2 = 1;
+  GaussLegendre(&quadrature);
+  GreyOpacityParams parameters{};
+  parameters.opacity_pars = opacity_params_default_none;
+  parameters.opacity_pars.brem_implementation = BREM_BRT06;
+  parameters.eos_pars.nb = 1e17;
+  parameters.eos_pars.temp = 10;
+  parameters.eos_pars.mu_e = 20;
+  parameters.eos_pars.yp = 0.1;
+  parameters.eos_pars.yn = 0.9;
+  int failures = 0;
+  for (int process = 0; process < 2; ++process) {
+    parameters.opacity_flags = opacity_flags_default_none;
+    parameters.opacity_flags.use_pair = process == 0;
+    parameters.opacity_flags.use_brem = process == 1;
+    for (int sp = 0; sp < total_num_species; ++sp) {
+      // Deliberately off LTE and not a zero sum of chemical potentials.
+      const BS_REAL T = sp == id_nue ? 7 : 12;
+      const BS_REAL eta = sp == id_nue ? 2 : -1;
+      parameters.m1_pars.n[sp] = kBS_FourPi_hc3 * std::pow(T, 3) * FDI_p2(eta);
+      parameters.m1_pars.J[sp] = kBS_FourPi_hc3 * std::pow(T, 4) * FDI_p3(eta);
+    }
+    if (!CalculateFermiDistrParamsFromM1(&parameters.m1_pars,
+                                         &parameters.eos_pars,
+                                         &parameters.distr_pars)) {
+      ++failures;
+      continue;
+    }
+    const auto rates = ComputeM1OpacitiesNonThermalSeparated(
+        &quadrature, &quadrature, &parameters);
+    const BS_REAL nue_abs = kBS_Clight * rates.kappa_0_a[id_nue] *
+                            parameters.m1_pars.n[id_nue];
+    const BS_REAL anue_abs = kBS_Clight * rates.kappa_0_a[id_anue] *
+                             parameters.m1_pars.n[id_anue];
+    const BS_REAL nue_source = rates.eta_0[id_nue] - nue_abs;
+    const BS_REAL anue_source = rates.eta_0[id_anue] - anue_abs;
+    const BS_REAL scale = std::abs(rates.eta_0[id_nue]) +
+                         std::abs(rates.eta_0[id_anue]) +
+                         std::abs(nue_abs) + std::abs(anue_abs);
+    failures += !std::isfinite(scale) || scale <= 0 ||
+                !std::isfinite(nue_source) || !std::isfinite(anue_source) ||
+                std::abs(nue_source - anue_source) > 2e-12 * scale;
+  }
+  return failures;
+}
+
 int check_inelastic_energy_balance() {
   MyQuadrature quadrature{};
   quadrature.type = kGauleg;
@@ -313,6 +366,7 @@ extern "C" void nuX_NuRates_TestKernels(CCTK_ARGUMENTS) {
   failures += check_direct_beta_absorptivity();
   failures += check_beta_degeneracy_boundaries();
   failures += check_nonthermal_separation();
+  failures += check_pair_lepton_balance();
   failures += check_inelastic_energy_balance();
   failures += check_kernel(PairKernels(&eos, &pair), balance, true);
   failures += check_kernel(BremKernelsLegCoeff(&brem, &eos), balance, true);

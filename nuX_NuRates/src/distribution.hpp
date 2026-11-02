@@ -327,6 +327,12 @@ void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
     [[maybe_unused]] constexpr BS_REAL one_third = 1. / 3.;
 
     constexpr BS_REAL c_f = CONST_C_F;
+    // Integral of x^(c_f+2) exp(-x). Leading-order Stirling at 3.6
+    // misnormalizes both reconstructed moments by about 2.34 percent.
+    // c_f is fixed here; avoid a runtime special function on the GPU.
+    static_assert(c_f == BS_REAL(0.6));
+    constexpr BS_REAL gamma_c_f_plus_three =
+        3.7170238530367914875762561372500703;
 
     for (int nuid = 0; nuid < total_num_species; ++nuid)
     {
@@ -349,7 +355,7 @@ void CalculateThinParamsFromM1(const M1Quantities* M1_pars,
         out_distribution_pars->temp_f[nuid] = Tnu;
 
         out_distribution_pars->beta_f[nuid] =
-            n / (kBS_FourPi_hc3 * GammaStirling(c_f + three) *
+            n / (kBS_FourPi_hc3 * gamma_c_f_plus_three *
                  pow(Tnu, c_f + three));
     }
 }
@@ -420,10 +426,34 @@ BS_REAL TotalNuF(const BS_REAL omega, const NuDistributionParams* distr_pars,
     const BS_REAL w_t = distr_pars->w_t[nuid];
     const BS_REAL w_f = distr_pars->w_f[nuid];
 
+    if (w_t == 0 && w_f == 0)
+        return 0;
+    if (w_f == 0)
+        return w_t * NuFThick(omega, distr_pars, nuid);
+    if (w_t == 0)
+        return w_f * NuFThin(omega, distr_pars, nuid);
+
     const BS_REAL f_thick = NuFThick(omega, distr_pars, nuid);
     const BS_REAL f_thin  = NuFThin(omega, distr_pars, nuid);
 
     return w_t * f_thick + w_f * f_thin;
+}
+
+// Preserve a representable hole probability even when the FD occupation
+// rounds to one. The legacy mixture retains its original complement;
+// this helper does not clip an inadmissible mixed spectrum.
+CCTK_HOST CCTK_DEVICE inline
+BS_REAL OneMinusTotalNuF(const BS_REAL omega,
+                         const NuDistributionParams* parameters, const int sp)
+{
+    if (parameters->w_t[sp] == 1 && parameters->w_f[sp] == 0)
+    {
+        const BS_REAL arg = parameters->eta_t[sp] -
+                            omega / parameters->temp_t[sp];
+        const BS_REAL e = exp(-fabs(arg));
+        return arg >= 0 ? e / (1 + e) : 1 / (1 + e);
+    }
+    return 1 - TotalNuF(omega, parameters, sp);
 }
 
 /* Calculate distribution function parameters in the thick and thin regime from
@@ -454,6 +484,91 @@ NuDistributionParams CalculateDistrParamsFromM1(const M1Quantities* M1_pars,
     }
 
     return out;
+}
+
+// Scalar collision spectrum, independent of the TRANSPORT pressure closure.
+// A positive FD/modified-MB mixture need not satisfy f<=1 in degenerate
+// matter. Match the actual n,J with one FD spectrum instead; do not change
+// either moment or replace a floor-sized state by a matter-temperature bath.
+CCTK_HOST CCTK_DEVICE inline
+bool CalculateFermiDistrParamsFromM1(const M1Quantities* moments,
+                                    const MyEOSParams* matter,
+                                    NuDistributionParams* out)
+{
+    if (!isfinite(matter->temp) || matter->temp <= 0)
+        return false;
+    M1Quantities isotropic = *moments;
+    for (int sp = 0; sp < total_num_species; ++sp)
+    {
+        const BS_REAL n = moments->n[sp], J = moments->J[sp];
+        if (!isfinite(n) || !isfinite(J) || n < 0 || J < 0 ||
+            ((n == 0) != (J == 0)))
+            return false;
+        isotropic.chi[sp] = BS_REAL(1) / 3;
+    }
+    CalculateThickParamsFromM1(&isotropic, out);
+    for (int sp = 0; sp < total_num_species; ++sp)
+    {
+        const BS_REAL n = moments->n[sp], J = moments->J[sp];
+        out->w_f[sp] = 0;
+        out->beta_f[sp] = 0;
+        out->c_f[sp] = CONST_C_F;
+        out->temp_f[sp] = 1; // finite, unused component
+        if (n == 0)
+        {
+            out->w_t[sp] = 0;
+            out->eta_t[sp] = 0;
+            out->temp_t[sp] = matter->temp;
+            continue;
+        }
+        BS_REAL eta = out->eta_t[sp];
+        BS_REAL T = out->temp_t[sp];
+        if (!isfinite(eta) || !isfinite(T) || T <= 0)
+            return false;
+
+        const BS_REAL log_n = log(n), log_J = log(J);
+        const BS_REAL target = 4 * log_n - 3 * log_J - log(kBS_FourPi_hc3);
+        // The ordinary rational inverse is an initial guess, not a new
+        // normalization tolerance inside a tightly converged source solve.
+        // eta=20 brackets target<=log(.7); the degenerate inverse above
+        // handles larger ratios without an upper degeneracy cap.
+        if (eta >= -20 && target <= log(BS_REAL(0.7)))
+        {
+            BS_REAL lower = -20, upper = 20;
+            bool converged = false;
+            for (int iteration = 0; iteration < 16; ++iteration)
+            {
+                const BS_REAL F1 = FDI_p1(eta);
+                const BS_REAL F2 = FDI_p2(eta);
+                const BS_REAL F3 = FDI_p3(eta);
+                const BS_REAL residual = 4 * log(F2) - 3 * log(F3) - target;
+                const BS_REAL tolerance = 32 * std::numeric_limits<BS_REAL>::epsilon() *
+                                           (1 + fabs(target));
+                if (fabs(residual) <= tolerance)
+                {
+                    converged = true;
+                    break;
+                }
+                if (residual > 0)
+                    upper = eta;
+                else
+                    lower = eta;
+                const BS_REAL derivative = 8 * F1 / F2 - 9 * F2 / F3;
+                const BS_REAL next = eta - residual / derivative;
+                eta = isfinite(next) && next > lower && next < upper
+                          ? next : (lower + upper) / 2;
+            }
+            if (!converged)
+                return false;
+            T = exp(log_J - log_n + log(FDI_p2(eta)) - log(FDI_p3(eta)));
+        }
+        if (!ThickDistributionMatchesM1(n, J, T, eta))
+            return false;
+        out->w_t[sp] = 1;
+        out->temp_t[sp] = T;
+        out->eta_t[sp] = eta;
+    }
+    return true;
 }
 
 /* Integrand for computing neutrino number density
