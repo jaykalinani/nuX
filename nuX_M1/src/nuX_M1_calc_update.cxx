@@ -127,13 +127,12 @@ void launch_source_increment_kernel(
       tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
       pack_F_d(betax_ijk, betay_ijk, betaz_ijk, rFx[i4D], rFy[i4D], rFz[i4D],
                &Fstar_d);
-      // Use the stored provisional IMEX state without a second local repair.
-      // The IMEX drivers repair it before saving their diagonal baseline, then
-      // extract g=(accepted-stored_baseline)/dt before the next PostStep.
-      if (!imex_stage)
-        apply_floor(g_uu, &Estar, &Fstar_d, rad_E_floor, rad_eps);
-      else if (!source_state_is_realizable(g_uu, Estar, Fstar_d) ||
-               !isfinite(rN[i4D]) || rN[i4D] < 0.0)
+      CCTK_REAL Nstar = rN[i4D];
+      CCTK_REAL Eguess = 0.0;
+      tensor::generic<CCTK_REAL, 4, 1> Fguess_d;
+      if (!prepare_source_inputs(g_uu, rad_E_floor, rad_N_floor, rad_eps,
+                                 imex_stage, &Estar, &Fstar_d, &Nstar, &Eguess,
+                                 &Fguess_d))
         source_solver_abort();
       assert(isfinite(Estar));
       assert(isfinite(Fstar_d(1)));
@@ -144,8 +143,9 @@ void launch_source_increment_kernel(
                                 scat_1[i4D])) {
         tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
         calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                     W_ijk, u_u, v_d, proj_ud, Estar, Fstar_d, &chi[i4D], &P_dd,
-                     closure_epsilon, closure_maxiter, use_fallback != 0);
+                     W_ijk, u_u, v_d, proj_ud, Eguess, Fguess_d, &chi[i4D],
+                     &P_dd, closure_epsilon, closure_maxiter,
+                     use_fallback != 0);
         source_update_delta_N[i4D] = 0.0;
         source_update_delta_E[i4D] = 0.0;
         source_update_delta_Fx[i4D] = 0.0;
@@ -154,17 +154,16 @@ void launch_source_increment_kernel(
         continue;
       }
 
-      CCTK_REAL Nstar = imex_stage ? rN[i4D] : std::max(rN[i4D], rad_N_floor);
       CCTK_REAL Enew = Estar;
       tensor::generic<CCTK_REAL, 4, 1> Fnew_d;
 
       tensor::symmetric2<CCTK_REAL, 4, 2> P_dd;
       calc_closure(cctkGH, p.i, p.j, p.k, ig, closure_fun, g_dd, g_uu, n_d,
-                   W_ijk, u_u, v_d, proj_ud, Estar, Fstar_d, &chi[i4D], &P_dd,
-                   closure_epsilon, closure_maxiter, use_fallback != 0);
+                   W_ijk, u_u, v_d, proj_ud, Eguess, Fguess_d, &chi[i4D],
+                   &P_dd, closure_epsilon, closure_maxiter, use_fallback != 0);
 
       tensor::symmetric2<CCTK_REAL, 4, 2> rT_dd;
-      assemble_rT(n_d, Estar, Fstar_d, P_dd, &rT_dd);
+      assemble_rT(n_d, Eguess, Fguess_d, P_dd, &rT_dd);
 
       CCTK_REAL const Jstar = calc_J_from_rT(rT_dd, u_u);
       tensor::generic<CCTK_REAL, 4, 1> Hstar_d;
@@ -204,7 +203,7 @@ void launch_source_increment_kernel(
       SourceUpdateContext source_ctx(
           cctkGH, p.i, p.j, p.k, ig, closure_epsilon, closure_maxiter,
           use_fallback != 0, dt, alp_ijk, g_dd, g_uu, n_d, n_u, gamma_ud, u_d,
-          u_u, v_d, v_u, proj_ud, W_ijk, Estar, Fstar_d, Estar, Fstar_d,
+          u_u, v_d, v_u, proj_ud, W_ijk, Eguess, Fguess_d, Estar, Fstar_d,
           volform_ijk * eta_1[i4D], abs_1[i4D], scat_1[i4D], imex_stage);
       const int source_result = source_update(
           source_ctx, closure_fun, &chi[i4D], &Enew, &Fnew_d,

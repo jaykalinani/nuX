@@ -109,6 +109,39 @@ source_state_is_realizable(tensor::inv_metric<4> const &g_uu, CCTK_REAL const E,
   return isfinite(F2) && F2 >= -tol && F2 <= E * E + tol;
 }
 
+// Derive the realizable closure/seed moments (Eguess, Fguess_d) from the
+// incoming stage moments (Estar, Fstar_d, Nstar). On IMEX stages the stage
+// baseline q* = (Estar, Fstar_d, Nstar) stays unfloored so the implicit
+// residual and stage increment keep the exact algebraic IMEX input; non-IMEX
+// calls also floor (Estar, Fstar_d, Nstar) in place.
+CCTK_HOST CCTK_DEVICE CCTK_ATTRIBUTE_ALWAYS_INLINE inline bool
+prepare_source_inputs(tensor::inv_metric<4> const &g_uu,
+                      CCTK_REAL const rad_E_floor,
+                      CCTK_REAL const rad_N_floor, CCTK_REAL const rad_eps,
+                      bool const imex_stage, CCTK_REAL *const Estar,
+                      tensor::generic<CCTK_REAL, 4, 1> *const Fstar_d,
+                      CCTK_REAL *const Nstar, CCTK_REAL *const Eguess,
+                      tensor::generic<CCTK_REAL, 4, 1> *const Fguess_d) {
+  if (imex_stage) {
+    if (!isfinite(*Estar) || !isfinite(*Nstar))
+      return false;
+    for (int a = 0; a < 4; ++a)
+      if (!isfinite((*Fstar_d)(a)))
+        return false;
+  }
+
+  *Eguess = *Estar;
+  *Fguess_d = *Fstar_d;
+  repair_moments(g_uu, Eguess, Fguess_d, rad_E_floor, rad_eps);
+
+  if (!imex_stage) {
+    *Estar = *Eguess;
+    *Fstar_d = *Fguess_d;
+    *Nstar = max(*Nstar, rad_N_floor);
+  }
+  return true;
+}
+
 // A failed stiff solve must never be converted into an apparently valid
 // radiation update.  Cactus error reporting is host-only, while this routine
 // is called inside accelerator kernels, so use a device-safe hard failure.
@@ -691,9 +724,8 @@ source_update_implicit_attempt(
   // Initial guess for the solution
   arith_vector q_initial_guess{*Enew, Fnew_d->at(1), Fnew_d->at(2),
                                Fnew_d->at(3)};
-  // Scale convergence against the repaired provisional state that defines the
-  // implicit residual, not against the analytic thick-limit initial guess.
-  // A poor or very large initial guess must not relax the requested tolerance.
+  // Scale convergence against the stage base (Estar, Fstar_d) in the residual,
+  // not against the initial guess, so a large guess cannot relax the tolerance.
   const arith_vector q_baseline{ctx.Estar, ctx.Fstar_d(1), ctx.Fstar_d(2),
                                 ctx.Fstar_d(3)};
 
@@ -816,10 +848,10 @@ source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
 
       // The explicit nonstiff shortcut is optional. Near its threshold it can
       // produce a non-realizable state even though the diagonal implicit
-      // equation has a valid solution. Restore the physical provisional state
-      // and solve that equation instead of aborting the evolution.
-      *Enew = ctx.Estar;
-      *Fnew_d = ctx.Fstar_d;
+      // equation has a valid solution. Restore the realizable provisional
+      // state and solve that equation instead of aborting the evolution.
+      *Enew = ctx.Eold;
+      *Fnew_d = ctx.Fold_d;
       nonstiff_shortcut_failed = true;
     }
 
@@ -839,12 +871,13 @@ source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
   // In the nonstiff limit the accepted solution differs from the provisional
   // state only by O(proper_dt * opacity).  The analytic equilibrium guess can
   // instead be far away because it assumes an isotropic pressure tensor.  If
-  // a nonlinear solve is explicitly requested, start it from the provisional
-  // state in this limit while retaining the same residual solve used at every
-  // nonzero IMEX diagonal stage.
+  // a nonlinear solve is explicitly requested, seed from the realizable
+  // provisional state (ctx.Eold, ctx.Fold_d) -- hybridsj_set evaluates
+  // prepare_closure on the initial guess -- while keeping the stage baseline
+  // (ctx.Estar, ctx.Fstar_d) in impl_func_val.
   if (source_force_nonlinear && prefer_provisional_guess) {
-    *Enew = ctx.Estar;
-    *Fnew_d = ctx.Fstar_d;
+    *Enew = ctx.Eold;
+    *Fnew_d = ctx.Fold_d;
   }
 
   int ierr = source_update_implicit_attempt(ctx, closure_fun, chi, Enew, Fnew_d,
@@ -862,8 +895,8 @@ source_update(SourceUpdateContext const &ctx, closure_t closure_fun,
       *Enew = analytic_guess_E;
       *Fnew_d = analytic_guess_F_d;
     } else {
-      *Enew = ctx.Estar;
-      *Fnew_d = ctx.Fstar_d;
+      *Enew = ctx.Eold;
+      *Fnew_d = ctx.Fold_d;
     }
     ierr = source_update_implicit_attempt(ctx, closure_fun, chi, Enew, Fnew_d,
                                           source_maxiter, source_epsabs,
