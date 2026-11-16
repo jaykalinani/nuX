@@ -37,10 +37,11 @@ source_epsabs in the units and magnitude of the moments actually being
 resolved; an absolute tolerance larger than those moments cannot establish
 relative accuracy. The same acceptance test applies at every diagonal stage.
 
-For IMEX the stored provisional state is the source baseline, without a
-second local floor or realizability repair. In the corrected ODESolvers
-stage sequence, PostStep repairs the provisional state before the driver
-saves its diagonal baseline. The source kernel commits its physical root
+For IMEX the stored pre-implicit state is an algebraic stage combination
+defining the source baseline qstar without floor or realizability repair:
+nuX_M1_RepairState skips the pre-implicit PostStep pass so the driver saves
+that unmodified baseline, while prepare_source_inputs repairs a local copy
+for closures and seeds. The source kernel commits its physical root
 directly, rather than reconstructing it as qstar+(qnew-qstar). The existing
 PostStep projection of the accepted state occurs after the driver extracts
 the diagonal rate. IMEX122 now uses this same sequence, rather than recovering
@@ -112,6 +113,7 @@ https://arxiv.org/html/2211.00027v2#S3.SS3.SSS3
 3. Focused checks and validation scope
 
 nuX_Tests/test/unit_tests.par exercises source math, including IMEX policy,
+unfloored IMEX stage baselines,
 nonstiff/thick/scattering thresholds, independently evaluated diagonal
 residuals, separate small-flux residual/step checks, recoverable closure trial
 failure, zero number rates, near-equilibrium number exchange, and strongly

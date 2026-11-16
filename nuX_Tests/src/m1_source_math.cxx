@@ -514,9 +514,8 @@ int check_source_solve(cGH const *cctkGH) {
 int check_repaired_source_baseline(cGH const *cctkGH) {
   const source_test_geometry_t geom(0.8, {0.0, 0.0, 0.0});
 
-  // Mimic a provisional tableau state with negative energy and excessive
-  // flux. The repaired state—not the invalid original—must define both the
-  // closure and the implicit residual baseline.
+  // On legacy non-IMEX stages, repairing a provisional state with negative
+  // energy and excessive flux defines both closure and residual baseline.
   CCTK_REAL Estar = -2.0;
   tensor::generic<CCTK_REAL, 4, 1> Fstar_d;
   pack_F_d(0.0, 0.0, 0.0, 3.0, -1.0, 0.5, &Fstar_d);
@@ -543,6 +542,45 @@ int check_repaired_source_baseline(cGH const *cctkGH) {
   for (int a = 0; a < 4; ++a)
     failures += Fnew_d(a) != Fstar_d(a);
   failures += !source_state_is_realizable(geom.g_uu, Enew, Fnew_d);
+  return failures;
+}
+
+int check_imex_unfloored_stage_baseline(cGH const *cctkGH) {
+  const source_test_geometry_t geom(0.8, {0.0, 0.0, 0.0});
+
+  // Stiff IMEX stages can enter with E* < 0 and |F*| > |E*| even when the
+  // solved root is physical. prepare_source_inputs keeps q* unfloored for the
+  // residual while repairing (Eguess, Fguess_d) for closure/seed evaluation.
+  CCTK_REAL Estar = -2.0, Nstar = -1.5, Eguess = 0.0;
+  tensor::generic<CCTK_REAL, 4, 1> Fstar_d, Fguess_d;
+  pack_F_d(0.0, 0.0, 0.0, 3.0, -1.0, 0.5, &Fstar_d);
+  int failures = !prepare_source_inputs(geom.g_uu, 1.0e-6, 1.0e-7, 1.0e-4, true,
+                                        &Estar, &Fstar_d, &Nstar, &Eguess,
+                                        &Fguess_d);
+  failures += Estar != -2.0 || Nstar != -1.5;
+
+  // An invalid initial guess forces source_update onto its provisional-state
+  // fallback, verifying it seeds from realizable ctx.Eold = Eguess (upstream's
+  // ctx.Estar = -2 fails prepare_closure) while solving against unfloored q*.
+  constexpr CCTK_REAL dt = 0.5, eta = 20.0, kabs = 20.0, kscat = 5.0;
+  const SourceUpdateContext ctx(
+      cctkGH, 0, 0, 0, 0, 1.0e-12, 128, false, dt, geom.alpha, geom.g_dd,
+      geom.g_uu, geom.n_d, geom.n_u, geom.gamma_ud, geom.u_d, geom.u_u,
+      geom.v_d, geom.v_u, geom.proj_ud, geom.W, Eguess, Fguess_d, Estar,
+      Fstar_d, eta, kabs, kscat, true);
+  CCTK_REAL Enew = -1.0, chi = 1.0 / 3.0;
+  tensor::generic<CCTK_REAL, 4, 1> Fnew_d = Fguess_d;
+  const int status =
+      source_update(ctx, CLOSURE_MINERBO, &chi, &Enew, &Fnew_d,
+                    source_requires_nonlinear(false, false), 0.01, 0.01, 128,
+                    1.0e-14, 1.0e-10);
+
+  const CCTK_REAL h = dt * geom.alpha;
+  failures += status != NUX_M1_SOURCE_OK;
+  failures += std::abs(Enew - (Estar + h * eta) / (1.0 + h * kabs)) > 3.0e-12;
+  for (int a = 1; a < 4; ++a)
+    failures +=
+        std::abs(Fnew_d(a) - Fstar_d(a) / (1.0 + h * (kabs + kscat))) > 3.0e-12;
   return failures;
 }
 
@@ -712,6 +750,8 @@ int source_math_unit_tests(cGH const *cctkGH) {
   run("IMEX tiny absorbing root", check_tiny_source_root(cctkGH));
   run("source solve", check_source_solve(cctkGH));
   run("repaired source baseline", check_repaired_source_baseline(cctkGH));
+  run("unfloored IMEX stage baseline",
+      check_imex_unfloored_stage_baseline(cctkGH));
   run("vertex velocity repair", check_vertex_velocity_repair());
   run("lapse relaxation", check_lapse_relaxation(cctkGH));
   run("roundoff-negative closure norm", check_roundoff_closure(cctkGH));

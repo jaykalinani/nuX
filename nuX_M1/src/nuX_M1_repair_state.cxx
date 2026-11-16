@@ -4,6 +4,7 @@
 #include "cctk.h"
 #include "cctk_Arguments.h"
 #include "cctk_Parameters.h"
+#include "cctk_Functions.h"
 
 #include "nuX_M1_closure.hxx"
 #include "nuX_utils.hxx"
@@ -15,6 +16,11 @@ using namespace Loop;
 extern "C" void nuX_M1_RepairState(CCTK_ARGUMENTS) {
   DECLARE_CCTK_ARGUMENTS_nuX_M1_RepairState;
   DECLARE_CCTK_PARAMETERS;
+
+  // The pre-implicit state is an algebraic tableau RHS, not a physical root.
+  // Derived closures repair local copies; preserve the stored diagonal base.
+  if (ODESolvers_InPreImplicitStage())
+    return;
 
   const GridDescBaseDevice grid(cctkGH);
   const GF3D2layout layout_cc(cctkGH, {1, 1, 1});
