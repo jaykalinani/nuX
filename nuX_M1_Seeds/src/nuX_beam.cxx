@@ -82,9 +82,9 @@ extern "C" void nuX_M1_Seeds_SetupNeutTest_beam(CCTK_ARGUMENTS) {
       grid.nghostzones,
       [=] CCTK_DEVICE(const PointDesc &p) CCTK_ATTRIBUTE_ALWAYS_INLINE {
         CCTK_REAL const proj = nx * p.x + ny * p.y + nz * p.z;
-        CCTK_REAL const offset2 = (p.x - nx * p.x) * (p.x - nx * p.x) +
-                                  (p.y - ny * p.y) * (p.y - ny * p.y) +
-                                  (p.z - nz * p.z) * (p.z - nz * p.z);
+        CCTK_REAL const offset2 = (p.x - nx * proj) * (p.x - nx * proj) +
+                                  (p.y - ny * proj) * (p.y - ny * proj) +
+                                  (p.z - nz * proj) * (p.z - nz * proj);
         for (int ig = 0; ig < ncomponents; ++ig) {
           int const i4D = layout_cc.linear(p.i, p.j, p.k, ig);
           if (proj < beam_position && offset2 < beam_radius * beam_radius) {
