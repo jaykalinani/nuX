@@ -110,6 +110,7 @@ nuX_FakeRates::eta_nua = 0.0
 nuX_FakeRates::eta_nux = 0.0
 nuX_FakeRates::kappa_abs_nue = 0.0
 nuX_FakeRates::kappa_abs_nua = 0.0
+nuX_FakeRates::kappa_abs_nux = 0.0
 nuX_FakeRates::kappa_scat_nue = 1.0e3
 nuX_FakeRates::kappa_scat_nua = 0.0
 nuX_FakeRates::kappa_scat_nux = 0.0

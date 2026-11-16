@@ -155,6 +155,7 @@ nuX_FakeRates::kappa_scat_nua		= 0.0
 nuX_FakeRates::kappa_scat_nux		= 0.0
 nuX_FakeRates::kappa_abs_nue		= 1.0e1
 nuX_FakeRates::kappa_abs_nua		= 1.0e1
+nuX_FakeRates::kappa_abs_nux = 1.0e1
 
 # -----------------------------------------------------------------------------
 # IO
