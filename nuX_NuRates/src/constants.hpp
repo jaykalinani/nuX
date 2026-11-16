@@ -108,9 +108,8 @@ inline constexpr double kBS_Gf =
 // Nuclear saturation number density
 inline constexpr BS_REAL kBS_Saturation_n = 0.15e+18; // [nm^-3]
 
-// CKM matrix elements
-inline constexpr double kBS_Vud = 0.9743; // average between different measurements
-                                          // see [Bargiotti et al, 2000]
+// CKM matrix element |V_ud| (PDG 2024 [Navas et al., Phys. Rev. D 110, 030001])
+inline constexpr double kBS_Vud = 0.97367;
 
 ////////////////////////////////////////
 // COUPLING CONSTANTS AND FORM FACTORS//
