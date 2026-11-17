@@ -86,11 +86,15 @@ int check_direct_beta_absorptivity() {
   const BS_REAL phase_space =
       electron_energy * electron_energy *
       std::sqrt(1.0 - kBS_Me * kBS_Me / (electron_energy * electron_energy));
+  const BS_REAL bare_beta_const =
+      (POW3(kBS_Clight) * POW2(kBS_Gf0 * kBS_Hbar)) *
+      (POW2(kBS_Gv) + 3.0 * POW2(kBS_Ga)) / kBS_Pi;
   const BS_REAL expected =
-      kBS_Beta_Const * etanp * phase_space *
+      bare_beta_const * POW2(kBS_Vud) * etanp * phase_space *
       OneMinusFermiDistr(electron_energy, eos.temp, eos.mu_e);
 
   int failures = 0;
+  failures += !(kBS_Vud > 0.97 && kBS_Vud < 0.98);
   failures += !std::isfinite(rates[0]) || rates[0] <= 0.0;
   failures += !close_rel(rates[0], expected);
 

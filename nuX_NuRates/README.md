@@ -18,6 +18,7 @@ snapshot:
 
 - PR 19 (`61dcaedf`): restore the BRT06 bremsstrahlung unit conversion.
 - PR 20 (`cb8f210`): evaluate beta-process inverse absorptivities directly.
+- Multiply the beta-process prefactor `kBS_Beta_Const` by `|V_ud|^2` using PDG 2024 `kBS_Vud = 0.97367` (S. Navas et al., Phys. Rev. D 110, 030001 (2024); cf. standalone `bns_nurates` commit `73ed3226`, which uses `0.9743` from Bargiotti et al. 2000).
 
 The imported code keeps the `nuX_NuRates` Cactus style:
 
