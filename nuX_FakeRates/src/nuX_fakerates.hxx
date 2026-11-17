@@ -64,29 +64,24 @@ public:
     return coefficients;
   }
 
+  CCTK_DEVICE CCTK_HOST static inline CCTK_REAL
+  fake_eq_density(const CCTK_REAL rho, const CCTK_REAL et,
+                  const CCTK_REAL kabs) {
+    // Specific parameters scale identically with rho (eta = rho * et,
+    // kappa_a = rho * kabs), so eta / kappa_a = et / kabs is rho-independent.
+    if (rho > 0.0 && kabs > FLT_EPSILON * et) {
+      return et / kabs;
+    }
+    return 1.0;
+  }
+
   CCTK_DEVICE CCTK_HOST inline void
   FakeNeutrinoDens(CCTK_REAL rho, CCTK_REAL &num_nue, CCTK_REAL &num_nua,
                    CCTK_REAL &num_nux, CCTK_REAL &ene_nue, CCTK_REAL &ene_nua,
                    CCTK_REAL &ene_nux) {
-
-    if (rho * kabs_nue > FLT_EPSILON * et_nue) {
-      num_nue = et_nue / (rho * kabs_nue);
-      ene_nue = et_nue / (rho * kabs_nue);
-    } else {
-      num_nue = 1.0;
-      ene_nue = 1.0;
-    }
-
-    if (rho * kabs_nua > FLT_EPSILON * et_nua) {
-      num_nua = et_nua / (rho * kabs_nua);
-      ene_nua = et_nua / (rho * kabs_nua);
-    } else {
-      num_nua = 1.0;
-      ene_nua = 1.0;
-    }
-
-    num_nux = 1.0;
-    ene_nux = 1.0;
+    num_nue = ene_nue = fake_eq_density(rho, et_nue, kabs_nue);
+    num_nua = ene_nua = fake_eq_density(rho, et_nua, kabs_nua);
+    num_nux = ene_nux = fake_eq_density(rho, et_nux, kabs_nux);
   }
 };
 

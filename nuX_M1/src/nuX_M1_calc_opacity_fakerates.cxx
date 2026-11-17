@@ -208,24 +208,14 @@ void CalcOpacityFakeRates(CCTK_ARGUMENTS) {
           // scat_1[i4D] = corr_fac*(kappa_1_loc[ig] - abs_1_loc[ig]);
           scat_1[i4D] = corr_fac * scat_1_loc[ig];
 
-          // Enforce Kirchhoff's laws.
-          // . For the heavy lepton neutrinos this is implemented by
-          //   changing the opacities.
-          // . For the electron type neutrinos this is implemented by
-          //   changing the emissivities.
-          // It would be better to have emissivities and absorptivities
-          // that satisfy Kirchhoff's law.
-          if (ig == 2) {
-            eta_0[i4D] = corr_fac * eta_0_loc[ig];
-            eta_1[i4D] = corr_fac * eta_1_loc[ig];
-            abs_0[i4D] = (nudens_0 > rad_N_floor ? eta_0[i4D] / nudens_0 : 0);
-            abs_1[i4D] = (nudens_1 > rad_E_floor ? eta_1[i4D] / nudens_1 : 0);
-          } else {
-            abs_0[i4D] = corr_fac * abs_0_loc[ig];
-            abs_1[i4D] = corr_fac * abs_1_loc[ig];
-            eta_0[i4D] = abs_0[i4D] * nudens_0;
-            eta_1[i4D] = abs_1[i4D] * nudens_1;
-          }
+          // Specific FakeRates parameters define eta_loc = rho * et and
+          // abs_loc = rho * kabs, so scaling both directly by corr_fac preserves
+          // their equilibrium ratio et / kabs for all species without collapsing
+          // pure-emission or pure-absorption inputs.
+          abs_0[i4D] = corr_fac * abs_0_loc[ig];
+          abs_1[i4D] = corr_fac * abs_1_loc[ig];
+          eta_0[i4D] = corr_fac * eta_0_loc[ig];
+          eta_1[i4D] = corr_fac * eta_1_loc[ig];
 
           if (!fake_rate_is_valid(abs_0[i4D]) ||
               !fake_rate_is_valid(abs_1[i4D]) ||
